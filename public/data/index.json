@@ -22,7 +22,8 @@
         "background": "#fdf6f5",
         "bgEnd": "#cccccc",
         "text": "#1a1a1a"
-      }
+      },
+      "displayOrder": 0
     },
     {
       "yearId": "5786",
@@ -39,7 +40,8 @@
         "accent": "#5b9eed",
         "background": "#f4f8fd",
         "text": "#1a1a1a"
-      }
+      },
+      "displayOrder": 1
     }
   ]
 }

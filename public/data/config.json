@@ -3,9 +3,12 @@
   "heroTitle": "כן, גם אני יכול להבין",
   "heroSubtitle": "פרשת השבוע בגובה העיניים — לכל אחד, ובעיקר לך",
   "heroBlurb": "עלון שבועי שמראה איך התורה מדברת אלינו, היום, בלי מבטא ובלי מחיצות.",
-  "footer": "עלון משמעות · כל הזכויות שמורות",
+  "footer": "עלון משמעות תשפ\"ו · כל הזכויות שמורות",
   "globalDefaults": {
     "fontBody": "Assistant",
     "fontHeading": "Frank Ruhl Libre"
-  }
+  },
+  "adminEmail": "alonmashmaut@gmail.com",
+  "apiBase": "https://mashmaut-api.alonmashmaut-ea1.workers.dev",
+  "adminApiKey": "mashmaut-K9p4Qx8nVz2RmL7tBdF3wY"
 }

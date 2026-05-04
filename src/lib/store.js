@@ -9,7 +9,9 @@ function detectBase() {
   const { hostname, pathname } = window.location;
   const segments = pathname.split('/').filter(Boolean);
   if (/\.github\.io$/i.test(hostname) && segments.length > 0) {
-    return '/' + segments[0];
+    if (!['y', 'admin', 'search', 'years'].includes(segments[0])) {
+      return '/' + segments[0];
+    }
   }
   return '';
 }

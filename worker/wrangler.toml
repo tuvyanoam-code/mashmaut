@@ -11,16 +11,20 @@ crons = ["0 17 * * 4"]
 # KV namespaces — IDs are filled in by the setup script after `wrangler kv:namespace create`.
 [[kv_namespaces]]
 binding = "EMAILS"
-id = "REPLACE_WITH_EMAILS_KV_ID"
+id = "be1997254a314cd0bc359175cb933073"
 
 [[kv_namespaces]]
 binding = "EVENTS"
-id = "REPLACE_WITH_EVENTS_KV_ID"
+id = "f7a3af92250640d8ac96ee4a83847860"
 
 # Public origin of the static site. Used in emails and CORS allowlist.
 [vars]
-SITE_URL = "https://mashmaut.example.com"
+SITE_URL = "https://alonmashmaut.org"
 SITE_NAME = "משמעות"
-ADMIN_EMAIL = "gjlevitt@gmail.com"
+ADMIN_EMAIL = "alonmashmaut@gmail.com"
 FROM_EMAIL = "onboarding@resend.dev"
 FROM_NAME = "עלון משמעות"
+
+[[routes]]
+pattern = "api.alonmashmaut.org"
+custom_domain = true

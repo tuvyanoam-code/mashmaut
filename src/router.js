@@ -5,13 +5,16 @@
 
 const routes = [];
 
-// Auto-detect the GitHub Pages project sub-path (e.g. /mashmaut-site/) so
-// routes work both at the root and under a repo path.
+// Auto-detect a GitHub Pages project sub-path. When the site is served from
+// its own apex domain (alonmashmaut.org) BASE is empty.
 function detectBase() {
   const { hostname, pathname } = window.location;
   const segments = pathname.split('/').filter(Boolean);
   if (/\.github\.io$/i.test(hostname) && segments.length > 0) {
-    return '/' + segments[0];
+    // Only treat the first segment as a base if it doesn't look like a route name
+    if (!['y', 'admin', 'search', 'years'].includes(segments[0])) {
+      return '/' + segments[0];
+    }
   }
   return '';
 }

@@ -9,6 +9,6 @@
     "fontHeading": "Frank Ruhl Libre"
   },
   "adminEmail": "alonmashmaut@gmail.com",
-  "apiBase": "https://mashmaut-api.alonmashmaut-ea1.workers.dev",
+  "apiBase": "https://api.alonmashmaut.org",
   "adminApiKey": "mashmaut-K9p4Qx8nVz2RmL7tBdF3wY"
 }

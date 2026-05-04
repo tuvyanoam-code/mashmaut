@@ -3,6 +3,10 @@
     {
       "id": "5786",
       "displayName": "תשפ\"ו"
+    },
+    {
+      "id": "5785",
+      "displayName": "תשפ\"ה"
     }
   ],
   "weeks": [
@@ -11,29 +15,844 @@
       "yearDisplay": "תשפ\"ו",
       "slug": "emor",
       "parshaName": "אמור",
-      "issueNumber": "50",
+      "issueNumber": 50,
       "dateLabel": "י אייר",
       "teaser": "להתקדש, לקדש, אבל לגמרי בטבעיות. למה אי אפשר לומר לך לקדש את השם?",
-      "publishedAt": "2026-05-04T15:53:54.165Z",
+      "publishedAt": "2025-02-19T22:00:00.000Z",
       "colors": {
-        "primary": "#9d0208",
-        "secondary": "#d00000",
-        "accent": "#dc2f02",
-        "background": "#fdf6f5",
-        "bgEnd": "#cccccc",
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
         "text": "#1a1a1a"
       },
       "displayOrder": 0
     },
     {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "behar-bechukotai",
+      "parshaName": "בהר-בחקתי",
+      "issueNumber": 1,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-01T22:00:00.000Z",
+      "colors": {
+        "primary": "#9d0208",
+        "secondary": "#d00000",
+        "accent": "#dc2f02",
+        "background": "#fdf6f5",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "bamidbar",
+      "parshaName": "במדבר",
+      "issueNumber": 2,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-02T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "naso",
+      "parshaName": "נשא",
+      "issueNumber": 3,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-03T22:00:00.000Z",
+      "colors": {
+        "primary": "#2d6a4f",
+        "secondary": "#52b788",
+        "accent": "#95d5b2",
+        "background": "#f6fbf8",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "behaalotcha",
+      "parshaName": "בהעלתך",
+      "issueNumber": 4,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-04T22:00:00.000Z",
+      "colors": {
+        "primary": "#2d6a4f",
+        "secondary": "#52b788",
+        "accent": "#95d5b2",
+        "background": "#f6fbf8",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "shelach",
+      "parshaName": "שלח",
+      "issueNumber": 5,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-05T22:00:00.000Z",
+      "colors": {
+        "primary": "#1d4e89",
+        "secondary": "#3066be",
+        "accent": "#5b9eed",
+        "background": "#f4f8fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "korach",
+      "parshaName": "קרח",
+      "issueNumber": 6,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-06T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "chukat",
+      "parshaName": "חקת",
+      "issueNumber": 7,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-07T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "balak",
+      "parshaName": "בלק",
+      "issueNumber": 8,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-08T22:00:00.000Z",
+      "colors": {
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "pinchas",
+      "parshaName": "פינחס",
+      "issueNumber": 9,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-09T22:00:00.000Z",
+      "colors": {
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "devarim",
+      "parshaName": "דברים",
+      "issueNumber": 11,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-11T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "vaetchanan",
+      "parshaName": "ואתחנן",
+      "issueNumber": 12,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-12T22:00:00.000Z",
+      "colors": {
+        "primary": "#9d0208",
+        "secondary": "#d00000",
+        "accent": "#dc2f02",
+        "background": "#fdf6f5",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "eikev",
+      "parshaName": "עקב",
+      "issueNumber": 13,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-13T22:00:00.000Z",
+      "colors": {
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "reeh",
+      "parshaName": "ראה",
+      "issueNumber": 14,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-14T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "shoftim",
+      "parshaName": "שפטים",
+      "issueNumber": 15,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-15T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "ki-tavo",
+      "parshaName": "כי תבא",
+      "issueNumber": 17,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-17T22:00:00.000Z",
+      "colors": {
+        "primary": "#1d4e89",
+        "secondary": "#3066be",
+        "accent": "#5b9eed",
+        "background": "#f4f8fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "nitzavim",
+      "parshaName": "נצבים",
+      "issueNumber": 18,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-18T22:00:00.000Z",
+      "colors": {
+        "primary": "#9d0208",
+        "secondary": "#d00000",
+        "accent": "#dc2f02",
+        "background": "#fdf6f5",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "matot-masei",
+      "parshaName": "מטות-מסעי",
+      "issueNumber": 10,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-10T22:00:00.000Z",
+      "colors": {
+        "primary": "#9d0208",
+        "secondary": "#d00000",
+        "accent": "#dc2f02",
+        "background": "#fdf6f5",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5785",
+      "yearDisplay": "תשפ\"ה",
+      "slug": "ki-tetze",
+      "parshaName": "כי תצא",
+      "issueNumber": 16,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-16T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
       "yearId": "5786",
       "yearDisplay": "תשפ\"ו",
-      "slug": "kedoshim",
-      "parshaName": "קדושים",
+      "slug": "vayelech",
+      "parshaName": "וילך",
+      "issueNumber": 19,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-19T22:00:00.000Z",
+      "colors": {
+        "primary": "#1d4e89",
+        "secondary": "#3066be",
+        "accent": "#5b9eed",
+        "background": "#f4f8fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "haazinu",
+      "parshaName": "האזינו",
+      "issueNumber": 20,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-20T22:00:00.000Z",
+      "colors": {
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "chol-hamoed-sukkot",
+      "parshaName": "שבת חול המועד סוכות",
+      "issueNumber": 21,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-21T22:00:00.000Z",
+      "colors": {
+        "primary": "#1d4e89",
+        "secondary": "#3066be",
+        "accent": "#5b9eed",
+        "background": "#f4f8fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "bereshit",
+      "parshaName": "בראשית",
+      "issueNumber": 22,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-22T22:00:00.000Z",
+      "colors": {
+        "primary": "#9d0208",
+        "secondary": "#d00000",
+        "accent": "#dc2f02",
+        "background": "#fdf6f5",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "noach",
+      "parshaName": "נח",
+      "issueNumber": 23,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-23T22:00:00.000Z",
+      "colors": {
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "lech-lecha",
+      "parshaName": "לך לך",
+      "issueNumber": 24,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-24T22:00:00.000Z",
+      "colors": {
+        "primary": "#9d0208",
+        "secondary": "#d00000",
+        "accent": "#dc2f02",
+        "background": "#fdf6f5",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "vayera",
+      "parshaName": "וירא",
+      "issueNumber": 25,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-25T22:00:00.000Z",
+      "colors": {
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "chayei-sara",
+      "parshaName": "חיי שרה",
+      "issueNumber": 26,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-26T22:00:00.000Z",
+      "colors": {
+        "primary": "#9d0208",
+        "secondary": "#d00000",
+        "accent": "#dc2f02",
+        "background": "#fdf6f5",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "toldot",
+      "parshaName": "תולדות",
+      "issueNumber": 27,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-27T22:00:00.000Z",
+      "colors": {
+        "primary": "#2d6a4f",
+        "secondary": "#52b788",
+        "accent": "#95d5b2",
+        "background": "#f6fbf8",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "vayetze",
+      "parshaName": "ויצא",
+      "issueNumber": 28,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-28T22:00:00.000Z",
+      "colors": {
+        "primary": "#9d0208",
+        "secondary": "#d00000",
+        "accent": "#dc2f02",
+        "background": "#fdf6f5",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "vayishlach",
+      "parshaName": "וישלח",
+      "issueNumber": 29,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-29T22:00:00.000Z",
+      "colors": {
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "vayeshev",
+      "parshaName": "וישב",
+      "issueNumber": 30,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-30T22:00:00.000Z",
+      "colors": {
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "miketz",
+      "parshaName": "מקץ",
+      "issueNumber": 31,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-01-31T22:00:00.000Z",
+      "colors": {
+        "primary": "#1d4e89",
+        "secondary": "#3066be",
+        "accent": "#5b9eed",
+        "background": "#f4f8fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "vayigash",
+      "parshaName": "ויגש",
+      "issueNumber": 32,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-01T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "vayechi",
+      "parshaName": "ויחי",
+      "issueNumber": 33,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-02T22:00:00.000Z",
+      "colors": {
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "shemot",
+      "parshaName": "שמות",
+      "issueNumber": 34,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-03T22:00:00.000Z",
+      "colors": {
+        "primary": "#1d4e89",
+        "secondary": "#3066be",
+        "accent": "#5b9eed",
+        "background": "#f4f8fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "vaera",
+      "parshaName": "וארא",
+      "issueNumber": 35,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-04T22:00:00.000Z",
+      "colors": {
+        "primary": "#9d0208",
+        "secondary": "#d00000",
+        "accent": "#dc2f02",
+        "background": "#fdf6f5",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "bo",
+      "parshaName": "בא",
+      "issueNumber": 36,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-05T22:00:00.000Z",
+      "colors": {
+        "primary": "#1d4e89",
+        "secondary": "#3066be",
+        "accent": "#5b9eed",
+        "background": "#f4f8fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "beshalach",
+      "parshaName": "בשלח",
+      "issueNumber": 37,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-06T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "yitro",
+      "parshaName": "יתרו",
+      "issueNumber": 38,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-07T22:00:00.000Z",
+      "colors": {
+        "primary": "#1d4e89",
+        "secondary": "#3066be",
+        "accent": "#5b9eed",
+        "background": "#f4f8fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "mishpatim",
+      "parshaName": "משפטים",
+      "issueNumber": 39,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-08T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "terumah",
+      "parshaName": "תרומה",
+      "issueNumber": 40,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-09T22:00:00.000Z",
+      "colors": {
+        "primary": "#1d4e89",
+        "secondary": "#3066be",
+        "accent": "#5b9eed",
+        "background": "#f4f8fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "tetzaveh",
+      "parshaName": "תצוה",
+      "issueNumber": 41,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-10T22:00:00.000Z",
+      "colors": {
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "ki-tisa",
+      "parshaName": "כי תשא",
+      "issueNumber": 42,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-11T22:00:00.000Z",
+      "colors": {
+        "primary": "#9d0208",
+        "secondary": "#d00000",
+        "accent": "#dc2f02",
+        "background": "#fdf6f5",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "vayakhel-pekudei",
+      "parshaName": "ויקהל-פקודי",
+      "issueNumber": 43,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-12T22:00:00.000Z",
+      "colors": {
+        "primary": "#2d6a4f",
+        "secondary": "#52b788",
+        "accent": "#95d5b2",
+        "background": "#f6fbf8",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "vayikra",
+      "parshaName": "ויקרא",
+      "issueNumber": 44,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-13T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "tzav",
+      "parshaName": "צו",
+      "issueNumber": 45,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-14T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "chol-hamoed-pesach",
+      "parshaName": "שבת חול המועד פסח",
+      "issueNumber": 46,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-15T22:00:00.000Z",
+      "colors": {
+        "primary": "#5a189a",
+        "secondary": "#9d4edd",
+        "accent": "#c77dff",
+        "background": "#fbf7fd",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "shemini",
+      "parshaName": "שמיני",
+      "issueNumber": 47,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-16T22:00:00.000Z",
+      "colors": {
+        "primary": "#7b3f00",
+        "secondary": "#bc6c25",
+        "accent": "#dda15e",
+        "background": "#fdf8f3",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "tazria-metzora",
+      "parshaName": "תזריע-מצורע",
+      "issueNumber": 48,
+      "dateLabel": null,
+      "teaser": null,
+      "publishedAt": "2025-02-17T22:00:00.000Z",
+      "colors": {
+        "primary": "#2d6a4f",
+        "secondary": "#52b788",
+        "accent": "#95d5b2",
+        "background": "#f6fbf8",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "acharei-mot-kedoshim",
+      "parshaName": "אחרי מות-קדושים",
       "issueNumber": 49,
-      "dateLabel": "ז אייר",
+      "dateLabel": null,
       "teaser": "<mark>לכבוש.</mark> אהבה כובשת, אבל לא סתם. <mark>איך נמצא את אהבתינו בכל דבר בעולם?</mark>",
-      "publishedAt": "2026-05-04T16:53:13.108Z",
+      "publishedAt": "2025-02-18T22:00:00.000Z",
       "colors": {
         "primary": "#1d4e89",
         "secondary": "#3066be",

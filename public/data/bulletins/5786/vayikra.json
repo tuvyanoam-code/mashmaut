@@ -1,0 +1,23 @@
+{
+  "yearId": "5786",
+  "yearDisplay": "תשפ\"ו",
+  "slug": "vayikra",
+  "parshaName": "ויקרא",
+  "issueNumber": 44,
+  "dateLabel": null,
+  "teaser": null,
+  "publishedAt": "2025-02-13T22:00:00.000Z",
+  "pdfUrl": "data/bulletins/5786/vayikra.pdf",
+  "wordPath": null,
+  "textHtml": "",
+  "plainText": "",
+  "headings": [],
+  "colors": {
+    "primary": "#5a189a",
+    "secondary": "#9d4edd",
+    "accent": "#c77dff",
+    "background": "#fbf7fd",
+    "text": "#1a1a1a"
+  },
+  "styleOverrides": {}
+}

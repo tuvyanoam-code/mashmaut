@@ -90,14 +90,25 @@ for (const pdfFile of pdfFiles) {
 
   const colors = await extractPdfPalette(pdfTarget);
 
+  // Preserve any teaser/styleOverrides if a JSON already exists for this slug
+  let preserved = {};
+  try {
+    const cur = await fs.readFile(path.join(targetDir, `${slug}.json`), 'utf-8');
+    const j = JSON.parse(cur);
+    if (j.teaser) preserved.teaser = j.teaser;
+    if (j.styleOverrides && Object.keys(j.styleOverrides).length) preserved.styleOverrides = j.styleOverrides;
+    if (typeof j.displayOrder === 'number') preserved.displayOrder = j.displayOrder;
+    if (j.dateLabel) preserved.dateLabel = j.dateLabel;
+  } catch (_) {}
+
   const week = {
     yearId,
     yearDisplay: yearHe,
     slug,
     parshaName,
     issueNumber: issueNumber || null,
-    dateLabel: null,
-    teaser: null,
+    dateLabel: preserved.dateLabel || null,
+    teaser: preserved.teaser || null,
     publishedAt: new Date(2025, 0, 1 + (issueNumber || 0)).toISOString(),
     pdfUrl: `data/bulletins/${yearId}/${slug}.pdf`,
     wordPath: wordRel,
@@ -105,14 +116,19 @@ for (const pdfFile of pdfFiles) {
     plainText,
     headings,
     colors,
-    styleOverrides: {},
+    styleOverrides: preserved.styleOverrides || {},
+    ...(typeof preserved.displayOrder === 'number' ? { displayOrder: preserved.displayOrder } : {}),
   };
   await writeJson(path.join(targetDir, `${slug}.json`), week);
 
   const summary = {
     yearId, yearDisplay: yearHe, slug, parshaName,
-    issueNumber: week.issueNumber, dateLabel: null, teaser: null,
-    publishedAt: week.publishedAt, colors,
+    issueNumber: week.issueNumber,
+    dateLabel: week.dateLabel,
+    teaser: week.teaser,
+    publishedAt: week.publishedAt,
+    colors,
+    ...(typeof week.displayOrder === 'number' ? { displayOrder: week.displayOrder } : {}),
   };
   const i = idx.weeks.findIndex((w) => w.yearId === yearId && w.slug === slug);
   if (i >= 0) idx.weeks[i] = summary;
@@ -138,24 +154,53 @@ function parseArgs(argv) {
 }
 
 function parseFilename(filename) {
-  // Strip extension
   let name = filename.replace(/\.(pdf|docx)$/i, '');
-  // Try to capture leading number "22. " or "22 - "
+  // Replace Hebrew maqaf and other dashes with regular spaces — BEFORE nikud
+  // strip, since maqaf (U+05BE) sits inside the Hebrew accent range and would
+  // otherwise be removed altogether.
+  name = name.replace(/[־–—\-]/g, ' ');
+  // Strip nikud (vowel marks) so חֻקת matches חקת
+  name = name.replace(/[֑-ֽֿ-ׇ]/g, '');
+  // Capture leading issue number "01. " / "22 - " / "22 — "
   let issueNumber = null;
-  const numMatch = name.match(/^(\d+)\s*[.\-–—]\s*/);
+  const numMatch = name.match(/^(\d+)\s*\.?\s+/);
   if (numMatch) {
     issueNumber = parseInt(numMatch[1], 10);
     name = name.slice(numMatch[0].length);
   }
-  // Strip "_למסך" / "_print" / variants
-  name = name.replace(/[_\s]+(?:למסך|למסך\s*חופש|print|web|ל[א-ת]+).*/i, '').trim();
-  // Strip leading "משמעות פרשת" / "משמעות"
+  // Strip "_למסך" suffix and similar
+  name = name.replace(/[_\s]+(?:למסך|print|web)[^\s]*.*/i, '').trim();
+  // Strip leading variants: "עלון משמעות", "משמעות", "פרשת"
+  name = name.replace(/^עלון\s+/, '').trim();
   name = name.replace(/^משמעות\s+/, '').trim();
   name = name.replace(/^פרשת\s+/, '').trim();
-  // Strip trailing dot, space
-  name = name.replace(/[.\s_-]+$/, '').trim();
+  // Strip trailing year ("תשפה", "תשפ\"ה", "תשפו" etc.)
+  name = name.replace(/\s+תשפ['״\"]?[א-ת]?\s*$/, '').trim();
+  // Common spelling normalisations to match PARSHA_BY_HE keys
+  name = name
+    .replace(/בחוקתי/g, 'בחקתי')
+    .replace(/חקות/g, 'חקת')
+    .replace(/כי תבוא/g, 'כי תבא')
+    .replace(/ויקרא תזריע/g, 'תזריע')
+    .replace(/\s+/g, ' ')
+    .trim();
   // Try to find a parsha by Hebrew name
-  const slug = slugForHebrew(name);
+  let slug = slugForHebrew(name);
+  // Last-resort: try matching against combined parshiot.
+  // Filenames like "אחרי מות קדושים" or "מטות מסעי" come in as 2 or 3 words.
+  if (!slug) {
+    const words = name.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+      slug = slugForHebrew(words.join('-'));
+    }
+    if (!slug) {
+      // Match any combined parsha whose Hebrew name contains all the filename words
+      const candidate = PARSHIOT.find((p) =>
+        p.combined && words.every((w) => p.he.includes(w))
+      );
+      if (candidate) slug = candidate.slug;
+    }
+  }
   if (!slug) return null;
   const parshaName = PARSHIOT.find((p) => p.slug === slug).he;
   return { slug, parshaName, issueNumber };

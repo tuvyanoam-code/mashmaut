@@ -1,0 +1,23 @@
+{
+  "yearId": "5786",
+  "yearDisplay": "תשפ\"ו",
+  "slug": "chol-hamoed-sukkot",
+  "parshaName": "שבת חול המועד סוכות",
+  "issueNumber": 21,
+  "dateLabel": null,
+  "teaser": null,
+  "publishedAt": "2025-01-21T22:00:00.000Z",
+  "pdfUrl": "data/bulletins/5786/chol-hamoed-sukkot.pdf",
+  "wordPath": null,
+  "textHtml": "",
+  "plainText": "",
+  "headings": [],
+  "colors": {
+    "primary": "#1d4e89",
+    "secondary": "#3066be",
+    "accent": "#5b9eed",
+    "background": "#f4f8fd",
+    "text": "#1a1a1a"
+  },
+  "styleOverrides": {}
+}

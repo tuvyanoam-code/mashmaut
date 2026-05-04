@@ -1,0 +1,23 @@
+{
+  "yearId": "5785",
+  "yearDisplay": "תשפ\"ה",
+  "slug": "naso",
+  "parshaName": "נשא",
+  "issueNumber": 3,
+  "dateLabel": null,
+  "teaser": null,
+  "publishedAt": "2025-01-03T22:00:00.000Z",
+  "pdfUrl": "data/bulletins/5785/naso.pdf",
+  "wordPath": null,
+  "textHtml": "",
+  "plainText": "",
+  "headings": [],
+  "colors": {
+    "primary": "#2d6a4f",
+    "secondary": "#52b788",
+    "accent": "#95d5b2",
+    "background": "#f6fbf8",
+    "text": "#1a1a1a"
+  },
+  "styleOverrides": {}
+}

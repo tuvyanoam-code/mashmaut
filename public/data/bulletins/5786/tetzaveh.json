@@ -1,0 +1,23 @@
+{
+  "yearId": "5786",
+  "yearDisplay": "תשפ\"ו",
+  "slug": "tetzaveh",
+  "parshaName": "תצוה",
+  "issueNumber": 41,
+  "dateLabel": null,
+  "teaser": null,
+  "publishedAt": "2025-02-10T22:00:00.000Z",
+  "pdfUrl": "data/bulletins/5786/tetzaveh.pdf",
+  "wordPath": null,
+  "textHtml": "",
+  "plainText": "",
+  "headings": [],
+  "colors": {
+    "primary": "#7b3f00",
+    "secondary": "#bc6c25",
+    "accent": "#dda15e",
+    "background": "#fdf8f3",
+    "text": "#1a1a1a"
+  },
+  "styleOverrides": {}
+}

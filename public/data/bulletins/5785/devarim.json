@@ -1,0 +1,23 @@
+{
+  "yearId": "5785",
+  "yearDisplay": "תשפ\"ה",
+  "slug": "devarim",
+  "parshaName": "דברים",
+  "issueNumber": 11,
+  "dateLabel": null,
+  "teaser": null,
+  "publishedAt": "2025-01-11T22:00:00.000Z",
+  "pdfUrl": "data/bulletins/5785/devarim.pdf",
+  "wordPath": null,
+  "textHtml": "",
+  "plainText": "",
+  "headings": [],
+  "colors": {
+    "primary": "#5a189a",
+    "secondary": "#9d4edd",
+    "accent": "#c77dff",
+    "background": "#fbf7fd",
+    "text": "#1a1a1a"
+  },
+  "styleOverrides": {}
+}

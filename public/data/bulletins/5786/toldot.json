@@ -1,0 +1,23 @@
+{
+  "yearId": "5786",
+  "yearDisplay": "תשפ\"ו",
+  "slug": "toldot",
+  "parshaName": "תולדות",
+  "issueNumber": 27,
+  "dateLabel": null,
+  "teaser": null,
+  "publishedAt": "2025-01-27T22:00:00.000Z",
+  "pdfUrl": "data/bulletins/5786/toldot.pdf",
+  "wordPath": null,
+  "textHtml": "",
+  "plainText": "",
+  "headings": [],
+  "colors": {
+    "primary": "#2d6a4f",
+    "secondary": "#52b788",
+    "accent": "#95d5b2",
+    "background": "#f6fbf8",
+    "text": "#1a1a1a"
+  },
+  "styleOverrides": {}
+}

@@ -1,0 +1,23 @@
+{
+  "yearId": "5785",
+  "yearDisplay": "תשפ\"ה",
+  "slug": "eikev",
+  "parshaName": "עקב",
+  "issueNumber": 13,
+  "dateLabel": null,
+  "teaser": null,
+  "publishedAt": "2025-01-13T22:00:00.000Z",
+  "pdfUrl": "data/bulletins/5785/eikev.pdf",
+  "wordPath": null,
+  "textHtml": "",
+  "plainText": "",
+  "headings": [],
+  "colors": {
+    "primary": "#7b3f00",
+    "secondary": "#bc6c25",
+    "accent": "#dda15e",
+    "background": "#fdf8f3",
+    "text": "#1a1a1a"
+  },
+  "styleOverrides": {}
+}

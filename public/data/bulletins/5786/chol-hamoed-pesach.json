@@ -1,0 +1,23 @@
+{
+  "yearId": "5786",
+  "yearDisplay": "תשפ\"ו",
+  "slug": "chol-hamoed-pesach",
+  "parshaName": "שבת חול המועד פסח",
+  "issueNumber": 46,
+  "dateLabel": null,
+  "teaser": null,
+  "publishedAt": "2025-02-15T22:00:00.000Z",
+  "pdfUrl": "data/bulletins/5786/chol-hamoed-pesach.pdf",
+  "wordPath": null,
+  "textHtml": "",
+  "plainText": "",
+  "headings": [],
+  "colors": {
+    "primary": "#5a189a",
+    "secondary": "#9d4edd",
+    "accent": "#c77dff",
+    "background": "#fbf7fd",
+    "text": "#1a1a1a"
+  },
+  "styleOverrides": {}
+}

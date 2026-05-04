@@ -1,0 +1,23 @@
+{
+  "yearId": "5785",
+  "yearDisplay": "תשפ\"ה",
+  "slug": "shelach",
+  "parshaName": "שלח",
+  "issueNumber": 5,
+  "dateLabel": null,
+  "teaser": null,
+  "publishedAt": "2025-01-05T22:00:00.000Z",
+  "pdfUrl": "data/bulletins/5785/shelach.pdf",
+  "wordPath": null,
+  "textHtml": "",
+  "plainText": "",
+  "headings": [],
+  "colors": {
+    "primary": "#1d4e89",
+    "secondary": "#3066be",
+    "accent": "#5b9eed",
+    "background": "#f4f8fd",
+    "text": "#1a1a1a"
+  },
+  "styleOverrides": {}
+}

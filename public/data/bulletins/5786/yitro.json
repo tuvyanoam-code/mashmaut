@@ -1,0 +1,23 @@
+{
+  "yearId": "5786",
+  "yearDisplay": "תשפ\"ו",
+  "slug": "yitro",
+  "parshaName": "יתרו",
+  "issueNumber": 38,
+  "dateLabel": null,
+  "teaser": null,
+  "publishedAt": "2025-02-07T22:00:00.000Z",
+  "pdfUrl": "data/bulletins/5786/yitro.pdf",
+  "wordPath": null,
+  "textHtml": "",
+  "plainText": "",
+  "headings": [],
+  "colors": {
+    "primary": "#1d4e89",
+    "secondary": "#3066be",
+    "accent": "#5b9eed",
+    "background": "#f4f8fd",
+    "text": "#1a1a1a"
+  },
+  "styleOverrides": {}
+}

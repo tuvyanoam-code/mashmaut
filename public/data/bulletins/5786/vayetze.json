@@ -1,0 +1,23 @@
+{
+  "yearId": "5786",
+  "yearDisplay": "תשפ\"ו",
+  "slug": "vayetze",
+  "parshaName": "ויצא",
+  "issueNumber": 28,
+  "dateLabel": null,
+  "teaser": null,
+  "publishedAt": "2025-01-28T22:00:00.000Z",
+  "pdfUrl": "data/bulletins/5786/vayetze.pdf",
+  "wordPath": null,
+  "textHtml": "",
+  "plainText": "",
+  "headings": [],
+  "colors": {
+    "primary": "#9d0208",
+    "secondary": "#d00000",
+    "accent": "#dc2f02",
+    "background": "#fdf6f5",
+    "text": "#1a1a1a"
+  },
+  "styleOverrides": {}
+}

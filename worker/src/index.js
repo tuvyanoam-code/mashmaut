@@ -38,6 +38,79 @@ function authed(request, env) {
   return env.ADMIN_API_KEY && key === env.ADMIN_API_KEY;
 }
 
+// --- GitHub Contents API helpers ----------------------------------------
+
+const GH = (env, path) => `https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}?ref=${env.GITHUB_BRANCH || 'main'}`;
+const GH_HEADERS = (env) => ({
+  'Authorization': `Bearer ${env.GITHUB_TOKEN}`,
+  'Accept': 'application/vnd.github+json',
+  'User-Agent': 'mashmaut-worker',
+});
+
+async function ghGetFile(env, path) {
+  const r = await fetch(GH(env, path), { headers: GH_HEADERS(env) });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`GitHub get ${path}: ${r.status}`);
+  return r.json(); // { content, sha, ... }
+}
+
+async function ghPutFile(env, path, contentBase64, message, sha) {
+  const body = {
+    message,
+    content: contentBase64,
+    branch: env.GITHUB_BRANCH || 'main',
+  };
+  if (sha) body.sha = sha;
+  const r = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
+    method: 'PUT',
+    headers: { ...GH_HEADERS(env), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`GitHub put ${path}: ${r.status} ${t}`);
+  }
+  return r.json();
+}
+
+async function ghDeleteFile(env, path, sha, message) {
+  const r = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
+    method: 'DELETE',
+    headers: { ...GH_HEADERS(env), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, sha, branch: env.GITHUB_BRANCH || 'main' }),
+  });
+  if (!r.ok && r.status !== 404) {
+    const t = await r.text();
+    throw new Error(`GitHub delete ${path}: ${r.status} ${t}`);
+  }
+}
+
+async function ghReadJson(env, path) {
+  const f = await ghGetFile(env, path);
+  if (!f) return { data: null, sha: null };
+  try {
+    const decoded = atob(f.content.replace(/\n/g, ''));
+    const utf8 = decodeURIComponent(escape(decoded));
+    return { data: JSON.parse(utf8), sha: f.sha };
+  } catch (e) {
+    throw new Error(`Failed to parse ${path}: ${e.message}`);
+  }
+}
+
+async function ghWriteJson(env, path, data, message) {
+  const cur = await ghGetFile(env, path);
+  const sha = cur ? cur.sha : null;
+  const json = JSON.stringify(data, null, 2);
+  const b64 = btoa(unescape(encodeURIComponent(json)));
+  return ghPutFile(env, path, b64, message, sha);
+}
+
+async function ghWriteBinary(env, path, base64Content, message) {
+  const cur = await ghGetFile(env, path);
+  const sha = cur ? cur.sha : null;
+  return ghPutFile(env, path, base64Content, message, sha);
+}
+
 // --- Subscribers ---------------------------------------------------------
 
 async function listSubscribers(env) {
@@ -327,6 +400,7 @@ export default {
 
       if (p.startsWith('/admin/')) {
         if (!authed(request, env)) return err('unauthorized', 401);
+        if (p === '/admin/auth' && request.method === 'POST') return ok({ valid: true });
         if (p === '/admin/stats') return ok(await buildStats(env));
         if (p === '/admin/subscribers') return ok({ subscribers: await listSubscribers(env) });
         if (p === '/admin/send-now' && request.method === 'POST') {
@@ -339,6 +413,110 @@ export default {
           await sendEmail(env, to, 'בדיקה — עלון משמעות', '<p dir="rtl">המערכת פועלת. זוהי בדיקה.</p>');
           return ok();
         }
+
+        // --- Cloud admin: writes through GitHub Contents API ---
+
+        if (p === '/admin/bulletin' && request.method === 'POST') {
+          // Body: { week, pdfBase64?, wordBase64? } — week is the full bulletin object
+          const body = await request.json();
+          const { week, pdfBase64, wordBase64 } = body;
+          if (!week || !week.yearId || !week.slug) return err('week.yearId and week.slug required');
+          const dir = `public/data/bulletins/${week.yearId}`;
+          if (pdfBase64) await ghWriteBinary(env, `${dir}/${week.slug}.pdf`, pdfBase64, `upload PDF for ${week.slug}`);
+          if (wordBase64) await ghWriteBinary(env, `${dir}/${week.slug}.docx`, wordBase64, `upload Word for ${week.slug}`);
+
+          // Update / create the bulletin JSON
+          await ghWriteJson(env, `${dir}/${week.slug}.json`, week, `update bulletin ${week.slug}`);
+
+          // Update the index
+          const { data: idx } = await ghReadJson(env, 'public/data/index.json');
+          const cur = idx || { years: [], weeks: [] };
+          if (!cur.years.find((y) => y.id === week.yearId)) {
+            cur.years.push({ id: week.yearId, displayName: week.yearDisplay });
+          }
+          const summary = {
+            yearId: week.yearId,
+            yearDisplay: week.yearDisplay,
+            slug: week.slug,
+            parshaName: week.parshaName,
+            issueNumber: week.issueNumber || null,
+            dateLabel: week.dateLabel || null,
+            teaser: week.teaser || null,
+            publishedAt: week.publishedAt || new Date().toISOString(),
+            colors: week.colors || {},
+            ...(typeof week.displayOrder === 'number' ? { displayOrder: week.displayOrder } : {}),
+          };
+          const i = cur.weeks.findIndex((w) => w.yearId === week.yearId && w.slug === week.slug);
+          if (i >= 0) cur.weeks[i] = summary;
+          else cur.weeks.push(summary);
+          await ghWriteJson(env, 'public/data/index.json', cur, `index: ${i >= 0 ? 'update' : 'add'} ${week.slug}`);
+
+          return ok({ saved: true, slug: week.slug });
+        }
+
+        if (p === '/admin/bulletin' && request.method === 'DELETE') {
+          const body = await request.json();
+          const { yearId, slug } = body;
+          if (!yearId || !slug) return err('yearId+slug required');
+          const dir = `public/data/bulletins/${yearId}`;
+          for (const ext of ['json', 'pdf', 'docx']) {
+            const path = `${dir}/${slug}.${ext}`;
+            const f = await ghGetFile(env, path);
+            if (f) await ghDeleteFile(env, path, f.sha, `remove ${path}`);
+          }
+          // Update index
+          const { data: idx } = await ghReadJson(env, 'public/data/index.json');
+          if (idx) {
+            idx.weeks = (idx.weeks || []).filter((w) => !(w.yearId === yearId && w.slug === slug));
+            await ghWriteJson(env, 'public/data/index.json', idx, `index: remove ${slug}`);
+          }
+          return ok();
+        }
+
+        if (p === '/admin/reorder' && request.method === 'POST') {
+          const body = await request.json();
+          const { order } = body; // ["yearId/slug", ...]
+          if (!Array.isArray(order)) return err('order must be array');
+          const map = new Map(order.map((k, i) => [k, i]));
+          const { data: idx } = await ghReadJson(env, 'public/data/index.json');
+          if (!idx) return err('no index');
+          idx.weeks = idx.weeks.map((w) => {
+            const k = `${w.yearId}/${w.slug}`;
+            return map.has(k) ? { ...w, displayOrder: map.get(k) } : w;
+          });
+          await ghWriteJson(env, 'public/data/index.json', idx, `reorder bulletins`);
+          // Mirror onto each per-bulletin JSON (non-blocking would be nicer, do sequentially)
+          for (const k of order) {
+            const [y, s] = k.split('/');
+            const path = `public/data/bulletins/${y}/${s}.json`;
+            const cur = await ghReadJson(env, path);
+            if (cur.data) {
+              cur.data.displayOrder = map.get(k);
+              await ghWriteJson(env, path, cur.data, `reorder: ${s}`);
+            }
+          }
+          return ok();
+        }
+
+        if (p === '/admin/year' && request.method === 'POST') {
+          const body = await request.json();
+          const { id, displayName } = body;
+          if (!id || !displayName) return err('id and displayName required');
+          const { data: idx } = await ghReadJson(env, 'public/data/index.json');
+          const cur = idx || { years: [], weeks: [] };
+          if (!cur.years.find((y) => y.id === id)) cur.years.push({ id, displayName });
+          await ghWriteJson(env, 'public/data/index.json', cur, `add year ${displayName}`);
+          return ok();
+        }
+
+        if (p === '/admin/config' && request.method === 'POST') {
+          const body = await request.json();
+          const { data: cur } = await ghReadJson(env, 'public/data/config.json');
+          const next = { ...(cur || {}), ...body };
+          await ghWriteJson(env, 'public/data/config.json', next, `update site config`);
+          return ok();
+        }
+
         return err('admin route not found', 404);
       }
 

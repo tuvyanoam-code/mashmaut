@@ -1,0 +1,164 @@
+// Browser-side file processing: Word → semantic HTML and PDF → dominant colors.
+// Replaces the previous local-server processing so the admin can run anywhere.
+
+import * as mammoth from 'mammoth/mammoth.browser.js';
+
+const STYLE_MAP = [
+  "p[style-name='Title'] => h1.bulletin-title:fresh",
+  "p[style-name='Subtitle'] => h2.bulletin-subtitle:fresh",
+  "p[style-name='Heading 1'] => h1:fresh",
+  "p[style-name='Heading 2'] => h2:fresh",
+  "p[style-name='Heading 3'] => h3:fresh",
+  "p[style-name='Heading 4'] => h4:fresh",
+  "p[style-name='heading 1'] => h1:fresh",
+  "p[style-name='heading 2'] => h2:fresh",
+  "p[style-name='heading 3'] => h3:fresh",
+  "p[style-name='כותרת 1'] => h1:fresh",
+  "p[style-name='כותרת 2'] => h2:fresh",
+  "p[style-name='כותרת 3'] => h3:fresh",
+  "p[style-name='כותרת'] => h1:fresh",
+  "p[style-name='Quote'] => blockquote:fresh",
+  "p[style-name='Block Quote'] => blockquote:fresh",
+  "p[style-name='ציטוט'] => blockquote:fresh",
+  "r[style-name='Strong'] => strong",
+  "r[style-name='Emphasis'] => em",
+];
+
+export async function convertWordToHtml(arrayBuffer) {
+  const [htmlResult, textResult] = await Promise.all([
+    mammoth.convertToHtml({ arrayBuffer }, { styleMap: STYLE_MAP }),
+    mammoth.extractRawText({ arrayBuffer }),
+  ]);
+  const rawHtml = htmlResult.value;
+  const plainText = textResult.value;
+
+  const headings = [];
+  const re = /<(h[1-3])[^>]*>([\s\S]*?)<\/\1>/gi;
+  let m;
+  let i = 0;
+  while ((m = re.exec(rawHtml)) !== null) {
+    const level = parseInt(m[1].slice(1), 10);
+    const text = m[2].replace(/<[^>]+>/g, '').trim();
+    if (text) headings.push({ level, text, id: 'h-' + (i++) });
+  }
+
+  i = 0;
+  const html = rawHtml.replace(/<(h[1-3])([^>]*)>/gi, (full, tag, attrs) => {
+    const h = headings[i++];
+    if (!h || /id\s*=/.test(attrs)) return full;
+    return `<${tag}${attrs} id="${h.id}">`;
+  });
+
+  return { html, plainText, headings };
+}
+
+// PDF color extraction using pdf.js + canvas in the browser
+let _pdfjs;
+async function loadPdfjs() {
+  if (_pdfjs) return _pdfjs;
+  const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
+  // Use the bundled worker via Vite's worker import
+  const PdfWorker = (await import('pdfjs-dist/build/pdf.worker.mjs?url')).default;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = PdfWorker;
+  _pdfjs = pdfjsLib;
+  return pdfjsLib;
+}
+
+const FALLBACK_PALETTES = [
+  { primary: '#2d6a4f', secondary: '#52b788', accent: '#95d5b2', background: '#f6fbf8', bgEnd: '#e3f1e9', text: '#1a1a1a' },
+  { primary: '#7b3f00', secondary: '#bc6c25', accent: '#dda15e', background: '#fdf8f3', bgEnd: '#f4e7d4', text: '#1a1a1a' },
+  { primary: '#5a189a', secondary: '#9d4edd', accent: '#c77dff', background: '#fbf7fd', bgEnd: '#f0e2f8', text: '#1a1a1a' },
+  { primary: '#1d4e89', secondary: '#3066be', accent: '#5b9eed', background: '#f4f8fd', bgEnd: '#dee9f8', text: '#1a1a1a' },
+  { primary: '#9d0208', secondary: '#d00000', accent: '#dc2f02', background: '#fdf6f5', bgEnd: '#f7d8d4', text: '#1a1a1a' },
+];
+
+export async function extractPdfPalette(arrayBuffer) {
+  try {
+    const pdfjsLib = await loadPdfjs();
+    const doc = await pdfjsLib.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      disableFontFace: true,
+    }).promise;
+    const page = await doc.getPage(1);
+    const baseViewport = page.getViewport({ scale: 1 });
+    const scale = 240 / baseViewport.width;
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return paletteFromImageData(imageData);
+  } catch (e) {
+    console.warn('Color extraction failed:', e.message);
+    return FALLBACK_PALETTES[Math.floor(Math.random() * FALLBACK_PALETTES.length)];
+  }
+}
+
+function paletteFromImageData(imageData) {
+  const { data, width, height } = imageData;
+  const buckets = new Map();
+  const total = width * height;
+  const step = Math.max(1, Math.floor(total / 4000));
+  for (let i = 0; i < total; i += step) {
+    const idx = i * 4;
+    const r = data[idx], g = data[idx + 1], b = data[idx + 2], a = data[idx + 3];
+    if (a < 200) continue;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    if (max > 240 && min > 230) continue;
+    if (max < 28) continue;
+    const key = (r >> 4) << 8 | (g >> 4) << 4 | (b >> 4);
+    const bucket = buckets.get(key) || { r: 0, g: 0, b: 0, count: 0 };
+    bucket.r += r; bucket.g += g; bucket.b += b; bucket.count++;
+    buckets.set(key, bucket);
+  }
+  const sorted = [...buckets.values()]
+    .map((b) => ({ r: b.r / b.count, g: b.g / b.count, b: b.b / b.count, count: b.count }))
+    .sort((a, b) => b.count - a.count);
+
+  const top = sorted.slice(0, 8);
+  const score = (c) => {
+    const max = Math.max(c.r, c.g, c.b);
+    const min = Math.min(c.r, c.g, c.b);
+    const sat = max === 0 ? 0 : (max - min) / max;
+    return sat * Math.log10(c.count + 10);
+  };
+  top.sort((a, b) => score(b) - score(a));
+  const primary = top[0] || { r: 45, g: 106, b: 79 };
+  const secondary = top[1] || lighten(primary, 0.2);
+  const accent = top[2] || lighten(primary, 0.4);
+  return {
+    primary: rgbToHex(primary),
+    secondary: rgbToHex(secondary),
+    accent: rgbToHex(accent),
+    background: rgbToHex(lighten(primary, 0.92)),
+    bgEnd: rgbToHex(lighten(primary, 0.85)),
+    text: '#1a1a1a',
+  };
+}
+
+function lighten(c, amt) {
+  return {
+    r: Math.round(c.r + (255 - c.r) * amt),
+    g: Math.round(c.g + (255 - c.g) * amt),
+    b: Math.round(c.b + (255 - c.b) * amt),
+  };
+}
+
+function rgbToHex(c) {
+  const h = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return '#' + h(c.r) + h(c.g) + h(c.b);
+}
+
+// Helper to convert a File to base64 (without data: prefix) for the Worker
+export async function fileToBase64(file) {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}

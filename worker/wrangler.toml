@@ -22,8 +22,10 @@ id = "f7a3af92250640d8ac96ee4a83847860"
 SITE_URL = "https://alonmashmaut.org"
 SITE_NAME = "משמעות"
 ADMIN_EMAIL = "alonmashmaut@gmail.com"
-FROM_EMAIL = "onboarding@resend.dev"
+FROM_EMAIL = "alon@alonmashmaut.org"
 FROM_NAME = "עלון משמעות"
+GITHUB_REPO = "tuvyanoam-code/mashmaut"
+GITHUB_BRANCH = "main"
 
 [[routes]]
 pattern = "api.alonmashmaut.org"

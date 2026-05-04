@@ -1,22 +1,60 @@
+// Cloud-only admin panel. Talks to the Cloudflare Worker (alonmashmaut.org/admin)
+// using an API key stored in localStorage. No local server required.
+
 import { icon } from '../icons.js';
 import { PARSHIOT, slugForHebrew, hebrewYearToNumber, numberToHebrewYear, cycleOrderForSlug } from '../lib/parshiot.js';
 import { loadIndex, loadConfig, loadBulletin } from '../lib/store.js';
 import { showToast } from '../components/shareButtons.js';
 import { mountRichEditor } from '../components/richEditor.js';
 import { renderStats } from './admin/stats.js';
+import { convertWordToHtml, extractPdfPalette, fileToBase64 } from '../lib/fileProcess.js';
 
-const API = (path) => `http://localhost:5175${path}`;
+const KEY_STORAGE = 'mashmaut.adminKey';
+
+function getKey() {
+  try { return localStorage.getItem(KEY_STORAGE) || ''; } catch (_) { return ''; }
+}
+function setKey(v) {
+  try { localStorage.setItem(KEY_STORAGE, v); } catch (_) {}
+}
+function clearKey() {
+  try { localStorage.removeItem(KEY_STORAGE); } catch (_) {}
+}
+
+async function adminApi(path, opts = {}) {
+  const cfg = await loadConfig();
+  const base = (cfg.apiBase || '').replace(/\/$/, '');
+  if (!base) throw new Error('API לא מוגדר');
+  const r = await fetch(base + path, {
+    method: opts.method || 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + getKey(),
+      ...(opts.headers || {}),
+    },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  if (r.status === 401) {
+    clearKey();
+    throw new Error('סיסמה שגויה — התחבר מחדש');
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data.ok === false) throw new Error(data.error || 'שגיאת שרת');
+  return data;
+}
 
 export async function renderAdmin({ params }) {
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
-  // Check API availability — if running locally, the admin server should be up.
-  const apiOk = await checkApi();
+  if (!getKey()) {
+    return renderLogin(app);
+  }
 
-  if (!apiOk) {
-    app.innerHTML = renderRemoteNotice();
-    return;
+  // Verify the saved key still works
+  try {
+    await adminApi('/admin/auth', { method: 'POST', body: {} });
+  } catch (e) {
+    return renderLogin(app, e.message);
   }
 
   const section = params?.section || 'dashboard';
@@ -26,6 +64,7 @@ export async function renderAdmin({ params }) {
       <main class="admin-main" id="adminMain"></main>
     </div>
   `;
+  bindSidebar();
   const main = document.getElementById('adminMain');
   switch (section) {
     case 'upload': await renderUpload(main); break;
@@ -39,64 +78,38 @@ export async function renderAdmin({ params }) {
   }
 }
 
-async function renderSubscribers(root) {
-  const cfg = await loadConfig();
-  const apiBase = (cfg.apiBase || '').replace(/\/$/, '');
-  const apiKey = cfg.adminApiKey || '';
-  if (!apiBase || !apiKey) {
-    root.innerHTML = `<header class="admin-header"><h1>מנויים</h1></header>
-      <div class="admin-card"><p>שירות האנליטיקס עוד לא מוגדר. לך ל"הגדרות" וגלה את כתובת ה-API ואת המפתח.</p></div>`;
-    return;
-  }
-  root.innerHTML = `<header class="admin-header"><h1>מנויים</h1></header><div class="loading"><div class="spinner"></div></div>`;
-  try {
-    const r = await fetch(apiBase + '/admin/subscribers', { headers: { Authorization: 'Bearer ' + apiKey } });
-    const data = await r.json();
-    if (!data.ok) throw new Error(data.error);
-    const subs = data.subscribers || [];
-    root.innerHTML = `
-      <header class="admin-header"><h1>מנויים (${subs.length})</h1></header>
-      <div class="admin-card">
-        ${subs.length === 0 ? '<p class="muted">עוד אין מנויים.</p>' : `
-          <table class="admin-table">
-            <thead><tr><th>מייל</th><th>נרשם ב-</th><th>מיקום</th></tr></thead>
-            <tbody>
-              ${subs.map((s) => `<tr><td>${escapeHtml(s.email)}</td><td>${(s.addedAt || '').slice(0, 10)}</td><td>${[s.city, s.country].filter(Boolean).join(' / ') || '—'}</td></tr>`).join('')}
-            </tbody>
-          </table>
-        `}
-      </div>
-    `;
-  } catch (e) {
-    root.innerHTML = `<header class="admin-header"><h1>מנויים</h1></header>
-      <div class="admin-card"><p class="admin-status error">${e.message}</p></div>`;
-  }
-}
-
-async function checkApi() {
-  try {
-    const r = await fetch(API('/api/ping'), { method: 'GET' });
-    return r.ok;
-  } catch (_) {
-    return false;
-  }
-}
-
-function renderRemoteNotice() {
-  return `
+function renderLogin(app, errorMsg = '') {
+  app.innerHTML = `
     <div class="admin-login">
       <div class="admin-login-card">
-        <h2>פאנל ניהול</h2>
-        <p class="muted">פאנל הניהול פועל רק כשהשרת המקומי דולק.</p>
-        <ol style="text-align: right; margin: 24px 0; line-height: 1.9;">
-          <li>פתח טרמינל בתיקיית הפרויקט</li>
-          <li>הרץ <code>npm run admin</code></li>
-          <li>הדפדפן ייפתח אוטומטית עם פאנל הניהול</li>
-        </ol>
-        <a class="btn btn-secondary" href="/">חזרה לאתר</a>
+        <div class="modal-icon" style="margin: 0 auto 16px;">${icon('settings', { size: 36 })}</div>
+        <h2 style="margin-bottom: 8px;">פאנל ניהול</h2>
+        <p class="muted" style="margin-bottom: 24px;">משמעות · עלון פרשת השבוע</p>
+        ${errorMsg ? `<div class="admin-status error" style="margin-bottom: 14px;">${errorMsg}</div>` : ''}
+        <form id="loginForm">
+          <div class="form-group">
+            <input type="password" name="key" placeholder="סיסמת מנהל" autofocus required style="width:100%;padding:12px 18px;border:1px solid var(--border);border-radius:999px;font:inherit;text-align:center;letter-spacing:0.05em;" />
+          </div>
+          <button class="btn" type="submit" style="width:100%;justify-content:center;padding:12px;">${icon('check', { size: 18 })} כניסה</button>
+        </form>
       </div>
     </div>
   `;
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const key = (fd.get('key') || '').trim();
+    if (!key) return;
+    setKey(key);
+    try {
+      await adminApi('/admin/auth', { method: 'POST', body: {} });
+      // Re-render
+      renderAdmin({ params: { section: 'dashboard' } });
+    } catch (err) {
+      clearKey();
+      renderLogin(app, err.message);
+    }
+  });
 }
 
 function renderSidebar(active) {
@@ -119,8 +132,17 @@ function renderSidebar(active) {
       `).join('')}
       <div style="flex:1"></div>
       <a class="admin-nav-item" href="/" target="_blank">${icon('eye', { size: 18 })} <span>צפה באתר</span></a>
+      <button type="button" class="admin-nav-item" id="logoutBtn" style="background:transparent;border:none;width:100%;text-align:right;cursor:pointer;">${icon('close', { size: 18 })} <span>התנתק</span></button>
     </aside>
   `;
+}
+
+function bindSidebar() {
+  const btn = document.getElementById('logoutBtn');
+  if (btn) btn.addEventListener('click', () => {
+    clearKey();
+    location.href = '/admin';
+  });
 }
 
 async function renderDashboard(root) {
@@ -131,35 +153,21 @@ async function renderDashboard(root) {
     <header class="admin-header"><h1>סקירה כללית</h1></header>
     <div class="admin-card">
       <h2>${total} עלונים · ${yearsCount} שנים</h2>
-      <p class="muted">העלאה של עלון חדש לוקחת פחות מדקה. לחץ "העלאת עלון" בצד.</p>
+      <p class="muted">העלאה של עלון חדש לוקחת פחות מדקה. כל שמירה נשמרת ישירות לאתר ומתפרסמת תוך כדקה.</p>
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top: 18px;">
         <a class="btn" href="/admin/upload">${icon('upload', { size: 18 })} העלאה חדשה</a>
         <a class="btn btn-secondary" href="/admin/bulletins">${icon('book', { size: 18 })} ניהול עלונים</a>
-        <button class="btn btn-secondary" id="publishBtn">${icon('arrowLeft', { size: 18 })} פרסם עדכונים (push ל-GitHub)</button>
       </div>
-      <div id="publishStatus" style="margin-top:14px;"></div>
     </div>
     <div class="admin-card">
       <h3>זרימת עבודה</h3>
       <ol class="muted" style="line-height: 1.9;">
-        <li>"העלאת עלון" — גרור Word + PDF, ערוך צבעים, פרסם.</li>
-        <li>בדוק את העלון באתר (טאב חדש, "צפה באתר").</li>
-        <li>"פרסם עדכונים" — מעלה את השינויים לגיטהאב, האתר מתעדכן תוך כדקה.</li>
+        <li>"העלאת עלון" — גרור Word + PDF, ערוך צבעים, שמור.</li>
+        <li>בדוק את העלון באתר (כפתור "צפה").</li>
+        <li>השינוי נדחף אוטומטית לאתר ומופיע תוך כדקה.</li>
       </ol>
     </div>
   `;
-  document.getElementById('publishBtn').addEventListener('click', async () => {
-    const status = document.getElementById('publishStatus');
-    status.innerHTML = `<div class="admin-status info">מעלה לגיטהאב…</div>`;
-    try {
-      const r = await fetch(API('/api/publish'), { method: 'POST' });
-      const data = await r.json();
-      if (data.ok) status.innerHTML = `<div class="admin-status success">פורסם בהצלחה. האתר יתעדכן תוך כדקה.</div>`;
-      else status.innerHTML = `<div class="admin-status error">${data.error || 'שגיאה'}</div>`;
-    } catch (e) {
-      status.innerHTML = `<div class="admin-status error">${e.message}</div>`;
-    }
-  });
 }
 
 async function renderUpload(root) {
@@ -180,8 +188,8 @@ async function renderUpload(root) {
             </select>
           </div>
           <div class="form-group" id="newYearGroup" style="display:none;">
-            <label>שנה חדשה (עברית, למשל תשפ״ו)</label>
-            <input type="text" name="newYearHe" placeholder="תשפ״ו" />
+            <label>שנה חדשה (עברית, למשל תשפ״ז)</label>
+            <input type="text" name="newYearHe" placeholder="תשפ״ז" />
           </div>
           <div class="form-group">
             <label>פרשה</label>
@@ -209,7 +217,7 @@ async function renderUpload(root) {
             <label>קובץ Word (.docx)</label>
             <div class="dropzone" id="wordDrop">
               <div class="dropzone-label">גרור קובץ Word או לחץ לבחירה</div>
-              <div class="dropzone-hint">מקובלים .docx</div>
+              <div class="dropzone-hint">לא חובה — אם אין, רק PDF יוצג</div>
               <input type="file" name="word" accept=".docx" hidden />
             </div>
           </div>
@@ -224,53 +232,77 @@ async function renderUpload(root) {
         </div>
 
         <div id="uploadStatus"></div>
-        <button class="btn" type="submit">${icon('upload', { size: 18 })} העלה ועבד</button>
+        <button class="btn" type="submit">${icon('upload', { size: 18 })} העלה ופרסם</button>
       </form>
-    </div>
-    <div class="admin-card" id="previewCard" style="display:none;">
-      <h2>תצוגה מקדימה</h2>
-      <div id="previewContent"></div>
     </div>
   `;
 
-  // Year toggle
   root.querySelector('select[name="yearId"]').addEventListener('change', (e) => {
     const newGroup = root.querySelector('#newYearGroup');
     newGroup.style.display = e.target.value === '__new__' ? 'block' : 'none';
   });
-
-  // Setup dropzones
   setupDropzone(root.querySelector('#wordDrop'), 'docx');
   setupDropzone(root.querySelector('#pdfDrop'), 'pdf');
-
-  // Mount the rich teaser editor
   const teaserEditor = mountRichEditor(root.querySelector('#teaserEditor'), '');
 
-  // Auto-fill teaser from headings is in preview later
   root.querySelector('#uploadForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const status = root.querySelector('#uploadStatus');
     const fd = new FormData(e.target);
-    const yearId = fd.get('yearId') === '__new__' ? hebrewYearToNumber(fd.get('newYearHe')) : fd.get('yearId');
-    const yearDisplay = fd.get('yearId') === '__new__' ? fd.get('newYearHe') : (idx.years.find((y) => y.id === yearId)?.displayName || numberToHebrewYear(yearId));
+    let yearId = fd.get('yearId');
+    let yearDisplay;
+    if (yearId === '__new__') {
+      const he = (fd.get('newYearHe') || '').trim();
+      if (!he) { status.innerHTML = `<div class="admin-status error">חובה למלא שם שנה חדשה</div>`; return; }
+      yearId = hebrewYearToNumber(he);
+      yearDisplay = he;
+      // Persist the new year
+      await adminApi('/admin/year', { method: 'POST', body: { id: yearId, displayName: yearDisplay } });
+    } else {
+      yearDisplay = idx.years.find((y) => y.id === yearId)?.displayName || numberToHebrewYear(yearId);
+    }
     if (!yearId) { status.innerHTML = `<div class="admin-status error">חובה לבחור שנה</div>`; return; }
-    if (!fd.get('parsha')) { status.innerHTML = `<div class="admin-status error">חובה לבחור פרשה</div>`; return; }
-    fd.set('yearId', yearId);
-    fd.set('yearDisplay', yearDisplay);
-    fd.set('teaser', teaserEditor.value);
+    const slug = fd.get('parsha');
+    if (!slug) { status.innerHTML = `<div class="admin-status error">חובה לבחור פרשה</div>`; return; }
+    const pdfFile = root.querySelector('#pdfDrop input[type=file]').files[0];
+    if (!pdfFile) { status.innerHTML = `<div class="admin-status error">חסר קובץ PDF</div>`; return; }
+    const wordFile = root.querySelector('#wordDrop input[type=file]').files[0] || null;
 
-    status.innerHTML = `<div class="admin-status info">מעבד…</div>`;
+    status.innerHTML = `<div class="admin-status info">מעבד קבצים…</div>`;
+    let pdfBase64, wordBase64, textHtml = '', plainText = '', headings = [], colors;
     try {
-      const r = await fetch(API('/api/upload'), { method: 'POST', body: fd });
-      const data = await r.json();
-      if (!data.ok) {
-        status.innerHTML = `<div class="admin-status error">${data.error || 'שגיאה'}</div>`;
-        return;
+      pdfBase64 = await fileToBase64(pdfFile);
+      const pdfBuf = await pdfFile.arrayBuffer();
+      colors = await extractPdfPalette(pdfBuf);
+      if (wordFile) {
+        wordBase64 = await fileToBase64(wordFile);
+        const wordBuf = await wordFile.arrayBuffer();
+        const r = await convertWordToHtml(wordBuf);
+        textHtml = r.html; plainText = r.plainText; headings = r.headings;
       }
-      status.innerHTML = `<div class="admin-status success">הועלה בהצלחה. עברית קבל שם slug: <b>${data.week.slug}</b></div>`;
-      const card = root.querySelector('#previewCard');
-      card.style.display = 'block';
-      renderPreview(root.querySelector('#previewContent'), data.week);
+    } catch (err) {
+      status.innerHTML = `<div class="admin-status error">שגיאה בעיבוד הקבצים: ${err.message}</div>`;
+      return;
+    }
+
+    const parshaName = PARSHIOT.find((p) => p.slug === slug)?.he || slug;
+    const week = {
+      yearId, yearDisplay, slug, parshaName,
+      issueNumber: fd.get('issueNumber') ? parseInt(fd.get('issueNumber'), 10) : null,
+      dateLabel: fd.get('dateLabel') || null,
+      teaser: teaserEditor.value || null,
+      publishedAt: new Date().toISOString(),
+      pdfUrl: `data/bulletins/${yearId}/${slug}.pdf`,
+      textHtml, plainText, headings, colors,
+      styleOverrides: {},
+      displayOrder: 0, // new bulletins float to top by default
+    };
+
+    status.innerHTML = `<div class="admin-status info">מעלה לאתר (כדקה)…</div>`;
+    try {
+      await adminApi('/admin/bulletin', { method: 'POST', body: { week, pdfBase64, wordBase64 } });
+      status.innerHTML = `<div class="admin-status success">פורסם. האתר יתעדכן תוך כדקה.</div>`;
+      setTimeout(() => location.href = '/admin/bulletins', 1500);
     } catch (err) {
       status.innerHTML = `<div class="admin-status error">${err.message}</div>`;
     }
@@ -282,11 +314,11 @@ function setupDropzone(zone, type) {
   const reset = () => {
     zone.classList.remove('has-file');
     zone.innerHTML = type === 'docx'
-      ? `<div class="dropzone-label">גרור קובץ Word או לחץ לבחירה</div><div class="dropzone-hint">מקובלים .docx</div>`
+      ? `<div class="dropzone-label">גרור קובץ Word או לחץ לבחירה</div><div class="dropzone-hint">לא חובה — אם אין, רק PDF יוצג</div>`
       : `<div class="dropzone-label">גרור קובץ PDF או לחץ לבחירה</div><div class="dropzone-hint">PDF של העלון להצגה ולהורדה</div>`;
     zone.appendChild(input);
   };
-  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('click', (e) => { if (e.target.tagName !== 'BUTTON') input.click(); });
   zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragging'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('dragging'));
   zone.addEventListener('drop', (e) => {
@@ -319,41 +351,13 @@ function setupDropzone(zone, type) {
   });
 }
 
-function renderPreview(container, week) {
-  const colors = week.colors || {};
-  container.innerHTML = `
-    <div class="form-row">
-      <div>
-        <h3>פרטים</h3>
-        <p><b>פרשה:</b> ${week.parshaName}</p>
-        <p><b>שנה:</b> ${week.yearDisplay}</p>
-        <p><b>קישור:</b> <a href="/y/${week.yearId}/${week.slug}" target="_blank">/y/${week.yearId}/${week.slug}</a></p>
-        <p><b>PDF:</b> <a href="/y/${week.yearId}/${week.slug}/pdf" target="_blank">פתח PDF</a></p>
-      </div>
-      <div>
-        <h3>צבעים שזוהו</h3>
-        ${['primary', 'secondary', 'accent', 'background', 'text'].map((k) => `
-          <div class="color-row">
-            <label>${k}</label>
-            <div class="color-swatch" style="background:${colors[k] || '#ccc'}"></div>
-            <code>${colors[k] || '—'}</code>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-    <p style="margin-top: 16px;"><a class="btn btn-secondary" href="/admin/edit?year=${week.yearId}&slug=${week.slug}">${icon('edit', { size: 18 })} ערוך עיצוב</a></p>
-  `;
-}
-
 async function renderBulletinList(root) {
   const idx = await loadIndex(true);
-  // Display by manual order if set, else parsha cycle order
   const weeks = [...(idx.weeks || [])].sort((a, b) => {
     const ao = typeof a.displayOrder === 'number' ? a.displayOrder : 1000 + cycleOrderForSlug(a.slug);
     const bo = typeof b.displayOrder === 'number' ? b.displayOrder : 1000 + cycleOrderForSlug(b.slug);
     return ao - bo;
   });
-  // The week with the lowest displayOrder is "this week" (the one shown on home)
   const currentKey = weeks[0] ? `${weeks[0].yearId}/${weeks[0].slug}` : null;
 
   root.innerHTML = `
@@ -362,8 +366,8 @@ async function renderBulletinList(root) {
       <a class="btn" href="/admin/upload">${icon('plus', { size: 18 })} עלון חדש</a>
     </header>
     <div class="admin-card">
-      <p class="muted" style="margin-top:0;">גרור את הידית כדי לסדר. הכוכב מסמן את "העלון של השבוע" שמוצג בדף הבית. <b>בארכיון</b> הסדר תמיד נקבע לפי סדר הפרשיות הטבעי.</p>
-      ${weeks.length === 0 ? '<p class="muted">עוד אין עלונים. לחץ "עלון חדש" להעלאה ראשונה.</p>' : `
+      <p class="muted" style="margin-top:0;">גרור את הידית כדי לסדר. הכוכב מסמן את "העלון של השבוע" שמוצג בדף הבית. <b>בארכיון</b> הסדר נקבע תמיד לפי סדר הפרשיות הטבעי.</p>
+      ${weeks.length === 0 ? '<p class="muted">עוד אין עלונים.</p>' : `
         <table class="admin-table" id="bulletinTable">
           <thead><tr><th>פרשה</th><th>שנה</th><th>גליון</th><th>תאריך</th><th></th></tr></thead>
           <tbody>
@@ -399,42 +403,36 @@ async function renderBulletinList(root) {
     btn.addEventListener('click', async () => {
       const [year, slug] = btn.dataset.delete.split('/');
       if (!confirm(`למחוק את "${slug}"? לא ניתן לבטל.`)) return;
-      const r = await fetch(API('/api/bulletin'), {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ yearId: year, slug }),
-      });
-      const data = await r.json();
-      if (data.ok) {
+      try {
+        await adminApi('/admin/bulletin', { method: 'DELETE', body: { yearId: year, slug } });
         showToast('נמחק');
         renderBulletinList(root);
-      } else {
-        alert(data.error || 'שגיאה');
-      }
+      } catch (e) { alert(e.message); }
     });
   });
   root.querySelectorAll('[data-make-current]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const key = btn.dataset.makeCurrent;
-      // Move this row to the top, save order
       const newOrder = [key, ...weeks.filter((w) => `${w.yearId}/${w.slug}` !== key).map((w) => `${w.yearId}/${w.slug}`)];
-      await saveOrder(newOrder);
-      showToast('סומן כשבוע נוכחי');
-      renderBulletinList(root);
+      try {
+        await adminApi('/admin/reorder', { method: 'POST', body: { order: newOrder } });
+        showToast('סומן כשבוע נוכחי');
+        renderBulletinList(root);
+      } catch (e) { alert(e.message); }
     });
   });
   bindRowDragAndDrop(root.querySelector('#bulletinTable'), async (newOrder) => {
-    await saveOrder(newOrder);
-    showToast('הסדר נשמר');
-    renderBulletinList(root);
+    try {
+      await adminApi('/admin/reorder', { method: 'POST', body: { order: newOrder } });
+      showToast('הסדר נשמר');
+      renderBulletinList(root);
+    } catch (e) { alert(e.message); }
   });
 }
 
 function bindRowDragAndDrop(table, onChange) {
   if (!table) return;
   let draggedRow = null;
-  // Drag is initiated only on the grip handle; the rest of the row remains
-  // a normal interactive surface (so action buttons receive their clicks).
   table.addEventListener('dragstart', (e) => {
     const handle = e.target.closest('[data-drag-handle]');
     if (!handle) { e.preventDefault(); return; }
@@ -470,17 +468,6 @@ function bindRowDragAndDrop(table, onChange) {
   });
 }
 
-async function saveOrder(orderKeys) {
-  const r = await fetch(API('/api/reorder'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ order: orderKeys }),
-  });
-  const data = await r.json();
-  if (!data.ok) alert(data.error || 'שגיאה בשמירת הסדר');
-  return data.ok;
-}
-
 async function renderYearsAdmin(root) {
   const idx = await loadIndex(true);
   const years = [...(idx.years || [])].sort((a, b) => (b.id || '').localeCompare(a.id || ''));
@@ -490,7 +477,7 @@ async function renderYearsAdmin(root) {
       <h3>הוסף שנה</h3>
       <form id="addYearForm" class="form-row" style="align-items:end;">
         <div class="form-group">
-          <label>שם בעברית (למשל תשפ״ו)</label>
+          <label>שם בעברית (למשל תשפ״ז)</label>
           <input type="text" name="he" required />
         </div>
         <div class="form-group">
@@ -516,17 +503,39 @@ async function renderYearsAdmin(root) {
   root.querySelector('#addYearForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const he = fd.get('he').trim();
+    const he = (fd.get('he') || '').trim();
+    if (!he) return;
     const id = hebrewYearToNumber(he);
-    const r = await fetch(API('/api/year'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, displayName: he }),
-    });
-    const data = await r.json();
-    if (data.ok) renderYearsAdmin(root);
-    else alert(data.error);
+    try {
+      await adminApi('/admin/year', { method: 'POST', body: { id, displayName: he } });
+      showToast('נוספה שנה');
+      renderYearsAdmin(root);
+    } catch (err) { alert(err.message); }
   });
+}
+
+async function renderSubscribers(root) {
+  root.innerHTML = `<header class="admin-header"><h1>מנויים</h1></header><div class="loading"><div class="spinner"></div></div>`;
+  try {
+    const data = await adminApi('/admin/subscribers');
+    const subs = data.subscribers || [];
+    root.innerHTML = `
+      <header class="admin-header"><h1>מנויים (${subs.length})</h1></header>
+      <div class="admin-card">
+        ${subs.length === 0 ? '<p class="muted">עוד אין מנויים.</p>' : `
+          <table class="admin-table">
+            <thead><tr><th>מייל</th><th>נרשם ב-</th><th>מיקום</th></tr></thead>
+            <tbody>
+              ${subs.map((s) => `<tr><td>${escapeHtml(s.email)}</td><td>${(s.addedAt || '').slice(0, 10)}</td><td>${[s.city, s.country].filter(Boolean).join(' / ') || '—'}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        `}
+      </div>
+    `;
+  } catch (e) {
+    root.innerHTML = `<header class="admin-header"><h1>מנויים</h1></header>
+      <div class="admin-card"><p class="admin-status error">${e.message}</p></div>`;
+  }
 }
 
 async function renderSettings(root) {
@@ -552,16 +561,8 @@ async function renderSettings(root) {
           <input type="text" name="footer" value="${escapeHtml(config.footer || '')}" />
         </div>
         <div class="form-group">
-          <label>מייל ליצירת קשר (מופיע בכפתור "צור קשר")</label>
-          <input type="text" name="adminEmail" value="${escapeHtml(config.adminEmail || '')}" placeholder="gjlevitt@gmail.com" />
-        </div>
-        <div class="form-group">
-          <label>כתובת ה-API (Cloudflare Worker)</label>
-          <input type="text" name="apiBase" value="${escapeHtml(config.apiBase || '')}" placeholder="https://mashmaut-api.<your-subdomain>.workers.dev" />
-        </div>
-        <div class="form-group">
-          <label>מפתח אדמין (לפאנל הניהול בלבד — לא לפרסום)</label>
-          <input type="text" name="adminApiKey" value="${escapeHtml(config.adminApiKey || '')}" placeholder="sk_..." />
+          <label>מייל ליצירת קשר</label>
+          <input type="text" name="adminEmail" value="${escapeHtml(config.adminEmail || '')}" />
         </div>
         <button class="btn" type="submit">${icon('check', { size: 18 })} שמור</button>
       </form>
@@ -572,14 +573,10 @@ async function renderSettings(root) {
     const fd = new FormData(e.target);
     const obj = {};
     fd.forEach((v, k) => obj[k] = v);
-    const r = await fetch(API('/api/config'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(obj),
-    });
-    const data = await r.json();
-    if (data.ok) showToast('נשמר');
-    else alert(data.error);
+    try {
+      await adminApi('/admin/config', { method: 'POST', body: obj });
+      showToast('נשמר');
+    } catch (err) { alert(err.message); }
   });
 }
 
@@ -598,7 +595,7 @@ async function renderEditor(root) {
   }
   const colors = week.colors || {};
   const styleOverrides = week.styleOverrides || {};
-  const fonts = ['Assistant', 'Heebo', 'Frank Ruhl Libre', 'David', 'Tinos'];
+  const fonts = ['Assistant', 'Heebo', 'Rubik'];
 
   root.innerHTML = `
     <header class="admin-header">
@@ -607,6 +604,30 @@ async function renderEditor(root) {
         <a class="btn btn-secondary" href="/y/${week.yearId}/${week.slug}" target="_blank">${icon('eye', { size: 18 })} צפה</a>
       </div>
     </header>
+
+    <div class="admin-card">
+      <h3>החלפת קבצים</h3>
+      <p class="muted" style="margin-top:0;">העלאת קובץ חדש תחליף את הקיים. רענן את הדף אחרי השמירה כדי לראות את התוצאה באתר (כדקה).</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>קובץ Word (.docx) — לטקסט מוצג</label>
+          <div class="dropzone" id="newWordDrop">
+            <div class="dropzone-label">${week.wordPath ? 'החלף קובץ Word' : 'הוסף קובץ Word'}</div>
+            <div class="dropzone-hint">${week.wordPath ? 'יש כבר קובץ — העלאה תחליף אותו' : 'לעלון הזה אין עדיין Word'}</div>
+            <input type="file" name="word" accept=".docx" hidden />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>קובץ PDF</label>
+          <div class="dropzone" id="newPdfDrop">
+            <div class="dropzone-label">החלף PDF</div>
+            <div class="dropzone-hint">העלאה תחליף את ה-PDF הנוכחי</div>
+            <input type="file" name="pdf" accept=".pdf" hidden />
+          </div>
+        </div>
+      </div>
+      <div id="filesStatus"></div>
+    </div>
 
     <div class="admin-card">
       <h3>צבעי העלון</h3>
@@ -656,11 +677,14 @@ async function renderEditor(root) {
     </div>
 
     <button class="btn" id="saveEdit">${icon('check', { size: 18 })} שמור שינויים</button>
+    <span id="saveStatus" style="margin-right:14px;"></span>
   `;
+
+  setupDropzone(root.querySelector('#newWordDrop'), 'docx');
+  setupDropzone(root.querySelector('#newPdfDrop'), 'pdf');
 
   const teaserEditor = mountRichEditor(root.querySelector('#editTeaser'), week.teaser || '');
 
-  // Sync color picker with text input
   root.querySelectorAll('input[data-color]').forEach((picker) => {
     const k = picker.dataset.color;
     const txt = root.querySelector(`input[data-color-text="${k}"]`);
@@ -671,6 +695,7 @@ async function renderEditor(root) {
   });
 
   root.querySelector('#saveEdit').addEventListener('click', async () => {
+    const status = document.getElementById('saveStatus');
     const newColors = {};
     root.querySelectorAll('input[data-color]').forEach((picker) => {
       const k = picker.dataset.color;
@@ -686,33 +711,44 @@ async function renderEditor(root) {
       const v = el.value.trim();
       if (v && !(prop === 'color' && v === '#1a1a1a' && !el.dataset.touched)) newOverrides[tag][prop] = v;
     });
-    // Remove empty override blocks
     Object.keys(newOverrides).forEach((k) => { if (!Object.keys(newOverrides[k]).length) delete newOverrides[k]; });
     const meta = {};
     root.querySelectorAll('[data-meta]').forEach((el) => {
       const v = el.value.trim();
       meta[el.dataset.meta] = v || null;
     });
-    meta.teaser = teaserEditor.value || null;
-    const r = await fetch(API('/api/bulletin'), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ yearId: week.yearId, slug: week.slug, colors: newColors, styleOverrides: newOverrides, meta }),
-    });
-    const data = await r.json();
-    if (data.ok) showToast('נשמר');
-    else alert(data.error);
+
+    const newPdf = root.querySelector('#newPdfDrop input[type=file]').files[0] || null;
+    const newWord = root.querySelector('#newWordDrop input[type=file]').files[0] || null;
+
+    status.innerHTML = '<span class="muted">שומר…</span>';
+    try {
+      let pdfBase64, wordBase64;
+      let week2 = { ...week, ...meta, teaser: teaserEditor.value || null, colors: newColors, styleOverrides: newOverrides };
+      if (newPdf) {
+        pdfBase64 = await fileToBase64(newPdf);
+        week2.colors = await extractPdfPalette(await newPdf.arrayBuffer());
+        // Honor any user overrides over fresh extraction
+        Object.assign(week2.colors, newColors);
+      }
+      if (newWord) {
+        wordBase64 = await fileToBase64(newWord);
+        const r = await convertWordToHtml(await newWord.arrayBuffer());
+        week2.textHtml = r.html;
+        week2.plainText = r.plainText;
+        week2.headings = r.headings;
+        week2.wordPath = `public/data/bulletins/${week.yearId}/${week.slug}.docx`;
+      }
+      await adminApi('/admin/bulletin', { method: 'POST', body: { week: week2, pdfBase64, wordBase64 } });
+      status.innerHTML = '<span class="muted">נשמר. האתר יתעדכן תוך כדקה.</span>';
+      showToast('נשמר');
+    } catch (e) {
+      status.innerHTML = `<span style="color:#b91c1c;">${e.message}</span>`;
+    }
   });
 }
 
-function escapeHtml(s) {
-  return String(s || '').replace(/[&<>"']/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[c]));
-}
-
 function buildParshaOptions() {
-  // Build dropdown ordered by cycle, with combined options listed under their pair.
   const ordered = [...PARSHIOT].sort((a, b) => a.cycleOrder - b.cycleOrder);
   const out = [];
   for (const p of ordered) {
@@ -723,6 +759,12 @@ function buildParshaOptions() {
     }
   }
   return out.join('');
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
 }
 
 export { slugForHebrew };

@@ -15,7 +15,7 @@
       "yearDisplay": "תשפ\"ו",
       "slug": "emor",
       "parshaName": "אמור",
-      "issueNumber": 50,
+      "issueNumber": "50",
       "dateLabel": "י אייר",
       "teaser": "להתקדש, לקדש, אבל לגמרי בטבעיות. למה אי אפשר לומר לך לקדש את השם?",
       "publishedAt": "2025-02-19T22:00:00.000Z",
@@ -24,6 +24,7 @@
         "secondary": "#bc6c25",
         "accent": "#dda15e",
         "background": "#fdf8f3",
+        "bgEnd": "#cccccc",
         "text": "#1a1a1a"
       },
       "displayOrder": 0

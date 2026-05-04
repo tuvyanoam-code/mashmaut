@@ -1,0 +1,23 @@
+import './styles/base.css';
+import './styles/components.css';
+import './styles/admin.css';
+
+import { defineRoute, startRouter } from './router.js';
+import { renderHome } from './pages/home.js';
+import { renderYears } from './pages/years.js';
+import { renderYear } from './pages/year.js';
+import { renderBulletin } from './pages/bulletin.js';
+import { renderPdf } from './pages/pdfView.js';
+import { renderSearch } from './pages/search.js';
+import { renderAdmin } from './pages/admin.js';
+
+defineRoute('/', renderHome);
+defineRoute('/years', renderYears);
+defineRoute('/y/:year', renderYear);
+defineRoute('/y/:year/:slug', renderBulletin);
+defineRoute('/y/:year/:slug/pdf', renderPdf);
+defineRoute('/search', renderSearch);
+defineRoute('/admin', renderAdmin);
+defineRoute('/admin/:section', renderAdmin);
+
+startRouter();

@@ -1,0 +1,45 @@
+{
+  "years": [
+    {
+      "id": "5786",
+      "displayName": "תשפ\"ו"
+    }
+  ],
+  "weeks": [
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "emor",
+      "parshaName": "אמור",
+      "issueNumber": "50",
+      "dateLabel": "י אייר",
+      "teaser": "להתקדש, לקדש, אבל לגמרי בטבעיות. למה אי אפשר לומר לך לקדש את השם?",
+      "publishedAt": "2026-05-04T15:53:54.165Z",
+      "colors": {
+        "primary": "#9d0208",
+        "secondary": "#d00000",
+        "accent": "#dc2f02",
+        "background": "#fdf6f5",
+        "bgEnd": "#cccccc",
+        "text": "#1a1a1a"
+      }
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "kedoshim",
+      "parshaName": "קדושים",
+      "issueNumber": 49,
+      "dateLabel": "ז אייר",
+      "teaser": "<mark>לכבוש.</mark> אהבה כובשת, אבל לא סתם. <mark>איך נמצא את אהבתינו בכל דבר בעולם?</mark>",
+      "publishedAt": "2026-05-04T16:53:13.108Z",
+      "colors": {
+        "primary": "#1d4e89",
+        "secondary": "#3066be",
+        "accent": "#5b9eed",
+        "background": "#f4f8fd",
+        "text": "#1a1a1a"
+      }
+    }
+  ]
+}

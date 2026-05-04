@@ -1,0 +1,26 @@
+name = "mashmaut-api"
+main = "src/index.js"
+compatibility_date = "2024-12-30"
+account_id = "ea19fdb623516ff23c6cc375bea912bb"
+
+# Cron: every Thursday at 17:00 UTC (= ~19:00 Israel, summer offset varies).
+# Adjust when daylight saving changes if precise time matters.
+[triggers]
+crons = ["0 17 * * 4"]
+
+# KV namespaces — IDs are filled in by the setup script after `wrangler kv:namespace create`.
+[[kv_namespaces]]
+binding = "EMAILS"
+id = "REPLACE_WITH_EMAILS_KV_ID"
+
+[[kv_namespaces]]
+binding = "EVENTS"
+id = "REPLACE_WITH_EVENTS_KV_ID"
+
+# Public origin of the static site. Used in emails and CORS allowlist.
+[vars]
+SITE_URL = "https://mashmaut.example.com"
+SITE_NAME = "משמעות"
+ADMIN_EMAIL = "gjlevitt@gmail.com"
+FROM_EMAIL = "onboarding@resend.dev"
+FROM_NAME = "עלון משמעות"

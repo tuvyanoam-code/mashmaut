@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>משמעות</title>
+  <script>
+    // GitHub Pages SPA fallback — encodes the path into a query string
+    // and redirects to index.html, where the inline script decodes it.
+    // Auto-detects project-page subpath: when on *.github.io with a sub-path,
+    // the first segment is preserved as the repo base.
+    (function () {
+      var l = window.location;
+      var isProjectPage = /\.github\.io$/i.test(l.hostname) && l.pathname.split('/').filter(Boolean).length > 0;
+      var pathSegmentsToKeep = isProjectPage ? 1 : 0;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    })();
+  </script>
+</head>
+<body></body>
+</html>

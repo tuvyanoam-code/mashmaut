@@ -883,22 +883,6 @@
 .bulletin-body h3 { margin-top: 1.4em; font-size: 1.2rem; }
 .bulletin-body h1:first-child, .bulletin-body h2:first-child { margin-top: 0; }
 .bulletin-body p { text-align: justify; text-justify: inter-word; }
-/* Drop cap on the first paragraph — editorial / magazine touch.
-   Skipped if the first child is a heading (so the parsha title isn't double-emphasized). */
-.bulletin-body > p:first-child::first-letter,
-.bulletin-body > h1:first-child + p::first-letter,
-.bulletin-body > h2:first-child + p::first-letter {
-  font-family: var(--font-heading);
-  font-size: 3.4em;
-  font-weight: 800;
-  float: right;
-  line-height: .9;
-  margin-inline-start: 8px;
-  margin-block-start: 4px;
-  margin-block-end: -4px;
-  color: var(--bulletin-primary);
-  letter-spacing: -.04em;
-}
 .bulletin-body blockquote {
   border-right: 3px solid var(--bulletin-primary);
   padding: 8px 20px 8px 0;

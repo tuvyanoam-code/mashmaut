@@ -186,14 +186,14 @@ p { margin: 0 0 1em; }
   flex-shrink: 0;
 }
 .nav-brand .brand-logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
+  height: 38px;
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+  display: block;
   flex-shrink: 0;
 }
+.nav-brand--logo { gap: 0; }
 .nav-actions {
   display: flex;
   align-items: center;

@@ -5,15 +5,16 @@ import { openSubscribeModal, openContactModal } from './subscribeModal.js';
 export async function navHtml() {
   const config = await loadConfig();
   const siteName = config.siteName || 'משמעות';
-  const brandLogo = config.logo
+  // When a logo is set, render only the image (no circle, no sibling text).
+  // The image's alt attribute carries the site name for accessibility.
+  const brandInner = config.logo
     ? `<img class="brand-logo" src="${config.logo}" alt="${siteName}" />`
-    : `<span class="brand-mark">${siteName.charAt(0)}</span>`;
+    : `<span class="brand-mark">${siteName.charAt(0)}</span><span>${siteName}</span>`;
   return `
     <nav class="nav">
       <div class="nav-inner">
-        <a href="/" class="nav-brand">
-          ${brandLogo}
-          <span>${siteName}</span>
+        <a href="/" class="nav-brand ${config.logo ? 'nav-brand--logo' : ''}">
+          ${brandInner}
         </a>
         <button class="nav-toggle" id="navToggle" type="button" aria-label="פתח תפריט" aria-expanded="false" aria-controls="navActions">
           ${icon('menu', { size: 22 })}

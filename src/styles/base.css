@@ -54,12 +54,24 @@ a:hover { opacity: .75; }
   --maxw-content: 720px;
   --maxw-wide: 1100px;
 
+  /* Mobile-first breakpoints (used as min-width queries). */
+  --bp-sm: 480px;
+  --bp-md: 720px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+
+  /* Fluid horizontal page padding — tight on phone, generous on desktop. */
+  --page-x: clamp(16px, 4vw, 32px);
+
   --transition: 200ms cubic-bezier(.2, .8, .2, 1);
+
+  /* Bottom safe-area padding for iOS home-indicator (used by admin tab bar). */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* ===== Layout ===== */
-.container { max-width: var(--maxw-wide); margin: 0 auto; padding: 0 24px; }
-.content { max-width: var(--maxw-content); margin: 0 auto; padding: 0 24px; }
+.container { max-width: var(--maxw-wide); margin: 0 auto; padding: 0 var(--page-x); }
+.content { max-width: var(--maxw-content); margin: 0 auto; padding: 0 var(--page-x); }
 
 /* ===== Typography ===== */
 h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: 800; line-height: 1.15; margin: 0 0 .5em; letter-spacing: -.015em; }
@@ -145,8 +157,8 @@ p { margin: 0 0 1em; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 24px;
+  gap: 12px;
+  padding: 12px var(--page-x);
   max-width: var(--maxw-wide);
   margin: 0 auto;
 }
@@ -264,6 +276,89 @@ p { margin: 0 0 1em; }
 /* ===== 404 ===== */
 .page-not-found {
   text-align: center;
-  padding: 100px 24px;
+  padding: clamp(60px, 12vw, 100px) var(--page-x);
 }
 .page-not-found h1 { margin-bottom: 16px; }
+
+/* ===== Mobile nav (toggle + sheet) ===== */
+.nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.nav-toggle:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
+@media (min-width: 720px) {
+  .nav-toggle { display: none; }
+}
+.nav-actions {
+  display: none;
+  position: absolute;
+  inset-inline: var(--page-x);
+  top: calc(100% + 6px);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 8px;
+  box-shadow: var(--shadow-md);
+  z-index: 51;
+}
+.nav-actions.open { display: flex; }
+.nav-actions a,
+.nav-actions .nav-cta {
+  width: 100%;
+  justify-content: flex-start;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+@media (min-width: 720px) {
+  .nav-actions {
+    display: flex;
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    box-shadow: none;
+    inset-inline: auto;
+  }
+  .nav-actions a,
+  .nav-actions .nav-cta {
+    width: auto;
+    justify-content: center;
+  }
+  .nav-actions a { padding: 8px 14px; }
+  .nav-actions .nav-cta { padding: 8px 16px; }
+}
+.nav { position: sticky; }
+.nav-inner { position: relative; }
+
+/* ===== Touch targets — minimum 44x44 for interactive controls ===== */
+@media (pointer: coarse) {
+  .btn, .btn-icon, .nav-actions a, .nav-cta, .nav-toggle, .share-btn,
+  .admin-nav-item, .admin-tab, .modal-close, .dropzone-clear {
+    min-height: 44px;
+  }
+  .btn-icon, .nav-toggle, .share-btn, .modal-close { min-width: 44px; }
+}
+
+/* ===== Reduced motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

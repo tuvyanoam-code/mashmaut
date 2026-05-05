@@ -27,7 +27,9 @@ export async function renderPdf({ params }) {
         <h1>פרשת ${week.parshaName} · ${week.yearDisplay || ''}</h1>
         <a class="btn-icon" href="${src}" download aria-label="הורד">${icon('download', { size: 20 })}</a>
       </header>
-      <iframe class="pdf-frame" src="${src}#view=FitH" title="עלון פרשת ${week.parshaName}"></iframe>
+      <div class="pdf-frame-wrap">
+        <iframe class="pdf-frame" src="${src}#view=FitH" title="עלון פרשת ${week.parshaName}"></iframe>
+      </div>
     </div>
   `;
   track('pdf', { slug: week.slug, year: week.yearId });

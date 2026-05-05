@@ -66,6 +66,7 @@ export async function renderBulletin({ params }) {
       </header>
 
       ${week.headings && week.headings.length > 1 ? renderToc(week.headings) : ''}
+      ${week.headings && week.headings.length > 1 ? renderTocMobile(week.headings) : ''}
 
       <article class="bulletin-body" data-bulletin-content>
         ${week.textHtml || '<p class="muted center">אין טקסט זמין לעלון זה. נסה ב-PDF.</p>'}
@@ -123,6 +124,25 @@ function renderToc(headings) {
   `;
 }
 
+function renderTocMobile(headings) {
+  const items = headings.filter((h) => h.level <= 3);
+  if (items.length < 2) return '';
+  return `
+    <nav class="bulletin-toc-mobile" aria-label="תוכן העניינים">
+      <details>
+        <summary><span class="bulletin-toc-mobile-title">פרקים בעלון</span></summary>
+        <ul>
+          ${items.map((h) => `
+            <li>
+              <a class="toc-link toc-h${h.level}" data-target="${h.id}" href="#${h.id}">${h.text}</a>
+            </li>
+          `).join('')}
+        </ul>
+      </details>
+    </nav>
+  `;
+}
+
 function estimateReadMinutes(plainText, htmlFallback) {
   let text = plainText || '';
   if (!text && htmlFallback) text = htmlFallback.replace(/<[^>]+>/g, ' ');
@@ -136,7 +156,7 @@ function bindTocAndScrollSpy(root, headings) {
   if (!headings || headings.length < 2) return;
   const links = root.querySelectorAll('.toc-link');
   if (!links.length) return;
-  // Smooth-scroll on click
+  // Smooth-scroll on click. Also close the mobile dropdown if open.
   links.forEach((a) => {
     a.addEventListener('click', (e) => {
       const id = a.dataset.target;
@@ -145,6 +165,8 @@ function bindTocAndScrollSpy(root, headings) {
       e.preventDefault();
       const top = target.getBoundingClientRect().top + window.scrollY - 90;
       window.scrollTo({ top, behavior: 'smooth' });
+      const details = a.closest('.bulletin-toc-mobile details');
+      if (details) details.open = false;
     });
   });
   // Highlight currently-visible heading using IntersectionObserver

@@ -70,11 +70,11 @@ export async function renderStats(root) {
           <tbody>
             ${slugs.map(([slug, vals]) => `
               <tr>
-                <td><b>${slug}</b></td>
-                <td>${vals.view || 0}</td>
-                <td>${vals.pdf || 0}</td>
-                <td>${vals.finish || 0}</td>
-                <td>${vals.share || 0}</td>
+                <td data-label="עלון"><b>${slug}</b></td>
+                <td data-label="צפיות">${vals.view || 0}</td>
+                <td data-label="PDF">${vals.pdf || 0}</td>
+                <td data-label="סיומי קריאה">${vals.finish || 0}</td>
+                <td data-label="שיתופים">${vals.share || 0}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -87,7 +87,7 @@ export async function renderStats(root) {
         ${countries.length ? `
           <table class="admin-table">
             <tbody>
-              ${countries.map(([c, n]) => `<tr><td>${c}</td><td>${n}</td></tr>`).join('')}
+              ${countries.map(([c, n]) => `<tr><td data-label="מדינה">${c}</td><td data-label="מספר">${n}</td></tr>`).join('')}
             </tbody>
           </table>` : '<p class="muted">עוד אין נתונים.</p>'}
       </div>
@@ -96,7 +96,7 @@ export async function renderStats(root) {
         ${cities.length ? `
           <table class="admin-table">
             <tbody>
-              ${cities.map(([c, n]) => `<tr><td>${c}</td><td>${n}</td></tr>`).join('')}
+              ${cities.map(([c, n]) => `<tr><td data-label="עיר">${c}</td><td data-label="מספר">${n}</td></tr>`).join('')}
             </tbody>
           </table>` : '<p class="muted">עוד אין נתונים.</p>'}
       </div>
@@ -152,6 +152,13 @@ function statCard(label, value, type) {
 
 function renderDailyChart(days, byDay) {
   if (!days.length) return '<p class="muted">עוד אין נתונים.</p>';
+  return `
+    <div class="chart-mobile">${renderSparkline(days, byDay)}</div>
+    <div class="chart-desktop">${renderBarChart(days, byDay)}</div>
+  `;
+}
+
+function renderBarChart(days, byDay) {
   // Show last 30 days
   const recent = days.slice(-30);
   const series = ['view', 'pdf', 'finish', 'share'];
@@ -176,6 +183,47 @@ function renderDailyChart(days, byDay) {
       </div>
       <div class="chart-legend">
         ${series.map((s) => `<span><i style="background:${colors[s]}"></i> ${seriesNames[s]}</span>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderSparkline(days, byDay) {
+  // Last 30 days, summed per day, as an SVG sparkline.
+  const recent = days.slice(-30);
+  const totals = recent.map((d) => {
+    const r = byDay[d] || {};
+    return (r.view || 0) + (r.pdf || 0) + (r.finish || 0) + (r.share || 0);
+  });
+  const sum = (arr) => arr.reduce((a, b) => a + b, 0);
+  const total30 = sum(totals);
+  const total7 = sum(totals.slice(-7));
+  const totalToday = totals[totals.length - 1] || 0;
+
+  const W = 320; // viewBox width — scales to container
+  const H = 70;
+  const max = Math.max(1, ...totals);
+  const stepX = recent.length > 1 ? W / (recent.length - 1) : W;
+  const points = totals.map((v, i) => {
+    const x = i * stepX;
+    const y = H - 4 - (v / max) * (H - 12);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const linePath = `M ${points.join(' L ')}`;
+  const areaPath = recent.length
+    ? `M 0,${H} L ${points.join(' L ')} L ${W},${H} Z`
+    : '';
+
+  return `
+    <div class="spark-wrap">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="פעילות 30 יום">
+        <path d="${areaPath}" fill="color-mix(in srgb, var(--accent) 14%, transparent)"></path>
+        <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      <div class="spark-kpis">
+        <div class="spark-kpi"><div class="spark-kpi-label">היום</div><div class="spark-kpi-value">${totalToday.toLocaleString('he-IL')}</div></div>
+        <div class="spark-kpi"><div class="spark-kpi-label">7 ימים</div><div class="spark-kpi-value">${total7.toLocaleString('he-IL')}</div></div>
+        <div class="spark-kpi"><div class="spark-kpi-label">30 יום</div><div class="spark-kpi-value">${total30.toLocaleString('he-IL')}</div></div>
       </div>
     </div>
   `;

@@ -11,7 +11,10 @@ export async function navHtml() {
           <span class="brand-mark">מ</span>
           <span>${config.siteName || 'משמעות'}</span>
         </a>
-        <div class="nav-actions">
+        <button class="nav-toggle" id="navToggle" type="button" aria-label="פתח תפריט" aria-expanded="false" aria-controls="navActions">
+          ${icon('menu', { size: 22 })}
+        </button>
+        <div class="nav-actions" id="navActions">
           <a href="/years">${icon('archive', { size: 18 })} <span>ארכיון</span></a>
           <a href="/search">${icon('search', { size: 18 })} <span>חיפוש</span></a>
           <button class="nav-cta" id="navSubscribe" type="button">${icon('email', { size: 18 })} <span>קבל למייל</span></button>
@@ -24,6 +27,26 @@ export async function navHtml() {
 // Bind nav buttons (call after navHtml is rendered)
 export function bindNav() {
   if (typeof document === 'undefined') return;
+  const toggle = document.getElementById('navToggle');
+  const sheet = document.getElementById('navActions');
+  if (toggle && sheet) {
+    const close = () => {
+      sheet.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    };
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = sheet.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    sheet.addEventListener('click', (e) => {
+      // Close after tapping a nav link or the subscribe button on mobile.
+      if (e.target.closest('a, button')) close();
+    });
+    document.addEventListener('click', (e) => {
+      if (!sheet.contains(e.target) && e.target !== toggle && !toggle.contains(e.target)) close();
+    });
+  }
   document.querySelectorAll('#navSubscribe').forEach((b) => {
     b.addEventListener('click', () => openSubscribeModal());
   });

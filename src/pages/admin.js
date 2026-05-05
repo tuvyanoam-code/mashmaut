@@ -62,6 +62,7 @@ export async function renderAdmin({ params }) {
     <div class="admin-shell fade-in">
       ${renderSidebar(section)}
       <main class="admin-main" id="adminMain"></main>
+      ${renderTabbar(section)}
     </div>
   `;
   bindSidebar();
@@ -134,6 +135,27 @@ function renderSidebar(active) {
       <a class="admin-nav-item" href="/" target="_blank">${icon('eye', { size: 18 })} <span>צפה באתר</span></a>
       <button type="button" class="admin-nav-item" id="logoutBtn" style="background:transparent;border:none;width:100%;text-align:right;cursor:pointer;">${icon('close', { size: 18 })} <span>התנתק</span></button>
     </aside>
+  `;
+}
+
+function renderTabbar(active) {
+  // 4 primary destinations on mobile. Less-frequent ones stay reachable from
+  // the dashboard ("more") card or via the sidebar on tablet+ widths.
+  const tabs = [
+    { id: 'dashboard', label: 'ראשי', icon: 'home' },
+    { id: 'upload', label: 'העלאה', icon: 'upload' },
+    { id: 'bulletins', label: 'עלונים', icon: 'book' },
+    { id: 'stats', label: 'שימוש', icon: 'eye' },
+  ];
+  return `
+    <nav class="admin-tabbar" aria-label="ניווט מהיר">
+      ${tabs.map((t) => `
+        <a class="admin-tab ${active === t.id ? 'active' : ''}" href="/admin/${t.id === 'dashboard' ? '' : t.id}">
+          ${icon(t.icon, { size: 22 })}
+          <span>${t.label}</span>
+        </a>
+      `).join('')}
+    </nav>
   `;
 }
 
@@ -376,16 +398,16 @@ async function renderBulletinList(root) {
               const isCurrent = key === currentKey;
               return `
               <tr data-key="${key}">
-                <td>
+                <td data-label="פרשה">
                   <span class="parsha-cell">
                     <span class="grip" data-drag-handle title="גרור לסדר" draggable="true">${icon('grip', { size: 16 })}</span>
                     ${isCurrent ? `<span class="star-current" title="העלון של השבוע">${icon('starFilled', { size: 16 })}</span>` : ''}
                     <b>${w.parshaName}</b>
                   </span>
                 </td>
-                <td>${w.yearDisplay || w.yearId}</td>
-                <td>${w.issueNumber || ''}</td>
-                <td>${w.dateLabel || ''}</td>
+                <td data-label="שנה">${w.yearDisplay || w.yearId}</td>
+                <td data-label="גליון">${w.issueNumber || ''}</td>
+                <td data-label="תאריך">${w.dateLabel || ''}</td>
                 <td class="row-actions">
                   ${!isCurrent ? `<button type="button" class="btn-icon star-toggle" data-make-current="${key}" title="סמן כעלון של השבוע">${icon('star', { size: 16 })}</button>` : ''}
                   <a class="btn-icon" href="/y/${w.yearId}/${w.slug}" target="_blank" title="צפה">${icon('eye', { size: 16 })}</a>
@@ -491,9 +513,9 @@ async function renderYearsAdmin(root) {
         <tbody>
           ${years.map((y) => `
             <tr>
-              <td><b>${y.displayName}</b></td>
-              <td>${y.id}</td>
-              <td>${(idx.weeks || []).filter((w) => w.yearId === y.id).length}</td>
+              <td data-label="שנה"><b>${y.displayName}</b></td>
+              <td data-label="מס׳">${y.id}</td>
+              <td data-label="עלונים">${(idx.weeks || []).filter((w) => w.yearId === y.id).length}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -526,7 +548,7 @@ async function renderSubscribers(root) {
           <table class="admin-table">
             <thead><tr><th>מייל</th><th>נרשם ב-</th><th>מיקום</th></tr></thead>
             <tbody>
-              ${subs.map((s) => `<tr><td>${escapeHtml(s.email)}</td><td>${(s.addedAt || '').slice(0, 10)}</td><td>${[s.city, s.country].filter(Boolean).join(' / ') || '—'}</td></tr>`).join('')}
+              ${subs.map((s) => `<tr><td data-label="מייל">${escapeHtml(s.email)}</td><td data-label="נרשם ב-">${(s.addedAt || '').slice(0, 10)}</td><td data-label="מיקום">${[s.city, s.country].filter(Boolean).join(' / ') || '—'}</td></tr>`).join('')}
             </tbody>
           </table>
         `}

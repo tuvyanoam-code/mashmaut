@@ -19,5 +19,6 @@
     "background": "#f6fbf8",
     "text": "#1a1a1a"
   },
-  "styleOverrides": {}
+  "styleOverrides": {},
+  "displayOrder": 7
 }

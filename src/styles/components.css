@@ -61,6 +61,9 @@
   max-width: 470px;
   max-height: 290px;
   object-fit: contain;
+  /* Nudge slightly left to visually center against the tagline.
+     The calligraphic mark has more visual weight on its right side. */
+  transform: translateX(-12px);
 }
 .splash-tagline {
   margin: 6px auto 0;

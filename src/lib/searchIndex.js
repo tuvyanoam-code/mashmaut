@@ -17,30 +17,53 @@ function normalize(s) {
 }
 
 let _docCache = null;
+let _docPromise = null;
 
 async function buildDocs() {
   if (_docCache) return _docCache;
+  // Coalesce concurrent calls — first caller starts loading, others await it.
+  if (_docPromise) return _docPromise;
+  _docPromise = _buildDocsInner().then((d) => { _docCache = d; _docPromise = null; return d; },
+                                     (e) => { _docPromise = null; throw e; });
+  return _docPromise;
+}
+
+/** Pre-build the search index on idle so the first user search is instant. */
+export function warmupSearch() {
+  if (_docCache || _docPromise) return;
+  buildDocs().catch(() => { /* best-effort */ });
+}
+
+async function _buildDocsInner() {
   const idx = await loadIndex();
   const weeks = idx.weeks || [];
-  const docs = [];
-  for (const w of weeks) {
-    let bulletin = null;
-    try { bulletin = await loadBulletin(w.yearId, w.slug); } catch (_) {}
-    const headingsText = (bulletin?.headings || []).map((h) => h.text).join(' • ');
-    const text = bulletin?.plainText || '';
-    docs.push({
-      week: w,
-      parshaN: normalize(w.parshaName),
-      yearN: normalize(w.yearDisplay),
-      headingsN: normalize(headingsText),
-      textN: normalize(text),
-      teaserN: normalize(w.teaser || bulletin?.teaser || ''),
-      headingsRaw: headingsText,
-      textRaw: text,
-      teaserRaw: w.teaser || bulletin?.teaser || '',
-    });
+  // Fetch bulletins in parallel (small bursts to stay friendly to the browser
+  // connection pool). Parallelism dramatically cuts cold-load time.
+  const CONCURRENCY = 8;
+  const docs = new Array(weeks.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < weeks.length) {
+      const i = cursor++;
+      const w = weeks[i];
+      let bulletin = null;
+      try { bulletin = await loadBulletin(w.yearId, w.slug); } catch (_) {}
+      const headingsText = (bulletin?.headings || []).map((h) => h.text).join(' • ');
+      const text = bulletin?.plainText || '';
+      docs[i] = {
+        week: w,
+        parshaN: normalize(w.parshaName),
+        yearN: normalize(w.yearDisplay),
+        headingsN: normalize(headingsText),
+        textN: normalize(text),
+        teaserN: normalize(w.teaser || bulletin?.teaser || ''),
+        headingsRaw: headingsText,
+        textRaw: text,
+        teaserRaw: w.teaser || bulletin?.teaser || '',
+      };
+    }
   }
-  _docCache = docs;
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, weeks.length) }, worker));
   return docs;
 }
 

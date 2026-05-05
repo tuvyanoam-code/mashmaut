@@ -126,6 +126,8 @@ export function startRouter() {
     if (!href || href.startsWith('#') || a.target === '_blank' ||
         a.hasAttribute('download') || a.dataset.external === 'true') return;
     if (/^https?:\/\//.test(href)) return;
+    // Pass through non-navigational schemes — let the OS open the right app.
+    if (/^(mailto|sms|tel|whatsapp|facetime):/i.test(href)) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
     navigate(stripBase(href.startsWith('/') ? href : new URL(href, window.location.href).pathname));

@@ -192,43 +192,51 @@ async function recordEvent(env, body, request) {
 }
 
 async function buildStats(env) {
-  // Aggregate the last 60 days
-  const counters = await env.EVENTS.list({ prefix: 'cnt:', limit: 1000 });
   const byDay = {};
   const byType = {};
   const byCountry = {};
   const byCity = {};
   const bySlug = {};
-  for (const k of counters.keys) {
-    const v = parseInt(await env.EVENTS.get(k.name) || '0', 10);
-    const parts = k.name.split(':'); // cnt:DATE:dim:value(:type?)
-    const [, date, dim, ...rest] = parts;
-    if (dim === 'type') {
-      const type = rest[0];
-      byDay[date] = byDay[date] || { view: 0, pdf: 0, finish: 0, share: 0, 'subscribe-cta': 0 };
-      byDay[date][type] = (byDay[date][type] || 0) + v;
-      byType[type] = (byType[type] || 0) + v;
-    } else if (dim === 'country') {
-      const country = rest[0]; const type = rest[1];
-      if (type === 'view') byCountry[country] = (byCountry[country] || 0) + v;
-    } else if (dim === 'city') {
-      const country = rest[0]; const city = rest[1];
-      const k2 = country + ' / ' + city;
-      byCity[k2] = (byCity[k2] || 0) + v;
-    } else if (dim === 'slug') {
-      const slug = rest[0]; const type = rest[1];
-      bySlug[slug] = bySlug[slug] || {};
-      bySlug[slug][type] = (bySlug[slug][type] || 0) + v;
+
+  // Walk every counter key — KV list caps at 1000 per page, so paginate fully.
+  let cursor;
+  do {
+    const res = await env.EVENTS.list({ prefix: 'cnt:', cursor });
+    const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name)));
+    for (let i = 0; i < res.keys.length; i++) {
+      const v = parseInt(values[i] || '0', 10);
+      if (!v) continue;
+      const parts = res.keys[i].name.split(':'); // cnt:DATE:dim:value(:type?)
+      const [, date, dim, ...rest] = parts;
+      if (dim === 'type') {
+        const type = rest[0];
+        byDay[date] = byDay[date] || { view: 0, pdf: 0, finish: 0, share: 0, 'subscribe-cta': 0 };
+        byDay[date][type] = (byDay[date][type] || 0) + v;
+        byType[type] = (byType[type] || 0) + v;
+      } else if (dim === 'country') {
+        const country = rest[0]; const type = rest[1];
+        if (type === 'view') byCountry[country] = (byCountry[country] || 0) + v;
+      } else if (dim === 'city') {
+        const country = rest[0]; const city = rest[1];
+        const k2 = country + ' / ' + city;
+        byCity[k2] = (byCity[k2] || 0) + v;
+      } else if (dim === 'slug') {
+        const slug = rest[0]; const type = rest[1];
+        bySlug[slug] = bySlug[slug] || {};
+        bySlug[slug][type] = (bySlug[slug][type] || 0) + v;
+      }
     }
-  }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
 
   // Fingerprint stats
   let unique = 0, returning = 0, finishers = 0, sharers = 0;
-  let cursor;
+  cursor = undefined;
   do {
     const res = await env.EVENTS.list({ prefix: 'fp:', cursor });
-    for (const k of res.keys) {
-      const fp = await env.EVENTS.get(k.name, 'json');
+    const fps = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+    for (const fp of fps) {
       if (!fp) continue;
       unique++;
       if ((fp.visits || 0) > 1) returning++;
@@ -271,6 +279,7 @@ async function sendEmail(env, to, subject, html) {
 function buildBulletinEmail(env, week) {
   const url = `${env.SITE_URL.replace(/\/$/, '')}/y/${week.yearId}/${week.slug}`;
   const pdfUrl = `${env.SITE_URL.replace(/\/$/, '')}/data/bulletins/${week.yearId}/${week.slug}.pdf`;
+  const apiUrl = (env.API_URL || 'https://api.alonmashmaut.org').replace(/\/$/, '');
   const title = `עלון משמעות — פרשת ${week.parshaName}`;
   const teaser = (week.teaser || '').replace(/<[^>]+>/g, '');
   const colors = week.colors || {};
@@ -298,7 +307,7 @@ function buildBulletinEmail(env, week) {
         </td></tr>
         <tr><td style="padding:18px 32px;border-top:1px solid #ece6d8;font-size:12px;color:#999;">
           קיבלת את המייל הזה כי נרשמת לעלון משמעות.
-          <a href="${env.SITE_URL.replace(/\/$/, '')}/unsubscribe?email={{EMAIL}}" style="color:#999;">להסרה מרשימת התפוצה</a>.
+          <a href="${apiUrl}/unsubscribe?email={{EMAIL}}" style="color:#999;">להסרה מרשימת התפוצה</a>.
         </td></tr>
       </table>
     </td></tr>
@@ -367,7 +376,8 @@ export default {
         const data = await addSubscriber(env, body.email, request);
         // Send a welcome email
         try {
-          const link = `${env.SITE_URL.replace(/\/$/, '')}/unsubscribe?email=${encodeURIComponent(data.email)}&token=${data.token}`;
+          const apiBase = (env.API_URL || 'https://api.alonmashmaut.org').replace(/\/$/, '');
+          const link = `${apiBase}/unsubscribe?email=${encodeURIComponent(data.email)}&token=${data.token}`;
           await sendEmail(env, data.email,
             `ברוך הבא לעלון משמעות`,
             `<div dir="rtl" style="font-family:Assistant,system-ui,sans-serif;color:#1a1a1a;font-size:16px;line-height:1.6;">
@@ -385,7 +395,35 @@ export default {
         if (!isEmail(email)) return err('email required');
         await removeSubscriber(env, email);
         if (request.method === 'GET') {
-          return new Response(`<!DOCTYPE html><html lang="he" dir="rtl"><body style="font-family:Assistant,sans-serif;text-align:center;padding:60px;"><h1>הוסרת מרשימת התפוצה</h1><p>הקישור לא יישלח אליך יותר.</p></body></html>`, {
+          const siteUrl = env.SITE_URL || 'https://alonmashmaut.org';
+          const html = `<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>הוסרת מרשימת התפוצה — עלון משמעות</title>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; font-family:Assistant,system-ui,sans-serif; background:#fbfaf7; color:#1a1a1a; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card { background:#fff; border:1px solid #ece6d8; border-radius:18px; padding:36px 28px; max-width:440px; width:100%; text-align:center; box-shadow:0 6px 24px rgba(20,20,20,.07); }
+    h1 { margin:0 0 8px; font-size:1.6rem; }
+    p { color:#666; line-height:1.6; margin:8px 0; }
+    .check { width:60px; height:60px; border-radius:50%; background:#e0f0e7; color:#2d6a4f; display:inline-flex; align-items:center; justify-content:center; margin:0 auto 16px; }
+    .check svg { width:32px; height:32px; }
+    .home { display:inline-block; margin-top:16px; padding:10px 22px; background:#2d6a4f; color:#fff; text-decoration:none; border-radius:999px; font-weight:600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+    <h1>הוסרת מרשימת התפוצה</h1>
+    <p>הכתובת <b>${email}</b> לא תקבל יותר מיילים מעלון משמעות.</p>
+    <p>אם נרשמת בטעות או שינית דעתך, אפשר להירשם מחדש דרך האתר בכל שלב.</p>
+    <a class="home" href="${siteUrl}">חזרה לאתר</a>
+  </div>
+</body>
+</html>`;
+          return new Response(html, {
             headers: { 'Content-Type': 'text/html;charset=utf-8' },
           });
         }

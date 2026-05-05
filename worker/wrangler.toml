@@ -20,6 +20,7 @@ id = "f7a3af92250640d8ac96ee4a83847860"
 # Public origin of the static site. Used in emails and CORS allowlist.
 [vars]
 SITE_URL = "https://alonmashmaut.org"
+API_URL = "https://api.alonmashmaut.org"
 SITE_NAME = "משמעות"
 ADMIN_EMAIL = "alonmashmaut@gmail.com"
 FROM_EMAIL = "alon@alonmashmaut.org"

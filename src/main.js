@@ -21,3 +21,10 @@ defineRoute('/admin', renderAdmin);
 defineRoute('/admin/:section', renderAdmin);
 
 startRouter();
+
+// Warm up the search index in the background a couple of seconds after the
+// initial route renders, so the user's first /search query is instant.
+const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 2000));
+idle(() => {
+  import('./lib/searchIndex.js').then((m) => m.warmupSearch && m.warmupSearch());
+});

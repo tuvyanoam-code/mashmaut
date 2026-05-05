@@ -81,6 +81,13 @@ export async function renderStats(root) {
         </table>` : '<p class="muted">עוד אין נתונים.</p>'}
     </div>
 
+    <p class="muted" style="font-size:.85rem; margin: -6px 0 14px; line-height:1.5;">
+      <b>הערה על מדינה/עיר:</b> משתמשים שמפעילים iCloud Private Relay של אפל (אייפון/מק) או VPN
+      יוצגו לפי שרת המעבר של ספק הפרטיות, לא לפי מיקומם האמיתי — לכן כניסות מאייפון לעיתים מופיעות
+      כ"ארה״ב / ניו-יורק" או "Cloudflare". המספרים הכלליים (צפיות, סיומים, שיתופים) אמינים, רק
+      ההצגה הגיאוגרפית מטעה במכשירים האלה.
+    </p>
+
     <div class="form-row">
       <div class="admin-card">
         <h3>לפי מדינה</h3>

@@ -58,14 +58,22 @@ export async function renderAdmin({ params }) {
   }
 
   const section = params?.section || 'dashboard';
+  // Note: tabbar/sheet/backdrop must live OUTSIDE .admin-shell.
+  // .admin-shell has .fade-in which leaves a `transform` on the element
+  // (even after the animation finishes), and that turns it into the
+  // containing block for `position: fixed` descendants — which would pin
+  // the tabbar to the bottom of the page instead of the viewport.
   app.innerHTML = `
     <div class="admin-shell fade-in">
       ${renderSidebar(section)}
+      ${renderMobileBack(section)}
       <main class="admin-main" id="adminMain"></main>
-      ${renderTabbar(section)}
     </div>
+    ${renderTabbar(section)}
+    ${renderMoreSheet(section)}
   `;
   bindSidebar();
+  bindMoreSheet();
   const main = document.getElementById('adminMain');
   switch (section) {
     case 'upload': await renderUpload(main); break;
@@ -139,14 +147,16 @@ function renderSidebar(active) {
 }
 
 function renderTabbar(active) {
-  // 4 primary destinations on mobile. Less-frequent ones stay reachable from
-  // the dashboard ("more") card or via the sidebar on tablet+ widths.
+  // 4 primary destinations on mobile + a "More" sheet for the rest.
+  // Sidebar handles full nav on tablet+ widths.
   const tabs = [
     { id: 'dashboard', label: 'ראשי', icon: 'home' },
     { id: 'upload', label: 'העלאה', icon: 'upload' },
     { id: 'bulletins', label: 'עלונים', icon: 'book' },
     { id: 'stats', label: 'שימוש', icon: 'eye' },
   ];
+  const moreSections = ['years', 'subscribers', 'settings', 'edit'];
+  const moreActive = moreSections.includes(active);
   return `
     <nav class="admin-tabbar" aria-label="ניווט מהיר">
       ${tabs.map((t) => `
@@ -155,8 +165,89 @@ function renderTabbar(active) {
           <span>${t.label}</span>
         </a>
       `).join('')}
+      <button type="button" class="admin-tab ${moreActive ? 'active' : ''}" id="adminMoreBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="adminMoreSheet">
+        ${icon('menu', { size: 22 })}
+        <span>עוד</span>
+      </button>
     </nav>
   `;
+}
+
+function renderMobileBack(section) {
+  // Quick "back to dashboard" affordance on mobile, shown on every page
+  // except the dashboard itself.
+  if (section === 'dashboard') return '';
+  return `
+    <a class="admin-back" href="/admin/" aria-label="חזרה לתפריט הראשי">
+      ${icon('chevronRight', { size: 20 })}
+      <span>ראשי</span>
+    </a>
+  `;
+}
+
+function renderMoreSheet(active) {
+  const items = [
+    { id: 'years', label: 'שנים', icon: 'calendar', href: '/admin/years' },
+    { id: 'subscribers', label: 'מנויים', icon: 'email', href: '/admin/subscribers' },
+    { id: 'settings', label: 'הגדרות', icon: 'settings', href: '/admin/settings' },
+    { id: 'view', label: 'צפה באתר', icon: 'eye', href: '/', external: true },
+    { id: 'logout', label: 'התנתק', icon: 'close', action: 'logout' },
+  ];
+  return `
+    <div class="admin-sheet-backdrop" id="adminMoreBackdrop" hidden></div>
+    <div class="admin-sheet" id="adminMoreSheet" role="menu" aria-label="עוד" hidden>
+      <div class="admin-sheet-grip"></div>
+      <h3 class="admin-sheet-title">עוד אפשרויות</h3>
+      <div class="admin-sheet-list">
+        ${items.map((it) => {
+          const isActive = active === it.id;
+          if (it.action === 'logout') {
+            return `<button type="button" class="admin-sheet-item" data-action="logout">${icon(it.icon, { size: 18 })}<span>${it.label}</span></button>`;
+          }
+          return `<a class="admin-sheet-item ${isActive ? 'active' : ''}" href="${it.href}"${it.external ? ' target="_blank"' : ''}>${icon(it.icon, { size: 18 })}<span>${it.label}</span></a>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function bindMoreSheet() {
+  const btn = document.getElementById('adminMoreBtn');
+  const sheet = document.getElementById('adminMoreSheet');
+  const backdrop = document.getElementById('adminMoreBackdrop');
+  if (!btn || !sheet || !backdrop) return;
+  const close = () => {
+    sheet.hidden = true;
+    backdrop.hidden = true;
+    sheet.classList.remove('open');
+    backdrop.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  };
+  const open = () => {
+    sheet.hidden = false;
+    backdrop.hidden = false;
+    // Allow the browser to apply hidden→visible before transitioning.
+    requestAnimationFrame(() => {
+      sheet.classList.add('open');
+      backdrop.classList.add('open');
+    });
+    btn.setAttribute('aria-expanded', 'true');
+  };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (sheet.hidden) open(); else close();
+  });
+  backdrop.addEventListener('click', close);
+  sheet.querySelectorAll('a').forEach((a) => a.addEventListener('click', close));
+  sheet.querySelectorAll('[data-action="logout"]').forEach((b) => {
+    b.addEventListener('click', () => {
+      clearKey();
+      location.href = '/admin';
+    });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !sheet.hidden) close();
+  });
 }
 
 function bindSidebar() {
@@ -564,20 +655,44 @@ async function renderSettings(root) {
   const config = await loadConfig();
   root.innerHTML = `
     <header class="admin-header"><h1>הגדרות אתר</h1></header>
+
+    <div class="admin-card">
+      <h3 style="margin-top:0;">לוגו</h3>
+      <p class="muted" style="margin-top:0;">תמונה (PNG / JPG / SVG) שתופיע בפינה הימנית-עליונה במקום האות "${escapeHtml((config.siteName || 'משמעות').charAt(0))}". מומלץ ריבועי, לפחות 128×128.</p>
+      <div class="logo-editor">
+        <div class="logo-preview" id="logoPreview">
+          ${config.logo
+            ? `<img src="${config.logo}" alt="לוגו נוכחי" />`
+            : `<span class="logo-placeholder">${escapeHtml((config.siteName || 'משמעות').charAt(0))}</span>`}
+        </div>
+        <div class="logo-actions">
+          <label class="btn btn-secondary" for="logoInput">${icon('upload', { size: 16 })} בחר תמונה</label>
+          <input type="file" id="logoInput" accept="image/*" hidden />
+          <button type="button" class="btn btn-secondary" id="logoRemove" ${config.logo ? '' : 'disabled'}>${icon('trash', { size: 16 })} הסר לוגו</button>
+        </div>
+        <p class="muted" id="logoStatus" style="margin: 8px 0 0; font-size: .85rem;"></p>
+      </div>
+    </div>
+
     <div class="admin-card">
       <form id="settingsForm">
         <div class="form-group">
-          <label>כותרת ראשית בדף הבית</label>
-          <input type="text" name="heroTitle" value="${escapeHtml(config.heroTitle)}" />
+          <label>שם האתר</label>
+          <input type="text" name="siteName" value="${escapeHtml(config.siteName || 'משמעות')}" />
         </div>
         <div class="form-group">
-          <label>תת-כותרת</label>
-          <input type="text" name="heroSubtitle" value="${escapeHtml(config.heroSubtitle || '')}" />
+          <label>כותרת מזמינה לקורא <span class="muted" style="font-weight:400;">(מופיעה במסך הבית מתחת ללוגו, מדגישה את המילה האחרונה)</span></label>
+          <input type="text" name="heroTitle" value="${escapeHtml(config.heroTitle || '')}" placeholder="כן, גם אתה יכול להבין." />
         </div>
         <div class="form-group">
-          <label>טקסט מתחת (אופציונלי)</label>
-          <textarea name="heroBlurb" rows="3">${escapeHtml(config.heroBlurb || '')}</textarea>
+          <label>תת-כותרת מתחת לכותרת <span class="muted" style="font-weight:400;">(מקור / שם הרב)</span></label>
+          <input type="text" name="tagline" value="${escapeHtml(config.tagline || '')}" placeholder="רעיונות לפרשת השבוע מתוך תורתו של הרב יצחק גינזבורג שליט&quot;א" />
         </div>
+        <div class="form-group">
+          <label>פסקת תיאור <span class="muted" style="font-weight:400;">(מתחת לעלון השבועי, אופציונלי)</span></label>
+          <textarea name="heroBlurb" rows="3" placeholder="עלון שבועי שמראה איך התורה מדברת אלינו, היום, בלי מבטא ובלי מחיצות.">${escapeHtml(config.heroBlurb || '')}</textarea>
+        </div>
+        <input type="hidden" name="heroSubtitle" value="${escapeHtml(config.heroSubtitle || '')}" />
         <div class="form-group">
           <label>פוטר</label>
           <input type="text" name="footer" value="${escapeHtml(config.footer || '')}" />
@@ -590,6 +705,53 @@ async function renderSettings(root) {
       </form>
     </div>
   `;
+
+  const logoInput = root.querySelector('#logoInput');
+  const logoPreview = root.querySelector('#logoPreview');
+  const logoStatus = root.querySelector('#logoStatus');
+  const logoRemove = root.querySelector('#logoRemove');
+
+  logoInput.addEventListener('change', async () => {
+    const f = logoInput.files[0];
+    if (!f) return;
+    if (f.size > 250_000) {
+      logoStatus.textContent = `הקובץ גדול מדי (${Math.round(f.size / 1024)} KB). הגבלה: 250 KB.`;
+      logoStatus.style.color = '#b91c1c';
+      logoInput.value = '';
+      return;
+    }
+    logoStatus.style.color = '';
+    logoStatus.textContent = 'טוען…';
+    try {
+      const dataUrl = await fileToDataUrl(f);
+      await adminApi('/admin/config', { method: 'POST', body: { logo: dataUrl } });
+      logoPreview.innerHTML = `<img src="${dataUrl}" alt="לוגו חדש" />`;
+      logoRemove.disabled = false;
+      logoStatus.textContent = 'הלוגו עודכן. רענן את האתר לראות את השינוי.';
+      showToast('הלוגו עודכן');
+    } catch (err) {
+      logoStatus.style.color = '#b91c1c';
+      logoStatus.textContent = err.message || 'שגיאה';
+    }
+    logoInput.value = '';
+  });
+
+  logoRemove.addEventListener('click', async () => {
+    if (!confirm('להסיר את הלוגו ולחזור לאות הברירת מחדל?')) return;
+    logoStatus.style.color = '';
+    logoStatus.textContent = 'מסיר…';
+    try {
+      await adminApi('/admin/config', { method: 'POST', body: { logo: null } });
+      logoPreview.innerHTML = `<span class="logo-placeholder">${escapeHtml((config.siteName || 'משמעות').charAt(0))}</span>`;
+      logoRemove.disabled = true;
+      logoStatus.textContent = 'הלוגו הוסר.';
+      showToast('הוסר');
+    } catch (err) {
+      logoStatus.style.color = '#b91c1c';
+      logoStatus.textContent = err.message || 'שגיאה';
+    }
+  });
+
   root.querySelector('#settingsForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -599,6 +761,15 @@ async function renderSettings(root) {
       await adminApi('/admin/config', { method: 'POST', body: obj });
       showToast('נשמר');
     } catch (err) { alert(err.message); }
+  });
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
   });
 }
 

@@ -13,24 +13,58 @@ const STYLE_MAP = [
   "p[style-name='heading 1'] => h1:fresh",
   "p[style-name='heading 2'] => h2:fresh",
   "p[style-name='heading 3'] => h3:fresh",
+  "p[style-name='Heading'] => h2:fresh",
   "p[style-name='כותרת 1'] => h1:fresh",
   "p[style-name='כותרת 2'] => h2:fresh",
   "p[style-name='כותרת 3'] => h3:fresh",
   "p[style-name='כותרת'] => h1:fresh",
+  // Custom Hebrew styles seen in real bulletins:
+  "p[style-name='כותרת ראשית'] => h1:fresh",
+  "p[style-name='כותר שם פרשה'] => h1:fresh",
+  "p[style-name='כותרת משנה'] => h2:fresh",
+  "p[style-name='כותר משנה'] => h2:fresh",
+  "p[style-name='תת כותרת'] => h2:fresh",
   "p[style-name='Quote'] => blockquote:fresh",
   "p[style-name='Block Quote'] => blockquote:fresh",
   "p[style-name='ציטוט'] => blockquote:fresh",
+  "p[style-name='Intense Quote'] => blockquote.intense:fresh",
   "r[style-name='Strong'] => strong",
   "r[style-name='Emphasis'] => em",
 ];
+
+// Heuristic heading detector — promotes paragraphs that look like headings
+// even when the author used direct formatting (bold/larger font) instead of
+// applying Word's "Heading" styles. Common with Hebrew docs.
+function promoteVisualHeadings(rawHtml) {
+  // Match <p>...</p> where the entire visible content is wrapped in a single
+  // <strong>. Skip paragraphs with multiple runs or trailing text.
+  return rawHtml.replace(/<p\b([^>]*)>\s*<strong>([^<]+)<\/strong>\s*<\/p>/g, (match, attrs, inner) => {
+    const text = inner.trim();
+    if (!text) return match;
+    // Heuristic guards — keep heading-like only:
+    if (text.length > 90) return match;          // long lines aren't headings
+    if (/[.!?״:][\s)]*$/.test(text)) {
+      // Headings often end without a period. But Hebrew "?" (question heading
+      // like "קידוש ה׳ – הכיצד?") is fine, and ":" can mark a heading too.
+      if (!/[?:]$/.test(text)) return match;
+    }
+    return `<h2${attrs}>${text}</h2>`;
+  });
+}
 
 export async function convertWordToHtml(arrayBuffer) {
   const [htmlResult, textResult] = await Promise.all([
     mammoth.convertToHtml({ arrayBuffer }, { styleMap: STYLE_MAP }),
     mammoth.extractRawText({ arrayBuffer }),
   ]);
-  const rawHtml = htmlResult.value;
+  let rawHtml = htmlResult.value;
   const plainText = textResult.value;
+
+  // If mammoth returned no headings, run the heuristic to recover visually-
+  // styled headings (bold-only short lines).
+  if (!/<h[1-3]\b/i.test(rawHtml)) {
+    rawHtml = promoteVisualHeadings(rawHtml);
+  }
 
   const headings = [];
   const re = /<(h[1-3])[^>]*>([\s\S]*?)<\/\1>/gi;

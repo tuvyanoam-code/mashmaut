@@ -8,7 +8,9 @@
 .admin-main {
   padding: clamp(16px, 4vw, 32px);
   padding-bottom: calc(80px + var(--safe-bottom));
-  overflow-y: auto;
+  /* On mobile let the page (body) scroll naturally so position:fixed on the
+     tabbar always tracks the viewport. The overflow:auto container we use on
+     desktop captured scroll inside the panel and made the bar feel "off". */
 }
 
 /* Mobile bottom tab bar — visible below 720px. */
@@ -66,7 +68,10 @@
     display: grid;
     grid-template-columns: 240px 1fr;
   }
-  .admin-tabbar { display: none; }
+  .admin-tabbar,
+  .admin-back,
+  .admin-sheet,
+  .admin-sheet-backdrop { display: none !important; }
   .admin-sidebar {
     display: flex;
     background: #1a1a1a;
@@ -75,8 +80,93 @@
     flex-direction: column;
     gap: 4px;
   }
-  .admin-main { padding: 32px; padding-bottom: 32px; }
+  .admin-main { padding: 32px; padding-bottom: 32px; overflow-y: auto; }
 }
+
+/* ===== Mobile back-to-dashboard pill ===== */
+.admin-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px 10px 12px;
+  margin: 12px clamp(16px, 4vw, 32px) -8px;
+  background: var(--bg-elevated);
+  border: 1px solid #e8e3d8;
+  border-radius: 999px;
+  color: var(--text);
+  font-size: .9rem;
+  font-weight: 500;
+  text-decoration: none;
+  width: fit-content;
+}
+.admin-back:hover { background: var(--accent-soft); opacity: 1; }
+.admin-back svg { color: var(--accent); }
+
+/* ===== Mobile "More" bottom sheet ===== */
+.admin-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20,20,20,.45);
+  backdrop-filter: blur(2px);
+  z-index: 90;
+  opacity: 0;
+  transition: opacity .22s ease;
+}
+.admin-sheet-backdrop.open { opacity: 1; }
+.admin-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 95;
+  background: #fff;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  padding: 10px 16px calc(20px + var(--safe-bottom) + 70px);
+  box-shadow: 0 -10px 30px rgba(20,20,20,.18);
+  transform: translateY(100%);
+  transition: transform .26s cubic-bezier(.2,.8,.2,1);
+}
+.admin-sheet.open { transform: translateY(0); }
+.admin-sheet-grip {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: #d8d3c3;
+  margin: 4px auto 12px;
+}
+.admin-sheet-title {
+  margin: 0 4px 10px;
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: right;
+}
+.admin-sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  font: inherit;
+  font-size: .98rem;
+  color: var(--text);
+  text-decoration: none;
+  width: 100%;
+  text-align: right;
+  cursor: pointer;
+  min-height: 48px;
+}
+.admin-sheet-item:hover { background: var(--accent-soft); opacity: 1; }
+.admin-sheet-item.active { color: var(--accent); font-weight: 600; }
+.admin-sheet-item svg { color: var(--accent); flex-shrink: 0; }
 
 .admin-sidebar-brand {
   font-family: var(--font-heading);
@@ -247,17 +337,23 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 .color-swatch {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 8px;
   border: 1px solid #d8d3c3;
   cursor: pointer;
   flex-shrink: 0;
+  padding: 0;
+  background: transparent;
 }
-.color-row input[type="text"] { font-family: monospace; flex: 1; }
-.color-row label { width: 100px; font-size: .9rem; }
+.color-row input[type="text"] { font-family: monospace; flex: 1; min-width: 120px; }
+.color-row label { width: 90px; font-size: .9rem; flex-shrink: 0; }
+@media (max-width: 480px) {
+  .color-row label { width: 100%; margin-bottom: -4px; }
+}
 
 .style-controls {
   display: grid;
@@ -276,10 +372,44 @@
   .style-controls .style-label { grid-column: auto; }
 }
 
+/* ===== Logo editor (settings) ===== */
+.logo-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  background: #faf9f6;
+  border: 1px solid #ece6d8;
+  border-radius: 12px;
+}
+.logo-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #ece6d8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.logo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.logo-placeholder {
+  font-family: var(--font-heading);
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+.logo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.logo-actions .btn { cursor: pointer; }
+.logo-actions .btn[disabled] { opacity: .5; pointer-events: none; }
+
 .preview-pane {
   background: #faf9f6;
   border-radius: 14px;
-  padding: 24px;
+  padding: clamp(16px, 4vw, 24px);
   max-height: 400px;
   overflow-y: auto;
 }
@@ -373,7 +503,7 @@
 .btn-icon.star-toggle { color: #b8b3a0; }
 .btn-icon.star-toggle:hover { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
 
-.parsha-group { color: var(--text-muted); font-style: italic; }
+.parsha-group { color: var(--text-muted); }
 
 /* Stats dashboard */
 .stats-grid {

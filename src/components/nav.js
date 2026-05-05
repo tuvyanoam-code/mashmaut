@@ -4,12 +4,16 @@ import { openSubscribeModal, openContactModal } from './subscribeModal.js';
 
 export async function navHtml() {
   const config = await loadConfig();
+  const siteName = config.siteName || 'משמעות';
+  const brandLogo = config.logo
+    ? `<img class="brand-logo" src="${config.logo}" alt="${siteName}" />`
+    : `<span class="brand-mark">${siteName.charAt(0)}</span>`;
   return `
     <nav class="nav">
       <div class="nav-inner">
         <a href="/" class="nav-brand">
-          <span class="brand-mark">מ</span>
-          <span>${config.siteName || 'משמעות'}</span>
+          ${brandLogo}
+          <span>${siteName}</span>
         </a>
         <button class="nav-toggle" id="navToggle" type="button" aria-label="פתח תפריט" aria-expanded="false" aria-controls="navActions">
           ${icon('menu', { size: 22 })}
@@ -62,9 +66,23 @@ export function bindNav() {
 }
 
 export function footerHtml(config) {
+  const tagline = config?.footer || 'עלון משמעות · פרשת השבוע';
+  const year = new Date().getFullYear();
   return `
     <footer class="footer">
-      <div class="container">${config?.footer || 'עלון משמעות'}</div>
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="footer-mark" aria-hidden="true">${(config?.siteName || 'משמעות').charAt(0)}</span>
+          <span>${tagline}</span>
+        </div>
+        <nav class="footer-nav" aria-label="קישורים בפוטר">
+          <a href="/years">ארכיון</a>
+          <a href="/search">חיפוש</a>
+          <button type="button" data-action="subscribe">קבל למייל</button>
+          <button type="button" data-action="contact">צור קשר</button>
+        </nav>
+        <div class="footer-meta">© ${year}</div>
+      </div>
     </footer>
   `;
 }

@@ -20,7 +20,7 @@ export function mountReadingProgress(targetSelector, onComplete) {
       <circle class="ring-progress" cx="32" cy="32" r="${RADIUS}"></circle>
     </svg>
     <div class="ring-percent">0%</div>
-    <div class="ring-check">${icon('check', { size: 28 })}</div>
+    <div class="ring-check">${icon('check', { size: 22 })}</div>
   `;
   document.body.appendChild(ring);
   ring.setAttribute('aria-label', 'התקדמות הקריאה');
@@ -114,7 +114,13 @@ const COLOR_VARS = [
 const SOLID_COLORS = ['#ff7ab6', '#ffd166', '#ff8b5a', '#6ec5ff', '#52b788', '#a78bfa', '#ff5a8b'];
 
 function celebrate() {
+  // Honor reduced-motion preference: keep the chime as a subtle audio cue,
+  // skip confetti + balloons (they would all freeze in place via the global
+  // motion override and look like clutter on the page).
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   playChime();
+  if (reduce) return;
+
   const confettiLayer = document.createElement('div');
   confettiLayer.className = 'confetti';
   document.body.appendChild(confettiLayer);

@@ -21,24 +21,23 @@ export async function renderHome() {
   app.innerHTML = `
     <div ${cssVars} class="fade-in">
       ${nav}
-      <header class="hero">
-        <div class="hero-blob b1"></div>
-        <div class="hero-blob b2"></div>
-        <div class="hero-blob b3"></div>
-        <div class="hero-inner">
-          <div class="hero-eyebrow">${config.siteName || 'משמעות'} · עלון פרשת השבוע</div>
-          <h1>${formatHeroTitle(config.heroTitle || 'כן, גם אני יכול להבין')}</h1>
-          <p class="hero-subtitle">${config.heroSubtitle || ''}</p>
-          ${config.heroBlurb ? `<p class="hero-blurb">${config.heroBlurb}</p>` : ''}
-        </div>
-      </header>
+      ${renderSplash(config, !!latest)}
+      ${latest ? renderCover(latest, config) : renderCoverEmpty()}
 
-      ${latest ? renderShowcase(latest, config) : renderEmpty()}
+      ${config.heroBlurb ? `
+        <section class="about-strip">
+          <div class="content">
+            <p class="about-blurb">${config.heroBlurb}</p>
+          </div>
+        </section>
+      ` : ''}
 
-      <section class="year-section" id="recent" style="${latest ? '' : 'display:none;'}">
-        <div class="content" style="text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-          <a class="btn btn-secondary" href="/years">${icon('archive', { size: 18 })} ארכיון מלא</a>
-          <button class="btn btn-secondary" data-action="contact" type="button">${icon('email', { size: 18 })} צור קשר</button>
+      <section class="home-archive-cta">
+        <div class="content">
+          <a class="btn btn-secondary" href="/years">${icon('archive', { size: 18 })} <span>ארכיון השנים</span></a>
+          <a class="btn btn-secondary" href="/search">${icon('search', { size: 18 })} <span>חפש בעלונים</span></a>
+          <button class="btn btn-secondary" data-action="subscribe" type="button">${icon('email', { size: 18 })} <span>קבל למייל</span></button>
+          <button class="btn btn-secondary" data-action="contact" type="button">${icon('email', { size: 18 })} <span>צור קשר</span></button>
         </div>
       </section>
 
@@ -47,54 +46,112 @@ export async function renderHome() {
   `;
 
   if (latest) {
-    const root = app.querySelector('.showcase-card');
+    const root = app.querySelector('.cover');
     if (root) {
       const url = window.location.origin + `/y/${latest.yearId}/${latest.slug}`;
       bindShareButtons(root, { url, parshaName: latest.parshaName, year: latest.yearDisplay });
     }
   }
+
+  // Smooth-scroll the splash arrow to the cover section.
+  const scrollBtn = app.querySelector('[data-scroll-to-cover]');
+  if (scrollBtn) {
+    scrollBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = app.querySelector('.cover');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
   bindNav();
   track('view', { slug: 'home' });
 }
 
-function renderShowcase(week, config) {
+function renderSplash(config, hasLatest) {
+  const siteName = config.siteName || 'משמעות';
+  const tagline = config.tagline || 'רעיונות לפרשת השבוע מתוך תורתו של הרב יצחק גינזבורג שליט״א';
+  const brand = config.logo
+    ? `<img class="splash-logo" src="${config.logo}" alt="${siteName}" />`
+    : `<span class="splash-wordmark">${siteName}</span>`;
+  const hook = config.heroTitle ? formatHook(config.heroTitle) : '';
+  return `
+    <section class="splash">
+      <div class="splash-decor splash-decor-a" aria-hidden="true"></div>
+      <div class="splash-decor splash-decor-b" aria-hidden="true"></div>
+
+      <div class="splash-inner">
+        <div class="splash-brand">${brand}</div>
+        <p class="splash-tagline">${tagline}</p>
+
+        <div class="splash-divider" aria-hidden="true"><span></span></div>
+
+        ${hook ? `<p class="splash-hook">${hook}</p>` : ''}
+
+        ${hasLatest ? `
+          <button type="button" class="splash-scroll" data-scroll-to-cover aria-label="גלול לעלון האחרון">
+            <span>העלון האחרון</span>
+            ${icon('chevronDown', { size: 22 })}
+          </button>
+        ` : ''}
+      </div>
+    </section>
+  `;
+}
+
+function renderCover(week, config) {
   const url = `/y/${week.yearId}/${week.slug}`;
   const pdfPath = `/y/${week.yearId}/${week.slug}/pdf`;
   const fullUrl = window.location.origin + url;
+  // Subtle "this week's edition" metadata (date + issue) — quiet, below the eyebrow.
+  const editionMeta = [week.dateLabel, week.yearDisplay, week.issueNumber ? `גליון ${week.issueNumber}` : null]
+    .filter(Boolean).join(' · ');
   return `
-    <section class="showcase">
-      <div class="showcase-card">
-        <div class="showcase-content">
-          <div class="showcase-eyebrow">${icon('book', { size: 14 })} העלון של השבוע</div>
-          <h2 class="showcase-title">פרשת ${week.parshaName}</h2>
-          <p class="showcase-meta">${week.yearDisplay || ''}${week.dateLabel ? ' · ' + week.dateLabel : ''}${week.issueNumber ? ' · גליון #' + week.issueNumber : ''}</p>
-          ${week.teaser ? `<p style="font-size:1.1rem;color:var(--text);max-width:560px;line-height:1.6;">${week.teaser}</p>` : ''}
-          <div class="showcase-actions">
-            <a class="btn" href="${url}">${icon('book', { size: 18 })} קרא עכשיו</a>
-            <a class="btn btn-secondary" href="${pdfPath}">${icon('pdf', { size: 18 })} פתח כ-PDF</a>
-            ${shareButtonsHtml({ url: fullUrl, parshaName: week.parshaName, year: week.yearDisplay })}
-          </div>
-        </div>
+    <main class="cover">
+      <p class="cover-eyebrow">
+        <span class="cover-eyebrow-lead">העלון האחרון</span>
+        <b class="cover-eyebrow-parsha">פרשת ${week.parshaName}</b>
+      </p>
+      ${editionMeta ? `<p class="cover-edition">${editionMeta}</p>` : ''}
+      ${week.teaser ? `
+        <h1 class="cover-headline">
+          <span class="cover-quote" aria-hidden="true">״</span>
+          ${week.teaser}
+          <span class="cover-quote cover-quote-end" aria-hidden="true">״</span>
+        </h1>
+      ` : `
+        <h1 class="cover-headline cover-headline-plain">פרשת ${week.parshaName}</h1>
+      `}
+
+      <div class="cover-actions">
+        <a class="btn cover-cta" href="${url}">${icon('book', { size: 18 })} <span>קרא את העלון</span></a>
+        <a class="btn-text cover-pdf" href="${pdfPath}">${icon('pdf', { size: 16 })} <span>פתח כ-PDF</span></a>
       </div>
-    </section>
+
+      <div class="cover-share">
+        ${shareButtonsHtml({ url: fullUrl, parshaName: week.parshaName, year: week.yearDisplay })}
+      </div>
+    </main>
   `;
 }
 
-function formatHeroTitle(title) {
-  // Highlight the LAST word for visual rhythm — "כן, גם אני יכול להבין" → emphasize "להבין"
-  const words = title.split(/\s+/);
-  if (words.length < 2) return title;
+function renderCoverEmpty() {
+  return `
+    <main class="cover">
+      <h1 class="cover-headline cover-headline-plain">בקרוב</h1>
+      <p class="muted" style="font-size:1.05rem;">העלון הראשון יעלה ממש בקרוב.</p>
+    </main>
+  `;
+}
+
+function formatHook(text) {
+  // Emphasize the last word with a colored underline — "כן, גם אתה יכול להבין."
+  // → underline on "להבין". Strip a trailing period if present so the underline
+  // sits flush; we re-add the period after the span.
+  const trimmed = String(text).trim();
+  const trailingPunct = (trimmed.match(/[.!?״]+$/) || [''])[0];
+  const stem = trimmed.slice(0, trimmed.length - trailingPunct.length);
+  const words = stem.split(/\s+/);
+  if (words.length < 2) return trimmed;
   const last = words.pop();
-  return words.join(' ') + ' <span class="accent-word">' + last + '</span>';
-}
-
-function renderEmpty() {
-  return `
-    <section class="showcase">
-      <div class="showcase-card center">
-        <h2 class="showcase-title">בקרוב</h2>
-        <p class="muted">העלון הראשון יעלה בקרוב.</p>
-      </div>
-    </section>
-  `;
+  return `${words.join(' ')} <span class="cover-hook-accent">${last}</span>${trailingPunct}`;
 }

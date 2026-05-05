@@ -3,6 +3,7 @@ import { loadConfig, getYearWeeks, getYears } from '../lib/store.js';
 import { bulletinCardHtml } from '../components/bulletinCard.js';
 import { numberToHebrewYear, cycleOrderForSlug } from '../lib/parshiot.js';
 import { icon } from '../icons.js';
+import { setPageSeo } from '../lib/seo.js';
 
 export async function renderYear({ params }) {
   const app = document.getElementById('app');
@@ -42,4 +43,10 @@ export async function renderYear({ params }) {
     </div>
   `;
   bindNav();
+
+  setPageSeo({
+    title: `ארכיון ${yearMeta.displayName} · עלון משמעות`,
+    description: `כל עלוני משמעות לשנת ${yearMeta.displayName} — ${sorted.length} עלוני פרשת השבוע מתוך תורתו של הרב יצחק גינזבורג שליט"א.`,
+    path: `/y/${params.year}`,
+  });
 }

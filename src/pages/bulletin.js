@@ -4,6 +4,7 @@ import { shareButtonsHtml, bindShareButtons } from '../components/shareButtons.j
 import { mountReadingProgress } from '../components/readingProgress.js';
 import { track } from '../lib/analytics.js';
 import { icon } from '../icons.js';
+import { setPageSeo, plainSummary } from '../lib/seo.js';
 
 export async function renderBulletin({ params }) {
   const app = document.getElementById('app');
@@ -56,6 +57,7 @@ export async function renderBulletin({ params }) {
           ${week.dateLabel ? week.dateLabel : ''}${week.issueNumber ? ' · גליון #' + week.issueNumber : ''}
           ${readMinutes ? `<span class="reading-time">${icon('eye', { size: 14 })} ${readMinutes} דק׳ קריאה</span>` : ''}
         </p>
+        ${week.teaser ? `<p class="bulletin-teaser">${week.teaser}</p>` : ''}
         <div class="bulletin-actions-bar">
           <a class="btn" href="${pdfHref}">${icon('pdf', { size: 18 })} פתח כ-PDF</a>
           <a class="btn btn-secondary" href="${pdfUrl(week.yearId, week.slug)}" download>${icon('download', { size: 18 })} הורד PDF</a>
@@ -97,6 +99,46 @@ export async function renderBulletin({ params }) {
   });
 
   bindNav();
+
+  // SEO: per-bulletin title, description, canonical, og + Article JSON-LD.
+  const siteName = config.siteName || 'משמעות';
+  const summary = plainSummary(week.teaser || week.plainText || '', 200);
+  const pageTitle = `פרשת ${week.parshaName} · ${siteName}${week.yearDisplay ? ' · ' + week.yearDisplay : ''}`;
+  const pageDesc = summary || `פרשת ${week.parshaName} — עלון משמעות${week.yearDisplay ? ', ' + week.yearDisplay : ''}.`;
+  const articleJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: `פרשת ${week.parshaName}`,
+    description: summary,
+    inLanguage: 'he',
+    datePublished: week.publishedAt || undefined,
+    dateModified: week.publishedAt || undefined,
+    url: `https://alonmashmaut.org/y/${week.yearId}/${week.slug}`,
+    mainEntityOfPage: `https://alonmashmaut.org/y/${week.yearId}/${week.slug}`,
+    isPartOf: {
+      '@type': 'PublicationIssue',
+      issueNumber: week.issueNumber || undefined,
+      datePublished: week.publishedAt || undefined,
+      isPartOf: {
+        '@type': 'Periodical',
+        name: 'עלון משמעות',
+        url: 'https://alonmashmaut.org/',
+      },
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'עלון משמעות',
+      url: 'https://alonmashmaut.org/',
+      logo: { '@type': 'ImageObject', url: 'https://alonmashmaut.org/logo.png' },
+    },
+  };
+  setPageSeo({
+    title: pageTitle,
+    description: pageDesc,
+    path: `/y/${week.yearId}/${week.slug}`,
+    jsonLd: articleJsonLd,
+  });
+
   track('view', { slug: week.slug, year: week.yearId });
 
   // Mount reading progress ring (returns a cleanup fn the router can call).

@@ -3,6 +3,7 @@ import { loadConfig } from '../lib/store.js';
 import { searchAll } from '../lib/searchIndex.js';
 import { icon } from '../icons.js';
 import { navigate } from '../router.js';
+import { setPageSeo } from '../lib/seo.js';
 
 export async function renderSearch({ query }) {
   const app = document.getElementById('app');
@@ -41,6 +42,12 @@ export async function renderSearch({ query }) {
     results.innerHTML = `<p class="muted center" style="padding:40px 0;">הקלד מילה כדי לחפש</p>`;
   }
   bindNav();
+
+  setPageSeo({
+    title: initial ? `חיפוש: ${initial} · עלון משמעות` : 'חיפוש בעלונים · עלון משמעות',
+    description: 'חיפוש מתקדם בעלוני משמעות — חפש לפי מילה, פרשה, או כותרת בכל הארכיון של עלון פרשת השבוע.',
+    path: initial ? `/search?q=${encodeURIComponent(initial)}` : '/search',
+  });
 }
 
 async function runSearch(q, container) {

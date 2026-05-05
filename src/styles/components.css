@@ -852,6 +852,17 @@
   margin-bottom: 28px;
   font-weight: 500;
 }
+.bulletin-teaser {
+  margin: 4px 0 22px;
+  padding: 10px 14px 10px 0;
+  border-right: 3px solid var(--bulletin-primary);
+  font-size: clamp(1.05rem, 2.2vw, 1.2rem);
+  line-height: 1.55;
+  color: var(--text);
+  font-weight: 500;
+}
+.bulletin-teaser strong, .bulletin-teaser b { color: var(--bulletin-primary); }
+.bulletin-teaser em, .bulletin-teaser i { font-style: normal; font-weight: 600; color: var(--bulletin-primary); }
 .bulletin-actions-bar {
   display: flex;
   flex-wrap: wrap;

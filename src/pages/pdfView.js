@@ -1,6 +1,7 @@
 import { loadBulletin, pdfUrl } from '../lib/store.js';
 import { track } from '../lib/analytics.js';
 import { icon } from '../icons.js';
+import { setPageSeo } from '../lib/seo.js';
 
 export async function renderPdf({ params }) {
   const app = document.getElementById('app');
@@ -18,7 +19,11 @@ export async function renderPdf({ params }) {
   // Always resolve via the absolute helper — the stored `pdfUrl` is relative and
   // would be interpreted against the current page path otherwise.
   const src = pdfUrl(week.yearId, week.slug);
-  document.title = `משמעות · פרשת ${week.parshaName} (PDF)`;
+  setPageSeo({
+    title: `פרשת ${week.parshaName} · עלון משמעות (PDF)`,
+    description: `העלון של פרשת ${week.parshaName} בפורמט PDF — עלון משמעות${week.yearDisplay ? ', ' + week.yearDisplay : ''}.`,
+    path: `/y/${week.yearId}/${week.slug}/pdf`,
+  });
 
   app.innerHTML = `
     <div class="pdf-page fade-in">

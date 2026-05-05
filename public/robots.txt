@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Don't index the admin panel — it's just a UI shell, content comes from the API.
+Disallow: /admin
+Disallow: /admin/
+
+Sitemap: https://alonmashmaut.org/sitemap.xml

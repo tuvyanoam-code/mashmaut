@@ -1,6 +1,7 @@
 import { navHtml, footerHtml, bindNav } from '../components/nav.js';
 import { loadConfig, getYears, loadIndex } from '../lib/store.js';
 import { numberToHebrewYear } from '../lib/parshiot.js';
+import { setPageSeo } from '../lib/seo.js';
 
 export async function renderYears() {
   const app = document.getElementById('app');
@@ -48,4 +49,11 @@ export async function renderYears() {
     </div>
   `;
   bindNav();
+
+  const totalWeeks = (idx.weeks || []).length;
+  setPageSeo({
+    title: 'ארכיון שנים · עלון משמעות',
+    description: `הארכיון המלא של עלון משמעות — ${totalWeeks} עלוני פרשת השבוע על פני ${sorted.length} שנים.`,
+    path: '/years',
+  });
 }

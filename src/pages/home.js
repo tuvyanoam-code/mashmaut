@@ -3,6 +3,7 @@ import { loadConfig, getLatestWeek } from '../lib/store.js';
 import { icon } from '../icons.js';
 import { shareButtonsHtml, bindShareButtons } from '../components/shareButtons.js';
 import { track } from '../lib/analytics.js';
+import { setPageSeo, plainSummary } from '../lib/seo.js';
 
 export async function renderHome() {
   const app = document.getElementById('app');
@@ -64,6 +65,17 @@ export async function renderHome() {
   }
 
   bindNav();
+
+  // SEO: home reflects the latest bulletin's parsha + the publication tagline.
+  const siteName = config.siteName || 'משמעות';
+  const homeTitle = latest
+    ? `${siteName} — פרשת ${latest.parshaName} · עלון פרשת השבוע`
+    : `${siteName} — עלון פרשת השבוע מתוך תורתו של הרב יצחק גינזבורג שליט"א`;
+  const homeDesc = latest
+    ? `${siteName} — עלון פרשת השבוע. השבוע: פרשת ${latest.parshaName}${latest.issueNumber ? `, גליון ${latest.issueNumber}` : ''}. ${plainSummary(latest.teaser, 140)}`
+    : `${siteName} — עלון פרשת השבוע מתוך תורתו של הרב יצחק גינזבורג שליט"א. שיחות שבועיות בגובה העיניים.`;
+  setPageSeo({ title: homeTitle, description: homeDesc, path: '/' });
+
   track('view', { slug: 'home' });
 }
 

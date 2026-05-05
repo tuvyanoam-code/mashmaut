@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/build-seo.js",
     "build": "vite build",
     "preview": "vite preview",
     "admin": "node admin/server.js",

@@ -910,6 +910,25 @@
         "text": "#1a1a1a"
       },
       "displayOrder": 2
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "acharei-mot",
+      "parshaName": "אחרי מות",
+      "issueNumber": 51,
+      "dateLabel": "יט אייר",
+      "teaser": "עוד לא כתבתי את העלון, <mark>לבטח תופתעו</mark>",
+      "publishedAt": "2026-05-06T10:57:49.131Z",
+      "colors": {
+        "primary": "#1f3864",
+        "secondary": "#dae3f3",
+        "accent": "#949aa5",
+        "background": "#edeff3",
+        "bgEnd": "#dde1e8",
+        "text": "#1a1a1a"
+      },
+      "displayOrder": 0
     }
   ]
 }

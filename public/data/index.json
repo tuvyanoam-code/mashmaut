@@ -27,7 +27,7 @@
         "bgEnd": "#cccccc",
         "text": "#7a4a00"
       },
-      "displayOrder": 0
+      "displayOrder": 1
     },
     {
       "yearId": "5785",
@@ -423,7 +423,7 @@
         "background": "#fdf6f5",
         "text": "#1a1a1a"
       },
-      "displayOrder": 2
+      "displayOrder": 0
     },
     {
       "yearId": "5786",
@@ -909,7 +909,7 @@
         "background": "#f4f8fd",
         "text": "#1a1a1a"
       },
-      "displayOrder": 1
+      "displayOrder": 2
     }
   ]
 }

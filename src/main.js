@@ -24,7 +24,9 @@ startRouter();
 
 // Warm up the search index in the background a couple of seconds after the
 // initial route renders, so the user's first /search query is instant.
+// Also opportunistically prune stale (>30d) reading-position entries.
 const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 2000));
 idle(() => {
   import('./lib/searchIndex.js').then((m) => m.warmupSearch && m.warmupSearch());
+  import('./lib/readingPosition.js').then((m) => m.pruneStalePositions && m.pruneStalePositions());
 });

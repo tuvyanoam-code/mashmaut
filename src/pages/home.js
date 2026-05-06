@@ -5,6 +5,7 @@ import { shareButtonsHtml, bindShareButtons } from '../components/shareButtons.j
 import { track } from '../lib/analytics.js';
 import { setPageSeo, plainSummary } from '../lib/seo.js';
 import { delayedLoading } from '../lib/loadingState.js';
+import { getMostRecentPosition } from '../lib/readingPosition.js';
 
 export async function renderHome() {
   const app = document.getElementById('app');
@@ -21,9 +22,12 @@ export async function renderHome() {
   const cssVars = colors.primary ? `style="--bulletin-primary:${colors.primary}; --bulletin-secondary:${colors.secondary || colors.accent || '#52b788'};"` : '';
 
   cancelLoading();
+
+  const resume = getMostRecentPosition();
   app.innerHTML = `
     <div ${cssVars} class="fade-in">
       ${nav}
+      ${resume ? renderResumePill(resume) : ''}
       ${renderSplash(config, !!latest)}
       ${latest ? renderCover(latest, config) : renderCoverEmpty()}
 
@@ -79,6 +83,22 @@ export async function renderHome() {
   setPageSeo({ title: homeTitle, description: homeDesc, path: '/' });
 
   track('view', { slug: 'home' });
+}
+
+function renderResumePill(r) {
+  const pct = Math.round((r.pct || 0) * 100);
+  const url = `/y/${r.yearId}/${r.slug}`;
+  return `
+    <a class="resume-pill" href="${url}" aria-label="המשך לקרוא את פרשת ${r.parshaName}">
+      ${icon('book', { size: 16 })}
+      <span class="resume-pill-text">
+        <span class="muted">המשך מאיפה שעצרת —</span>
+        <b>פרשת ${r.parshaName}</b>
+        <span class="resume-pill-pct">${pct}%</span>
+      </span>
+      ${icon('arrowLeft', { size: 14 })}
+    </a>
+  `;
 }
 
 function renderSplash(config, hasLatest) {

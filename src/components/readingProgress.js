@@ -3,11 +3,21 @@
 // indicator. When 100% reached the first time, plays a happy chord and confetti.
 
 import { icon } from '../icons.js';
+import { saveReadingPosition, clearReadingPosition } from '../lib/readingPosition.js';
 
 const RADIUS = 26;
 const CIRC = 2 * Math.PI * RADIUS;
 
-export function mountReadingProgress(targetSelector, onComplete) {
+/**
+ * Mount the reading-progress ring on the page.
+ * @param targetSelector  Selector for the article whose scroll progress drives the ring.
+ * @param onComplete      Fired exactly once when the user reaches ~100%.
+ * @param meta            Optional { yearId, slug, parshaName, yearDisplay }.
+ *                        When provided, the user's reading position is also
+ *                        persisted to localStorage (throttled) so they can
+ *                        resume on a later visit — and cleared on completion.
+ */
+export function mountReadingProgress(targetSelector, onComplete, meta) {
   // Avoid multiple mounts (e.g., on rerenders)
   document.querySelectorAll('.reading-progress, .confetti').forEach((n) => n.remove());
 
@@ -30,6 +40,8 @@ export function mountReadingProgress(targetSelector, onComplete) {
 
   let completed = false;
   let raf = 0;
+  let lastPersist = 0;
+  const PERSIST_THROTTLE_MS = 1500;
 
   const update = () => {
     raf = 0;
@@ -49,10 +61,22 @@ export function mountReadingProgress(targetSelector, onComplete) {
     if (rect.top > viewport * 0.6) pct = 0;
     progressEl.style.strokeDashoffset = String(CIRC * (1 - pct));
     percentEl.textContent = Math.round(pct * 100) + '%';
+
+    // Persist mid-read position (throttled) so the user can resume next time.
+    if (meta && meta.yearId && meta.slug) {
+      const now = Date.now();
+      if (now - lastPersist > PERSIST_THROTTLE_MS) {
+        lastPersist = now;
+        saveReadingPosition(meta, pct, window.scrollY);
+      }
+    }
+
     if (pct >= 0.99 && !completed) {
       completed = true;
       ring.classList.add('complete');
       celebrate();
+      // The user finished — drop the saved position.
+      if (meta && meta.yearId && meta.slug) clearReadingPosition(meta.yearId, meta.slug);
       try { onComplete && onComplete(); } catch (_) {}
     } else if (pct < 0.95 && completed) {
       // Allow re-celebrating only after scrolling well back up
@@ -68,10 +92,26 @@ export function mountReadingProgress(targetSelector, onComplete) {
   window.addEventListener('resize', onScroll);
   // Run an initial update once layout settles
   setTimeout(update, 100);
+  // Also flush a persist on hide/close, so we don't miss the very-last
+  // position if the user closes the tab right after reading.
+  const flushOnHide = () => {
+    if (meta && meta.yearId && meta.slug && document.visibilityState === 'hidden') {
+      const target = document.querySelector(targetSelector);
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      const viewport = window.innerHeight;
+      const scrolled = -rect.top + viewport * 0.4;
+      const max = target.offsetHeight - viewport * 0.4;
+      const pct = Math.max(0, Math.min(1, scrolled / Math.max(max, 1)));
+      saveReadingPosition(meta, pct, window.scrollY);
+    }
+  };
+  document.addEventListener('visibilitychange', flushOnHide);
 
   return () => {
     window.removeEventListener('scroll', onScroll);
     window.removeEventListener('resize', onScroll);
+    document.removeEventListener('visibilitychange', flushOnHide);
     ring.remove();
     document.querySelectorAll('.confetti').forEach((n) => n.remove());
   };

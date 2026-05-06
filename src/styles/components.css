@@ -630,6 +630,91 @@
 .bulletin-card-arrow span { border-bottom: 1px solid currentColor; padding-bottom: 1px; }
 .bulletin-card:hover .bulletin-card-arrow { gap: 10px; }
 
+/* ===== Resume reading affordances ===== */
+
+/* Floating banner on the bulletin page itself: "you stopped at 42%, continue?" */
+.resume-banner {
+  position: fixed;
+  z-index: 70;
+  inset-inline: 16px;
+  bottom: calc(16px + var(--safe-bottom));
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--bg-elevated);
+  border: 1px solid color-mix(in srgb, var(--bulletin-primary) 25%, var(--border));
+  border-radius: 16px;
+  box-shadow: 0 14px 40px -12px color-mix(in srgb, var(--bulletin-primary) 35%, rgba(20,20,20,.18));
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity .25s ease, transform .25s ease;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.resume-banner.visible { opacity: 1; transform: translateY(0); }
+.resume-banner-text { flex: 1; min-width: 200px; line-height: 1.5; font-size: .95rem; }
+.resume-banner-text b { display: block; }
+.resume-banner-actions { display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.resume-banner .btn { padding: 10px 20px; }
+.resume-banner-close {
+  position: absolute;
+  top: 6px;
+  inset-inline-start: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.resume-banner-close:hover { background: var(--accent-soft); color: var(--text); }
+@media (min-width: 720px) {
+  .resume-banner {
+    inset-inline-end: 24px;
+    inset-inline-start: auto;
+    bottom: 24px;
+    width: 460px;
+    max-width: calc(100vw - 48px);
+  }
+}
+
+/* Slim pill above the home splash: "continue פרשת אמור" */
+.resume-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px auto 0;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  padding: 8px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid color-mix(in srgb, var(--bulletin-primary) 30%, var(--border));
+  border-radius: 999px;
+  color: var(--text);
+  font-size: .9rem;
+  text-decoration: none;
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--bulletin-primary) 35%, transparent);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.resume-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--bulletin-primary) 45%, transparent);
+  opacity: 1;
+}
+.resume-pill svg { color: var(--bulletin-primary); flex-shrink: 0; }
+.resume-pill-text { display: inline-flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.resume-pill-pct {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--bulletin-primary);
+  font-size: .82rem;
+}
+
 /* ===== Reading progress ring ===== */
 .reading-progress {
   position: fixed;

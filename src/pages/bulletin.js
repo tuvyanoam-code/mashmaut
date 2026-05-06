@@ -6,6 +6,7 @@ import { track } from '../lib/analytics.js';
 import { icon } from '../icons.js';
 import { setPageSeo, plainSummary } from '../lib/seo.js';
 import { delayedLoading } from '../lib/loadingState.js';
+import { getReadingPosition, clearReadingPosition } from '../lib/readingPosition.js';
 
 export async function renderBulletin({ params }) {
   const app = document.getElementById('app');
@@ -144,11 +145,83 @@ export async function renderBulletin({ params }) {
   track('view', { slug: week.slug, year: week.yearId });
 
   // Mount reading progress ring (returns a cleanup fn the router can call).
-  // The ring's celebration handler also fires the 'finish' event.
+  // The ring's celebration handler also fires the 'finish' event. Pass the
+  // bulletin meta so scroll position is persisted for resume-on-return.
+  const meta = {
+    yearId: week.yearId,
+    slug: week.slug,
+    parshaName: week.parshaName,
+    yearDisplay: week.yearDisplay || null,
+  };
   const unmountProgress = mountReadingProgress('[data-bulletin-content]', () => {
     track('finish', { slug: week.slug, year: week.yearId });
-  });
+  }, meta);
+
+  // Resume affordance — if the user already started this bulletin and didn't
+  // finish, offer to jump to where they stopped. Auto-scrolling without
+  // permission is jarring, so we ask first.
+  const saved = getReadingPosition(week.yearId, week.slug);
+  if (saved) maybeShowResumeBanner(app, week, saved);
+
   return unmountProgress;
+}
+
+function maybeShowResumeBanner(app, week, saved) {
+  // Skip if the user is already past the saved position (e.g. they linked
+  // straight to a heading anchor and Skipped past).
+  setTimeout(() => {
+    const pctNow = currentReadPct();
+    if (pctNow !== null && pctNow >= saved.pct - 0.05) return;
+
+    const banner = document.createElement('aside');
+    banner.className = 'resume-banner';
+    banner.innerHTML = `
+      <div class="resume-banner-text">
+        <b>עצרת באמצע פרשת ${week.parshaName}.</b>
+        <span class="muted">תרצה להמשיך מאיפה שעצרת? (${Math.round(saved.pct * 100)}%)</span>
+      </div>
+      <div class="resume-banner-actions">
+        <button type="button" class="btn resume-btn-go">המשך</button>
+        <button type="button" class="btn-text resume-btn-restart">לא, מההתחלה</button>
+      </div>
+      <button type="button" class="resume-banner-close" aria-label="סגור">×</button>
+    `;
+    document.body.appendChild(banner);
+    requestAnimationFrame(() => banner.classList.add('visible'));
+
+    let dismissed = false;
+    const dismiss = (clear = false) => {
+      if (dismissed) return;
+      dismissed = true;
+      banner.classList.remove('visible');
+      setTimeout(() => banner.remove(), 250);
+      if (clear) clearReadingPosition(week.yearId, week.slug);
+    };
+
+    banner.querySelector('.resume-btn-go').addEventListener('click', () => {
+      const article = document.querySelector('[data-bulletin-content]');
+      if (article) {
+        const target = Math.max(0, Math.round(article.offsetTop + article.offsetHeight * saved.pct - window.innerHeight * 0.3));
+        window.scrollTo({ top: target, behavior: 'smooth' });
+      }
+      dismiss();
+    });
+    banner.querySelector('.resume-btn-restart').addEventListener('click', () => dismiss(true));
+    banner.querySelector('.resume-banner-close').addEventListener('click', () => dismiss());
+    // Auto-dismiss after 14 seconds if no action.
+    setTimeout(() => dismiss(), 14000);
+  }, 350);
+}
+
+function currentReadPct() {
+  const article = document.querySelector('[data-bulletin-content]');
+  if (!article) return null;
+  const rect = article.getBoundingClientRect();
+  const viewport = window.innerHeight;
+  const scrolled = -rect.top + viewport * 0.4;
+  const max = article.offsetHeight - viewport * 0.4;
+  if (max <= 0) return 0;
+  return Math.max(0, Math.min(1, scrolled / max));
 }
 
 function renderToc(headings) {

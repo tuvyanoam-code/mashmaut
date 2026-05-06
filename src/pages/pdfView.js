@@ -2,6 +2,7 @@ import { loadBulletin, pdfUrl } from '../lib/store.js';
 import { track } from '../lib/analytics.js';
 import { icon } from '../icons.js';
 import { setPageSeo } from '../lib/seo.js';
+import { markVisited } from '../lib/readingPosition.js';
 
 // iOS / iPadOS Safari can't render PDFs inside <iframe> at the right scale —
 // the document shows up zoomed-out and unreadable. Detect those devices and
@@ -34,6 +35,14 @@ export async function renderPdf({ params }) {
     title: `פרשת ${week.parshaName} · עלון משמעות (PDF)`,
     description: `העלון של פרשת ${week.parshaName} בפורמט PDF — עלון משמעות${week.yearDisplay ? ', ' + week.yearDisplay : ''}.`,
     path: `/y/${week.yearId}/${week.slug}/pdf`,
+  });
+  // Mark this bulletin as the most recently visited so the home pill
+  // doesn't keep offering to resume an older bulletin instead.
+  markVisited({
+    yearId: week.yearId,
+    slug: week.slug,
+    parshaName: week.parshaName,
+    yearDisplay: week.yearDisplay || null,
   });
   track('pdf', { slug: week.slug, year: week.yearId });
 

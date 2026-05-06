@@ -66,14 +66,52 @@ export function clearReadingPosition(yearId, slug) {
   write(all);
 }
 
-/** Most-recent unfinished read across all bulletins (for the home banner). */
-export function getMostRecentPosition() {
+/**
+ * Mark a bulletin as the most recently visited — even if the user didn't
+ * actually scroll (e.g. they only opened the PDF, or they opened the text
+ * page and immediately closed it). This pointer drives the home pill so it
+ * always reflects the LAST bulletin the user opened, not the last one they
+ * happened to leave a scroll trail in.
+ *
+ * If no entry exists for this bulletin yet, we create a visit-only entry
+ * (no `pct`) so the home pill knows the user was here but has no position
+ * to resume to — and therefore hides itself.
+ */
+export function markVisited(meta) {
+  if (!meta || !meta.yearId || !meta.slug) return;
   const all = read();
-  const items = Object.values(all)
-    .filter(fresh)
-    .filter((e) => e.pct >= SHOW_MIN_PCT && e.pct <= SHOW_MAX_PCT)
-    .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
-  return items[0] || null;
+  const k = key(meta.yearId, meta.slug);
+  const existing = all[k];
+  const now = new Date().toISOString();
+  if (existing) {
+    existing.at = now;
+    // Keep pct, top, etc.
+    all[k] = existing;
+  } else {
+    all[k] = {
+      at: now,
+      parshaName: meta.parshaName,
+      yearId: meta.yearId,
+      slug: meta.slug,
+      yearDisplay: meta.yearDisplay || null,
+      // pct intentionally absent — visit only.
+    };
+  }
+  all._lastVisitedKey = k;
+  write(all);
+}
+
+/**
+ * The most-recently-visited bulletin entry, or null. The home pill calls
+ * this and only renders if the returned entry has a `pct` worth resuming.
+ */
+export function getLastVisited() {
+  const all = read();
+  const k = all._lastVisitedKey;
+  if (!k) return null;
+  const entry = all[k];
+  if (!entry || !fresh(entry)) return null;
+  return entry;
 }
 
 /** Sweep stale entries (called opportunistically on app start). */
@@ -81,6 +119,7 @@ export function pruneStalePositions() {
   const all = read();
   let changed = false;
   for (const k of Object.keys(all)) {
+    if (k === '_lastVisitedKey') continue;
     if (!fresh(all[k])) { delete all[k]; changed = true; }
   }
   if (changed) write(all);

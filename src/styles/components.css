@@ -706,6 +706,12 @@
   box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--bulletin-primary) 45%, transparent);
   opacity: 1;
 }
+.resume-pill--fading {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity .3s ease, transform .3s ease;
+  pointer-events: none;
+}
 .resume-pill svg { color: var(--bulletin-primary); flex-shrink: 0; }
 .resume-pill-text { display: inline-flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .resume-pill-pct {

@@ -6,7 +6,7 @@ import { track } from '../lib/analytics.js';
 import { icon } from '../icons.js';
 import { setPageSeo, plainSummary } from '../lib/seo.js';
 import { delayedLoading } from '../lib/loadingState.js';
-import { getReadingPosition, clearReadingPosition } from '../lib/readingPosition.js';
+import { getReadingPosition, clearReadingPosition, markVisited } from '../lib/readingPosition.js';
 
 export async function renderBulletin({ params }) {
   const app = document.getElementById('app');
@@ -153,6 +153,10 @@ export async function renderBulletin({ params }) {
     parshaName: week.parshaName,
     yearDisplay: week.yearDisplay || null,
   };
+  // Mark this bulletin as the most recently visited — the home pill uses
+  // this to decide which bulletin's resume to offer (so jumping into a PDF-
+  // only bulletin doesn't leave the home pill stuck on an older one).
+  markVisited(meta);
   const unmountProgress = mountReadingProgress('[data-bulletin-content]', () => {
     track('finish', { slug: week.slug, year: week.yearId });
   }, meta);

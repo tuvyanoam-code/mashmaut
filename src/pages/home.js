@@ -5,7 +5,7 @@ import { shareButtonsHtml, bindShareButtons } from '../components/shareButtons.j
 import { track } from '../lib/analytics.js';
 import { setPageSeo, plainSummary } from '../lib/seo.js';
 import { delayedLoading } from '../lib/loadingState.js';
-import { getMostRecentPosition } from '../lib/readingPosition.js';
+import { getLastVisited } from '../lib/readingPosition.js';
 
 export async function renderHome() {
   const app = document.getElementById('app');
@@ -23,7 +23,12 @@ export async function renderHome() {
 
   cancelLoading();
 
-  const resume = getMostRecentPosition();
+  // The home pill resumes the user's last-visited bulletin only if there's
+  // an actual scroll position to jump back to — otherwise (e.g. they only
+  // opened the PDF) it would offer to "continue" with nothing to continue to.
+  const lastVisited = getLastVisited();
+  const resume = (lastVisited && Number.isFinite(lastVisited.pct) && lastVisited.pct >= 0.08)
+    ? lastVisited : null;
   app.innerHTML = `
     <div ${cssVars} class="fade-in">
       ${nav}
@@ -57,6 +62,17 @@ export async function renderHome() {
     if (root) {
       const url = window.location.origin + `/y/${latest.yearId}/${latest.slug}`;
       bindShareButtons(root, { url, parshaName: latest.parshaName, year: latest.yearDisplay });
+    }
+  }
+
+  // Auto-fade the resume pill after 5 seconds so it doesn't linger forever.
+  if (resume) {
+    const pillEl = app.querySelector('.resume-pill');
+    if (pillEl) {
+      setTimeout(() => {
+        pillEl.classList.add('resume-pill--fading');
+        setTimeout(() => pillEl.remove(), 350);
+      }, 5000);
     }
   }
 

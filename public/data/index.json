@@ -910,6 +910,25 @@
         "text": "#1a1a1a"
       },
       "displayOrder": 2
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "behar-bechukotai",
+      "parshaName": "בהר-בחקתי",
+      "issueNumber": 51,
+      "dateLabel": "כ\"א אייר",
+      "teaser": "לא יודע מה יהיה העלון של השבוע, <mark>אבל לנסות</mark>",
+      "publishedAt": "2026-05-06T21:04:06.989Z",
+      "colors": {
+        "primary": "#1f3864",
+        "secondary": "#dae3f3",
+        "accent": "#949aa5",
+        "background": "#edeff3",
+        "bgEnd": "#dde1e8",
+        "text": "#1a1a1a"
+      },
+      "displayOrder": 0
     }
   ]
 }

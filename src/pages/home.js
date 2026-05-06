@@ -4,10 +4,11 @@ import { icon } from '../icons.js';
 import { shareButtonsHtml, bindShareButtons } from '../components/shareButtons.js';
 import { track } from '../lib/analytics.js';
 import { setPageSeo, plainSummary } from '../lib/seo.js';
+import { delayedLoading } from '../lib/loadingState.js';
 
 export async function renderHome() {
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const cancelLoading = delayedLoading(app);
 
   const [config, latest, nav] = await Promise.all([
     loadConfig(),
@@ -19,6 +20,7 @@ export async function renderHome() {
   const colors = latest?.colors || {};
   const cssVars = colors.primary ? `style="--bulletin-primary:${colors.primary}; --bulletin-secondary:${colors.secondary || colors.accent || '#52b788'};"` : '';
 
+  cancelLoading();
   app.innerHTML = `
     <div ${cssVars} class="fade-in">
       ${nav}

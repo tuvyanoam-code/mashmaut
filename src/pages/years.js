@@ -2,10 +2,11 @@ import { navHtml, footerHtml, bindNav } from '../components/nav.js';
 import { loadConfig, getYears, loadIndex } from '../lib/store.js';
 import { numberToHebrewYear } from '../lib/parshiot.js';
 import { setPageSeo } from '../lib/seo.js';
+import { delayedLoading } from '../lib/loadingState.js';
 
 export async function renderYears() {
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const cancelLoading = delayedLoading(app);
 
   const [config, years, idx, nav] = await Promise.all([
     loadConfig(),
@@ -23,6 +24,7 @@ export async function renderYears() {
     (b.id || '').localeCompare(a.id || '')
   );
 
+  cancelLoading();
   app.innerHTML = `
     <div class="fade-in">
       ${nav}

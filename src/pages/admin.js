@@ -59,22 +59,48 @@ export async function renderAdmin({ params }) {
   }
 
   const section = params?.section || 'dashboard';
-  // Note: tabbar/sheet/backdrop must live OUTSIDE .admin-shell.
-  // .admin-shell has .fade-in which leaves a `transform` on the element
-  // (even after the animation finishes), and that turns it into the
-  // containing block for `position: fixed` descendants — which would pin
-  // the tabbar to the bottom of the page instead of the viewport.
-  app.innerHTML = `
-    <div class="admin-shell fade-in">
-      ${renderSidebar(section)}
-      ${renderMobileBack(section)}
-      <main class="admin-main" id="adminMain"></main>
-    </div>
-    ${renderTabbar(section)}
-    ${renderMoreSheet(section)}
-  `;
-  bindSidebar();
-  bindMoreSheet();
+  // Keep the admin chrome (sidebar + bottom tabbar + bottom sheet) mounted
+  // across section changes — re-rendering the whole shell on every navigation
+  // produces a visible flash. We only re-render when the shell is missing
+  // (first entry into admin or after coming back from public pages).
+  // tabbar/sheet/backdrop must live OUTSIDE .admin-shell because .fade-in
+  // leaves a transform on the shell, which would pin position:fixed
+  // descendants to the shell instead of the viewport.
+  let shell = app.querySelector('.admin-shell');
+  if (!shell) {
+    app.innerHTML = `
+      <div class="admin-shell fade-in">
+        ${renderSidebar(section)}
+        ${renderMobileBack(section)}
+        <main class="admin-main" id="adminMain"></main>
+      </div>
+      ${renderTabbar(section)}
+      ${renderMoreSheet(section)}
+    `;
+    bindSidebar();
+    bindMoreSheet();
+  } else {
+    // Update active states in-place + swap the mobile-back chevron.
+    app.querySelectorAll('.admin-nav-item').forEach((el) => {
+      const href = el.getAttribute('href') || '';
+      const targetId = href.replace(/^\/admin\/?/, '') || 'dashboard';
+      el.classList.toggle('active', targetId === section);
+    });
+    app.querySelectorAll('.admin-tab').forEach((el) => {
+      const href = el.getAttribute('href') || '';
+      const targetId = href.replace(/^\/admin\/?/, '') || 'dashboard';
+      const moreSections = ['years', 'subscribers', 'settings', 'edit', 'notifications'];
+      const moreActive = moreSections.includes(section);
+      if (el.id === 'adminMoreBtn') el.classList.toggle('active', moreActive);
+      else el.classList.toggle('active', targetId === section);
+    });
+    // Mobile back pill: only on non-dashboard pages.
+    const existingBack = app.querySelector('.admin-back');
+    if (section === 'dashboard') { existingBack && existingBack.remove(); }
+    else if (!existingBack) {
+      shell.querySelector('.admin-main')?.insertAdjacentHTML('beforebegin', renderMobileBack(section));
+    }
+  }
   const main = document.getElementById('adminMain');
   switch (section) {
     case 'upload': await renderUpload(main); break;
@@ -165,6 +191,18 @@ function renderSidebar(active) {
       <button type="button" class="admin-nav-item" id="logoutBtn" style="background:transparent;border:none;width:100%;text-align:right;cursor:pointer;">${icon('close', { size: 18 })} <span>התנתק</span></button>
     </aside>
   `;
+}
+
+/**
+ * Set up a delayed loading state. The caller MUST invoke the returned cancel
+ * fn once it has rendered. If it cancels before `delay` elapses, no spinner
+ * ever appears — the previous section's content stays visible the whole time.
+ */
+function delayedLoading(root, headerText, delay = 250) {
+  const t = setTimeout(() => {
+    root.innerHTML = `<header class="admin-header"><h1>${headerText}</h1></header><div class="loading"><div class="spinner"></div></div>`;
+  }, delay);
+  return () => clearTimeout(t);
 }
 
 function renderTabbar(active) {
@@ -703,16 +741,18 @@ async function renderYearsAdmin(root) {
 }
 
 async function renderSubscribers(root) {
-  root.innerHTML = `<header class="admin-header"><h1>מנויים</h1></header><div class="loading"><div class="spinner"></div></div>`;
+  const cancelLoading = delayedLoading(root, 'מנויים');
   let allSubs = [];
   try {
     const data = await adminApi('/admin/subscribers');
     allSubs = data.subscribers || [];
   } catch (e) {
+    cancelLoading();
     root.innerHTML = `<header class="admin-header"><h1>מנויים</h1></header>
       <div class="admin-card"><p class="admin-status error">${e.message}</p></div>`;
     return;
   }
+  cancelLoading();
 
   // Newest first.
   allSubs.sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));

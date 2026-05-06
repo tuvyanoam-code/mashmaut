@@ -4,10 +4,11 @@ import { bulletinCardHtml } from '../components/bulletinCard.js';
 import { numberToHebrewYear, cycleOrderForSlug } from '../lib/parshiot.js';
 import { icon } from '../icons.js';
 import { setPageSeo } from '../lib/seo.js';
+import { delayedLoading } from '../lib/loadingState.js';
 
 export async function renderYear({ params }) {
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const cancelLoading = delayedLoading(app);
 
   const [config, weeks, years, nav] = await Promise.all([
     loadConfig(),
@@ -22,6 +23,7 @@ export async function renderYear({ params }) {
     cycleOrderForSlug(a.slug) - cycleOrderForSlug(b.slug)
   );
 
+  cancelLoading();
   app.innerHTML = `
     <div class="fade-in">
       ${nav}

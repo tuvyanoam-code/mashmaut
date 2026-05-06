@@ -19,7 +19,10 @@ export async function renderStats(root) {
     return;
   }
 
-  root.innerHTML = `<header class="admin-header"><h1>גרף שימוש</h1></header><div class="loading"><div class="spinner"></div></div>`;
+  // Don't blank up-front — keep previous section visible until data arrives.
+  const t = setTimeout(() => {
+    root.innerHTML = `<header class="admin-header"><h1>גרף שימוש</h1></header><div class="loading"><div class="spinner"></div></div>`;
+  }, 250);
   let stats;
   try {
     const r = await fetch(apiBase + '/admin/stats', {
@@ -30,11 +33,13 @@ export async function renderStats(root) {
     if (!data.ok) throw new Error(data.error || 'שגיאה');
     stats = data;
   } catch (e) {
+    clearTimeout(t);
     root.innerHTML = `
       <header class="admin-header"><h1>גרף שימוש</h1></header>
       <div class="admin-card"><p class="admin-status error">${e.message}</p></div>`;
     return;
   }
+  clearTimeout(t);
 
   const days = Object.keys(stats.byDay || {}).sort();
   const totals = stats.byType || {};

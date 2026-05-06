@@ -5,10 +5,11 @@ import { mountReadingProgress } from '../components/readingProgress.js';
 import { track } from '../lib/analytics.js';
 import { icon } from '../icons.js';
 import { setPageSeo, plainSummary } from '../lib/seo.js';
+import { delayedLoading } from '../lib/loadingState.js';
 
 export async function renderBulletin({ params }) {
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const cancelLoading = delayedLoading(app);
 
   const [config, week, nav] = await Promise.all([
     loadConfig(),
@@ -16,6 +17,7 @@ export async function renderBulletin({ params }) {
     navHtml(),
   ]);
 
+  cancelLoading();
   if (!week) {
     app.innerHTML = `
       ${nav}

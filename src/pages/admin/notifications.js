@@ -28,15 +28,21 @@ async function api(path, opts = {}) {
 }
 
 export async function renderNotifications(root) {
-  root.innerHTML = `<header class="admin-header"><h1>התראות</h1></header><div class="loading"><div class="spinner"></div></div>`;
+  // Don't blank up-front — keep previous section visible until data arrives.
+  // If the fetch is slow, swap to a spinner after 250ms.
+  const t = setTimeout(() => {
+    root.innerHTML = `<header class="admin-header"><h1>התראות</h1></header><div class="loading"><div class="spinner"></div></div>`;
+  }, 250);
   let data;
   try {
     data = await api('/admin/notifications');
   } catch (e) {
+    clearTimeout(t);
     root.innerHTML = `<header class="admin-header"><h1>התראות</h1></header>
       <div class="admin-card"><p class="admin-status error">${e.message}</p></div>`;
     return;
   }
+  clearTimeout(t);
   const items = data.items || [];
   const readUntil = data.readUntil || '';
 

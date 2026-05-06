@@ -128,25 +128,75 @@ async function listSubscribers(env) {
   return out;
 }
 
-async function addSubscriber(env, email, request) {
+async function addSubscriber(env, email, request, opts = {}) {
   const cleaned = email.trim().toLowerCase();
   const key = 'sub:' + cleaned;
   const existing = await env.EMAILS.get(key, 'json');
-  if (existing) return existing;
+  if (existing) return { existing: true, data: existing };
   const token = crypto.randomUUID();
   const data = {
     email: cleaned,
     addedAt: new Date().toISOString(),
     country: request?.cf?.country || null,
     city: request?.cf?.city || null,
+    source: opts.source || 'public',
     token,
   };
   await env.EMAILS.put(key, JSON.stringify(data));
-  return data;
+  return { existing: false, data };
 }
 
 async function removeSubscriber(env, email) {
   await env.EMAILS.delete('sub:' + email.trim().toLowerCase());
+}
+
+// --- Notifications (admin inbox) -----------------------------------------
+// Stored as `notif:<ISO-timestamp>:<rand>` → { type, ...payload, at }.
+// Read-state is a single cursor `notif-read-until` holding the most recent
+// timestamp the admin has acknowledged.
+
+async function recordNotification(env, type, payload = {}) {
+  try {
+    const at = new Date().toISOString();
+    const id = at + ':' + Math.random().toString(36).slice(2, 10);
+    const value = { type, at, ...payload };
+    // 400 days TTL — same as analytics events.
+    await env.EVENTS.put('notif:' + id, JSON.stringify(value), { expirationTtl: 60 * 60 * 24 * 400 });
+  } catch (e) {
+    console.log('notif failed:', e.message);
+  }
+}
+
+async function listNotifications(env, limit = 200) {
+  const out = [];
+  let cursor;
+  do {
+    const res = await env.EVENTS.list({ prefix: 'notif:', cursor });
+    const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+    for (let i = 0; i < res.keys.length; i++) {
+      const v = values[i];
+      if (!v) continue;
+      // Strip the leading 'notif:' to get the id.
+      out.push({ id: res.keys[i].name.slice(6), ...v });
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+    if (out.length >= limit * 4) break;
+  } while (cursor);
+  // Newest first.
+  out.sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+  const trimmed = out.slice(0, limit);
+  const readUntil = await env.EVENTS.get('notif-read-until') || '';
+  const unread = trimmed.filter((n) => (n.at || '') > readUntil).length;
+  return { items: trimmed, unread, readUntil };
+}
+
+async function markNotificationsRead(env) {
+  // Move the read-until cursor to "now" — everything currently in the inbox
+  // is considered seen.
+  const at = new Date().toISOString();
+  await env.EVENTS.put('notif-read-until', at);
+  return { readUntil: at };
 }
 
 // --- Events / analytics --------------------------------------------------
@@ -354,8 +404,15 @@ async function sendBulletinToAll(env) {
       console.log('send failed for', s.email, e.message);
     }
   }
-  // Log the dispatch
+  // Log the dispatch + admin notification
   await env.EVENTS.put(`dispatch:${today()}:${week.slug}`, JSON.stringify({ sent, failed, at: new Date().toISOString() }));
+  await recordNotification(env, 'bulletin-sent', {
+    slug: week.slug,
+    parshaName: week.parshaName,
+    yearDisplay: week.yearDisplay || null,
+    sent,
+    failed,
+  });
   return { ok: true, sent, failed };
 }
 
@@ -373,19 +430,27 @@ export default {
       if (p === '/subscribe' && request.method === 'POST') {
         const body = await request.json().catch(() => ({}));
         if (!isEmail(body.email)) return err('כתובת מייל לא תקינה');
-        const data = await addSubscriber(env, body.email, request);
-        // Send a welcome email
-        try {
-          const apiBase = (env.API_URL || 'https://api.alonmashmaut.org').replace(/\/$/, '');
-          const link = `${apiBase}/unsubscribe?email=${encodeURIComponent(data.email)}&token=${data.token}`;
-          await sendEmail(env, data.email,
-            `ברוך הבא לעלון משמעות`,
-            `<div dir="rtl" style="font-family:Assistant,system-ui,sans-serif;color:#1a1a1a;font-size:16px;line-height:1.6;">
-              <p>תודה שנרשמת לעלון <b>משמעות</b>.</p>
-              <p>בכל יום חמישי בערב נשלח לך את העלון של השבוע.</p>
-              <p style="font-size:13px;color:#888;">להסרה מרשימת התפוצה: <a href="${link}">לחץ כאן</a></p>
-            </div>`);
-        } catch (_) { /* best-effort */ }
+        const { existing, data } = await addSubscriber(env, body.email, request, { source: 'public' });
+        if (!existing) {
+          // Record an admin notification (only for genuine new signups).
+          await recordNotification(env, 'subscribe', {
+            email: data.email,
+            country: data.country || null,
+            city: data.city || null,
+          });
+          // Send a welcome email
+          try {
+            const apiBase = (env.API_URL || 'https://api.alonmashmaut.org').replace(/\/$/, '');
+            const link = `${apiBase}/unsubscribe?email=${encodeURIComponent(data.email)}&token=${data.token}`;
+            await sendEmail(env, data.email,
+              `ברוך הבא לעלון משמעות`,
+              `<div dir="rtl" style="font-family:Assistant,system-ui,sans-serif;color:#1a1a1a;font-size:16px;line-height:1.6;">
+                <p>תודה שנרשמת לעלון <b>משמעות</b>.</p>
+                <p>בכל יום חמישי בערב נשלח לך את העלון של השבוע.</p>
+                <p style="font-size:13px;color:#888;">להסרה מרשימת התפוצה: <a href="${link}">לחץ כאן</a></p>
+              </div>`);
+          } catch (_) { /* best-effort */ }
+        }
         return ok({ subscribed: true });
       }
 
@@ -393,7 +458,10 @@ export default {
         const params = request.method === 'GET' ? Object.fromEntries(url.searchParams) : await request.json().catch(() => ({}));
         const email = params.email;
         if (!isEmail(email)) return err('email required');
+        const cleaned = email.trim().toLowerCase();
+        const existed = await env.EMAILS.get('sub:' + cleaned);
         await removeSubscriber(env, email);
+        if (existed) await recordNotification(env, 'unsubscribe', { email: cleaned });
         if (request.method === 'GET') {
           const siteUrl = env.SITE_URL || 'https://alonmashmaut.org';
           const html = `<!DOCTYPE html>
@@ -440,7 +508,84 @@ export default {
         if (!authed(request, env)) return err('unauthorized', 401);
         if (p === '/admin/auth' && request.method === 'POST') return ok({ valid: true });
         if (p === '/admin/stats') return ok(await buildStats(env));
-        if (p === '/admin/subscribers') return ok({ subscribers: await listSubscribers(env) });
+        if (p === '/admin/subscribers' && request.method === 'GET') return ok({ subscribers: await listSubscribers(env) });
+
+        if (p === '/admin/subscribers/export.csv') {
+          const subs = await listSubscribers(env);
+          const rows = [['email', 'addedAt', 'country', 'city', 'source']];
+          for (const s of subs) rows.push([s.email, s.addedAt || '', s.country || '', s.city || '', s.source || '']);
+          const csv = rows.map((r) => r.map((c) => /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c).join(',')).join('\n');
+          // Prepend BOM so Excel opens UTF-8 correctly.
+          return new Response('﻿' + csv, {
+            headers: {
+              ...CORS,
+              'Content-Type': 'text/csv;charset=utf-8',
+              'Content-Disposition': `attachment; filename="mashmaut-subscribers-${today()}.csv"`,
+            },
+          });
+        }
+
+        if (p === '/admin/subscribers/bulk-add' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          let raw = body.emails;
+          if (Array.isArray(raw)) raw = raw.join('\n');
+          if (typeof raw !== 'string') return err('emails (array or string) required');
+          const sendWelcome = !!body.sendWelcome;
+          // Extract anything that looks like an email — handles commas, semicolons,
+          // newlines, "Name <a@b>" form, and stray spaces.
+          const candidates = raw.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/g) || [];
+          // Dedupe, normalize.
+          const seen = new Set();
+          const valid = [];
+          for (const c of candidates) {
+            const lc = c.toLowerCase();
+            if (!seen.has(lc) && isEmail(lc)) { seen.add(lc); valid.push(lc); }
+          }
+          let added = 0, skipped = 0, sentWelcome = 0, welcomeFailed = 0;
+          for (const e of valid) {
+            const { existing, data } = await addSubscriber(env, e, request, { source: 'admin' });
+            if (existing) { skipped++; continue; }
+            added++;
+            if (sendWelcome) {
+              try {
+                const apiBase = (env.API_URL || 'https://api.alonmashmaut.org').replace(/\/$/, '');
+                const link = `${apiBase}/unsubscribe?email=${encodeURIComponent(data.email)}&token=${data.token}`;
+                await sendEmail(env, data.email,
+                  `ברוך הבא לעלון משמעות`,
+                  `<div dir="rtl" style="font-family:Assistant,system-ui,sans-serif;color:#1a1a1a;font-size:16px;line-height:1.6;">
+                    <p>תודה שנרשמת לעלון <b>משמעות</b>.</p>
+                    <p>בכל יום חמישי בערב נשלח לך את העלון של השבוע.</p>
+                    <p style="font-size:13px;color:#888;">להסרה מרשימת התפוצה: <a href="${link}">לחץ כאן</a></p>
+                  </div>`);
+                sentWelcome++;
+              } catch (_) { welcomeFailed++; }
+            }
+          }
+          return ok({ added, skipped, sentWelcome, welcomeFailed, totalCandidates: candidates.length });
+        }
+
+        if (p === '/admin/subscribers/remove' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const list = Array.isArray(body.emails) ? body.emails : [];
+          let removed = 0;
+          for (const e of list) {
+            if (!isEmail(e)) continue;
+            const cleaned = e.trim().toLowerCase();
+            const existed = await env.EMAILS.get('sub:' + cleaned);
+            if (existed) {
+              await removeSubscriber(env, cleaned);
+              removed++;
+            }
+          }
+          return ok({ removed });
+        }
+
+        if (p === '/admin/notifications' && request.method === 'GET') {
+          return ok(await listNotifications(env));
+        }
+        if (p === '/admin/notifications/mark-read' && request.method === 'POST') {
+          return ok(await markNotificationsRead(env));
+        }
         if (p === '/admin/send-now' && request.method === 'POST') {
           const result = await sendBulletinToAll(env);
           return ok(result);

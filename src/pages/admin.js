@@ -7,6 +7,7 @@ import { loadIndex, loadConfig, loadBulletin } from '../lib/store.js';
 import { showToast } from '../components/shareButtons.js';
 import { mountRichEditor } from '../components/richEditor.js';
 import { renderStats } from './admin/stats.js';
+import { renderNotifications, getUnreadNotifCount } from './admin/notifications.js';
 import { convertWordToHtml, extractPdfPalette, fileToBase64 } from '../lib/fileProcess.js';
 
 const KEY_STORAGE = 'mashmaut.adminKey';
@@ -81,10 +82,28 @@ export async function renderAdmin({ params }) {
     case 'years': await renderYearsAdmin(main); break;
     case 'stats': await renderStats(main); break;
     case 'subscribers': await renderSubscribers(main); break;
+    case 'notifications': await renderNotifications(main); break;
     case 'settings': await renderSettings(main); break;
     case 'edit': await renderEditor(main); break;
     default: await renderDashboard(main);
   }
+
+  // Refresh the unread-notification badge in the chrome.
+  refreshNotifBadge();
+}
+
+async function refreshNotifBadge() {
+  try {
+    const count = await getUnreadNotifCount();
+    document.querySelectorAll('[data-notif-badge]').forEach((el) => {
+      if (count > 0) {
+        el.textContent = count > 99 ? '99+' : String(count);
+        el.hidden = false;
+      } else {
+        el.hidden = true;
+      }
+    });
+  } catch { /* best-effort */ }
 }
 
 function renderLogin(app, errorMsg = '') {
@@ -124,6 +143,7 @@ function renderLogin(app, errorMsg = '') {
 function renderSidebar(active) {
   const items = [
     { id: 'dashboard', label: 'ראשי', icon: 'home' },
+    { id: 'notifications', label: 'התראות', icon: 'email', badge: true },
     { id: 'upload', label: 'העלאת עלון', icon: 'upload' },
     { id: 'bulletins', label: 'עלונים', icon: 'book' },
     { id: 'years', label: 'שנים', icon: 'calendar' },
@@ -137,6 +157,7 @@ function renderSidebar(active) {
       ${items.map((it) => `
         <a class="admin-nav-item ${active === it.id ? 'active' : ''}" href="/admin/${it.id === 'dashboard' ? '' : it.id}">
           ${icon(it.icon, { size: 18 })} <span>${it.label}</span>
+          ${it.badge ? '<span class="notif-badge" data-notif-badge hidden></span>' : ''}
         </a>
       `).join('')}
       <div style="flex:1"></div>
@@ -155,7 +176,7 @@ function renderTabbar(active) {
     { id: 'bulletins', label: 'עלונים', icon: 'book' },
     { id: 'stats', label: 'שימוש', icon: 'eye' },
   ];
-  const moreSections = ['years', 'subscribers', 'settings', 'edit'];
+  const moreSections = ['years', 'subscribers', 'settings', 'edit', 'notifications'];
   const moreActive = moreSections.includes(active);
   return `
     <nav class="admin-tabbar" aria-label="ניווט מהיר">
@@ -168,6 +189,7 @@ function renderTabbar(active) {
       <button type="button" class="admin-tab ${moreActive ? 'active' : ''}" id="adminMoreBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="adminMoreSheet">
         ${icon('menu', { size: 22 })}
         <span>עוד</span>
+        <span class="notif-badge notif-badge--tab" data-notif-badge hidden></span>
       </button>
     </nav>
   `;
@@ -187,8 +209,9 @@ function renderMobileBack(section) {
 
 function renderMoreSheet(active) {
   const items = [
-    { id: 'years', label: 'שנים', icon: 'calendar', href: '/admin/years' },
+    { id: 'notifications', label: 'התראות', icon: 'email', href: '/admin/notifications', badge: true },
     { id: 'subscribers', label: 'מנויים', icon: 'email', href: '/admin/subscribers' },
+    { id: 'years', label: 'שנים', icon: 'calendar', href: '/admin/years' },
     { id: 'settings', label: 'הגדרות', icon: 'settings', href: '/admin/settings' },
     { id: 'view', label: 'צפה באתר', icon: 'eye', href: '/', external: true },
     { id: 'logout', label: 'התנתק', icon: 'close', action: 'logout' },
@@ -204,7 +227,8 @@ function renderMoreSheet(active) {
           if (it.action === 'logout') {
             return `<button type="button" class="admin-sheet-item" data-action="logout">${icon(it.icon, { size: 18 })}<span>${it.label}</span></button>`;
           }
-          return `<a class="admin-sheet-item ${isActive ? 'active' : ''}" href="${it.href}"${it.external ? ' target="_blank"' : ''}>${icon(it.icon, { size: 18 })}<span>${it.label}</span></a>`;
+          const badge = it.badge ? '<span class="notif-badge" data-notif-badge hidden style="margin-inline-start:auto;"></span>' : '';
+          return `<a class="admin-sheet-item ${isActive ? 'active' : ''}" href="${it.href}"${it.external ? ' target="_blank"' : ''}>${icon(it.icon, { size: 18 })}<span>${it.label}</span>${badge}</a>`;
         }).join('')}
       </div>
     </div>
@@ -629,26 +653,230 @@ async function renderYearsAdmin(root) {
 
 async function renderSubscribers(root) {
   root.innerHTML = `<header class="admin-header"><h1>מנויים</h1></header><div class="loading"><div class="spinner"></div></div>`;
+  let allSubs = [];
   try {
     const data = await adminApi('/admin/subscribers');
-    const subs = data.subscribers || [];
-    root.innerHTML = `
-      <header class="admin-header"><h1>מנויים (${subs.length})</h1></header>
-      <div class="admin-card">
-        ${subs.length === 0 ? '<p class="muted">עוד אין מנויים.</p>' : `
-          <table class="admin-table">
-            <thead><tr><th>מייל</th><th>נרשם ב-</th><th>מיקום</th></tr></thead>
-            <tbody>
-              ${subs.map((s) => `<tr><td data-label="מייל">${escapeHtml(s.email)}</td><td data-label="נרשם ב-">${(s.addedAt || '').slice(0, 10)}</td><td data-label="מיקום">${[s.city, s.country].filter(Boolean).join(' / ') || '—'}</td></tr>`).join('')}
-            </tbody>
-          </table>
-        `}
-      </div>
-    `;
+    allSubs = data.subscribers || [];
   } catch (e) {
     root.innerHTML = `<header class="admin-header"><h1>מנויים</h1></header>
       <div class="admin-card"><p class="admin-status error">${e.message}</p></div>`;
+    return;
   }
+
+  // Newest first.
+  allSubs.sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
+
+  // Local UI state — rebuilt in-place via repaint().
+  let state = { selectMode: false, selected: new Set(), query: '' };
+  const cfg = await loadConfig();
+  const apiBase = (cfg.apiBase || '').replace(/\/$/, '');
+
+  function visible() {
+    const q = state.query.trim().toLowerCase();
+    if (!q) return allSubs;
+    return allSubs.filter((s) => (s.email || '').toLowerCase().includes(q));
+  }
+
+  function paint() {
+    const subs = visible();
+    root.innerHTML = `
+      <header class="admin-header">
+        <h1>מנויים <span class="muted" style="font-size:1rem; font-weight:400;">(${allSubs.length})</span></h1>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          ${state.selectMode
+            ? `<button class="btn" type="button" id="confirmRemove" ${state.selected.size === 0 ? 'disabled' : ''}>${icon('trash', { size: 18 })} הסר נבחרים (${state.selected.size})</button>
+               <button class="btn btn-secondary" type="button" id="cancelSelect">ביטול</button>`
+            : `<button class="btn btn-secondary" type="button" id="enterSelect">${icon('trash', { size: 18 })} הסר מנויים</button>
+               <button class="btn btn-secondary" type="button" id="exportCsv">${icon('download', { size: 18 })} ייצוא CSV</button>`}
+        </div>
+      </header>
+
+      <div class="admin-card">
+        <h3 style="margin-top:0;">הוספת מנויים</h3>
+        <p class="muted" style="margin-top:0;">הדבק כתובות מייל — מופרדות בפסיק / רווח / שורה / נקודה-פסיק. המערכת תזהה את הכתובות התקינות ותתעלם מכפילויות. בלי הגבלה.</p>
+        <form id="bulkAddForm">
+          <div class="form-group">
+            <textarea name="emails" rows="4" placeholder="alice@example.com, bob@example.com&#10;carol@example.com" style="font-family:inherit;"></textarea>
+          </div>
+          <div class="form-group" style="display:flex; align-items:center; gap:10px;">
+            <input type="checkbox" id="sendWelcome" name="sendWelcome" />
+            <label for="sendWelcome" style="margin:0;">שלח מייל "ברוך הבא" למנויים החדשים</label>
+          </div>
+          <button class="btn" type="submit">${icon('plus', { size: 18 })} הוסף</button>
+          <span id="addStatus" style="margin-right:14px;"></span>
+        </form>
+      </div>
+
+      <div class="admin-card">
+        <div class="form-group" style="margin-bottom: 14px;">
+          <input type="text" id="searchInput" placeholder="חפש לפי כתובת מייל" value="${escapeHtml(state.query)}" autocomplete="off" />
+        </div>
+        ${allSubs.length === 0 ? '<p class="muted">עוד אין מנויים.</p>' : (subs.length === 0 ? `<p class="muted">לא נמצאו מנויים תואמים ל-"${escapeHtml(state.query)}".</p>` : `
+          <table class="admin-table" id="subsTable">
+            <thead>
+              <tr>
+                ${state.selectMode ? '<th style="width:36px;"></th>' : ''}
+                <th>מייל</th><th>נרשם ב-</th><th>מקור</th><th>מיקום</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${subs.map((s) => {
+                const isSel = state.selected.has(s.email);
+                const checkbox = state.selectMode
+                  ? `<td data-label=""><input type="checkbox" class="sub-check" data-email="${escapeHtml(s.email)}" ${isSel ? 'checked' : ''} /></td>`
+                  : '';
+                const sourceBadge = s.source === 'admin' ? '<span class="muted">ידני</span>' : (s.source === 'public' ? 'אתר' : '—');
+                return `<tr ${isSel ? 'class="row-selected"' : ''}>
+                  ${checkbox}
+                  <td data-label="מייל">${escapeHtml(s.email)}</td>
+                  <td data-label="נרשם ב-">${(s.addedAt || '').slice(0, 10)}</td>
+                  <td data-label="מקור">${sourceBadge}</td>
+                  <td data-label="מיקום">${[s.city, s.country].filter(Boolean).join(' / ') || '—'}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        `)}
+      </div>
+    `;
+
+    // Bind handlers.
+    const enterSel = root.querySelector('#enterSelect');
+    if (enterSel) enterSel.addEventListener('click', () => { state.selectMode = true; state.selected.clear(); paint(); });
+    const cancelSel = root.querySelector('#cancelSelect');
+    if (cancelSel) cancelSel.addEventListener('click', () => { state.selectMode = false; state.selected.clear(); paint(); });
+
+    const exportBtn = root.querySelector('#exportCsv');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', async () => {
+        exportBtn.disabled = true;
+        try {
+          const r = await fetch(apiBase + '/admin/subscribers/export.csv', {
+            headers: { Authorization: 'Bearer ' + getKey() },
+          });
+          if (!r.ok) throw new Error('שגיאה בייצוא');
+          const blob = await r.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `mashmaut-subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        } catch (e) { alert(e.message); }
+        exportBtn.disabled = false;
+      });
+    }
+
+    root.querySelectorAll('.sub-check').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const email = cb.dataset.email;
+        if (cb.checked) state.selected.add(email); else state.selected.delete(email);
+        paint();
+      });
+    });
+
+    const confirmRm = root.querySelector('#confirmRemove');
+    if (confirmRm) {
+      confirmRm.addEventListener('click', async () => {
+        const list = [...state.selected];
+        if (!list.length) return;
+        if (!confirm(`להסיר ${list.length} מנויים מהרשימה? לא יישלח עליהם מייל. הפעולה אינה הפיכה.`)) return;
+        confirmRm.disabled = true;
+        try {
+          await adminApi('/admin/subscribers/remove', { method: 'POST', body: { emails: list } });
+          showToast(`הוסרו ${list.length} מנויים`);
+          // Drop from local list and reset.
+          allSubs = allSubs.filter((s) => !state.selected.has(s.email));
+          state.selectMode = false;
+          state.selected.clear();
+          paint();
+        } catch (err) { alert(err.message); confirmRm.disabled = false; }
+      });
+    }
+
+    const search = root.querySelector('#searchInput');
+    if (search) {
+      search.addEventListener('input', () => { state.query = search.value; paintTableOnly(); });
+    }
+
+    const form = root.querySelector('#bulkAddForm');
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const status = root.querySelector('#addStatus');
+        const fd = new FormData(e.target);
+        const emails = (fd.get('emails') || '').toString();
+        const sendWelcome = !!fd.get('sendWelcome');
+        if (!emails.trim()) { status.innerHTML = '<span class="muted">הדבק כתובות תחילה</span>'; return; }
+        status.innerHTML = '<span class="muted">מוסיף…</span>';
+        try {
+          const r = await adminApi('/admin/subscribers/bulk-add', { method: 'POST', body: { emails, sendWelcome } });
+          const parts = [];
+          if (r.added) parts.push(`נוספו ${r.added}`);
+          if (r.skipped) parts.push(`${r.skipped} כבר קיימים`);
+          if (r.totalCandidates && r.totalCandidates > (r.added + r.skipped)) parts.push(`${r.totalCandidates - r.added - r.skipped} כתובות לא תקינות`);
+          if (sendWelcome && r.sentWelcome) parts.push(`נשלחו ${r.sentWelcome} מייליי ברוך הבא`);
+          if (sendWelcome && r.welcomeFailed) parts.push(`${r.welcomeFailed} נכשלו`);
+          status.innerHTML = `<span class="admin-status success" style="display:inline-block; padding:4px 10px;">${parts.join(' · ') || 'אין כתובות חדשות'}</span>`;
+          // Refresh list.
+          renderSubscribers(root);
+        } catch (err) {
+          status.innerHTML = `<span class="admin-status error" style="display:inline-block; padding:4px 10px;">${err.message}</span>`;
+        }
+      });
+    }
+  }
+
+  // Live search re-renders only the table card (keeps focus in the input).
+  function paintTableOnly() {
+    const subs = visible();
+    const card = root.querySelectorAll('.admin-card')[1];
+    if (!card) return;
+    const tableHost = card;
+    const beforeInput = tableHost.querySelector('#searchInput');
+    const inputValue = beforeInput ? beforeInput.value : state.query;
+    const tableMarkup = allSubs.length === 0
+      ? '<p class="muted">עוד אין מנויים.</p>'
+      : (subs.length === 0
+        ? `<p class="muted">לא נמצאו מנויים תואמים ל-"${escapeHtml(state.query)}".</p>`
+        : `<table class="admin-table" id="subsTable">
+            <thead>
+              <tr>
+                ${state.selectMode ? '<th style="width:36px;"></th>' : ''}
+                <th>מייל</th><th>נרשם ב-</th><th>מקור</th><th>מיקום</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${subs.map((s) => {
+                const isSel = state.selected.has(s.email);
+                const checkbox = state.selectMode
+                  ? `<td data-label=""><input type="checkbox" class="sub-check" data-email="${escapeHtml(s.email)}" ${isSel ? 'checked' : ''} /></td>`
+                  : '';
+                const sourceBadge = s.source === 'admin' ? '<span class="muted">ידני</span>' : (s.source === 'public' ? 'אתר' : '—');
+                return `<tr ${isSel ? 'class="row-selected"' : ''}>
+                  ${checkbox}
+                  <td data-label="מייל">${escapeHtml(s.email)}</td>
+                  <td data-label="נרשם ב-">${(s.addedAt || '').slice(0, 10)}</td>
+                  <td data-label="מקור">${sourceBadge}</td>
+                  <td data-label="מיקום">${[s.city, s.country].filter(Boolean).join(' / ') || '—'}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>`);
+    // Replace just the table region (everything after the search input).
+    const fg = tableHost.querySelector('.form-group');
+    while (fg && fg.nextElementSibling) fg.nextElementSibling.remove();
+    fg.insertAdjacentHTML('afterend', tableMarkup);
+    // Re-bind row checkboxes.
+    root.querySelectorAll('.sub-check').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const email = cb.dataset.email;
+        if (cb.checked) state.selected.add(email); else state.selected.delete(email);
+        paint();
+      });
+    });
+  }
+
+  paint();
 }
 
 async function renderSettings(root) {

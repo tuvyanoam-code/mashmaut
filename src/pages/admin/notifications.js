@@ -68,19 +68,37 @@ export async function renderNotifications(root) {
   if (btn) {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
-      try { await api('/admin/notifications/mark-read', { method: 'POST', body: {} }); }
-      catch (_) {}
+      try {
+        await api('/admin/notifications/mark-read', { method: 'POST', body: {} });
+        clearAllBadges();
+      } catch (_) {}
       renderNotifications(root);
     });
   }
 
   // Auto-mark-read on first render after a short delay so the user sees the
-  // unread highlights briefly.
+  // unread highlights briefly. Then clear the badge in the chrome so it
+  // disappears immediately, without waiting for the next page render.
   if (data.unread > 0) {
-    setTimeout(() => {
-      api('/admin/notifications/mark-read', { method: 'POST', body: {} }).catch(() => {});
+    setTimeout(async () => {
+      try {
+        await api('/admin/notifications/mark-read', { method: 'POST', body: {} });
+        clearAllBadges();
+      } catch { /* best-effort */ }
     }, 1500);
+  } else {
+    // If we landed here with zero unread, the chrome's badge should already
+    // be clear — but make sure (e.g. after a different tab marked them read).
+    clearAllBadges();
   }
+}
+
+/** Hide every unread-badge element in the document. */
+function clearAllBadges() {
+  document.querySelectorAll('[data-notif-badge]').forEach((el) => {
+    el.hidden = true;
+    el.textContent = '';
+  });
 }
 
 function renderItem(n, readUntil) {

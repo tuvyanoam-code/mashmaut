@@ -423,7 +423,7 @@
         "background": "#fdf6f5",
         "text": "#1a1a1a"
       },
-      "displayOrder": 2
+      "displayOrder": 1
     },
     {
       "yearId": "5786",
@@ -909,7 +909,7 @@
         "background": "#f4f8fd",
         "text": "#1a1a1a"
       },
-      "displayOrder": 1
+      "displayOrder": 2
     }
   ]
 }

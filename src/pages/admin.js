@@ -286,8 +286,32 @@ async function renderDashboard(root) {
   const idx = await loadIndex(true);
   const total = (idx.weeks || []).length;
   const yearsCount = (idx.years || []).length;
+
+  // Pull pending dispatch (if any) so we can show an approval banner on top.
+  let pending = null;
+  try {
+    const data = await adminApi('/admin/pending-dispatch');
+    pending = data.pending || null;
+  } catch { /* not fatal */ }
+
   root.innerHTML = `
     <header class="admin-header"><h1>סקירה כללית</h1></header>
+
+    ${pending ? `
+      <div class="admin-card pending-dispatch-banner">
+        <div class="pending-dispatch-icon">${icon('email', { size: 28 })}</div>
+        <div class="pending-dispatch-body">
+          <h3 style="margin: 0 0 4px;">העלון של פרשת ${escapeHtml(pending.parshaName || pending.slug || '')} ממתין לאישורך</h3>
+          <p class="muted" style="margin: 0 0 12px;">המערכת זיהתה שהגיע המועד שקבעת לשליחה. לחץ "שלח עכשיו" כדי לשגר לכל המנויים, או "דחה" כדי לדלג על השבוע הזה.</p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn" type="button" id="approvePending">${icon('check', { size: 18 })} שלח עכשיו</button>
+            <button class="btn btn-secondary" type="button" id="cancelPending">${icon('close', { size: 18 })} דחה לשבוע הבא</button>
+          </div>
+          <div id="pendingStatus" style="margin-top:12px;"></div>
+        </div>
+      </div>
+    ` : ''}
+
     <div class="admin-card">
       <h2>${total} עלונים · ${yearsCount} שנים</h2>
       <p class="muted">העלאה של עלון חדש לוקחת פחות מדקה. כל שמירה נשמרת ישירות לאתר ומתפרסמת תוך כדקה.</p>
@@ -305,6 +329,33 @@ async function renderDashboard(root) {
       </ol>
     </div>
   `;
+
+  if (pending) {
+    const approveBtn = root.querySelector('#approvePending');
+    const cancelBtn = root.querySelector('#cancelPending');
+    const status = root.querySelector('#pendingStatus');
+    approveBtn?.addEventListener('click', async () => {
+      if (!confirm(`לשלוח עכשיו את העלון של פרשת ${pending.parshaName} לכל המנויים?`)) return;
+      approveBtn.disabled = true; cancelBtn.disabled = true;
+      status.innerHTML = '<div class="admin-status info">שולח…</div>';
+      try {
+        const r = await adminApi('/admin/pending-dispatch/approve', { method: 'POST', body: {} });
+        status.innerHTML = `<div class="admin-status success">נשלחו ${r.sent || 0} מיילים${r.failed ? ` · ${r.failed} נכשלו` : ''}</div>`;
+        setTimeout(() => renderDashboard(root), 1500);
+      } catch (e) {
+        approveBtn.disabled = false; cancelBtn.disabled = false;
+        status.innerHTML = `<div class="admin-status error">${e.message}</div>`;
+      }
+    });
+    cancelBtn?.addEventListener('click', async () => {
+      if (!confirm('לדחות את שליחת העלון לשבוע הבא? המערכת לא תשלח אותו השבוע.')) return;
+      try {
+        await adminApi('/admin/pending-dispatch/cancel', { method: 'POST', body: {} });
+        showToast('נדחה');
+        renderDashboard(root);
+      } catch (e) { alert(e.message); }
+    });
+  }
 }
 
 async function renderUpload(root) {
@@ -881,8 +932,44 @@ async function renderSubscribers(root) {
 
 async function renderSettings(root) {
   const config = await loadConfig();
+  const sched = config.dispatchSchedule || { enabled: true, dayOfWeek: 4, hour: 19, requireApproval: false };
+  const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
   root.innerHTML = `
     <header class="admin-header"><h1>הגדרות אתר</h1></header>
+
+    <div class="admin-card">
+      <h3 style="margin-top:0;">תזמון שליחת העלון</h3>
+      <p class="muted" style="margin-top:0;">קובע מתי המערכת שולחת את העלון השבועי האחרון לכל המנויים. השעות הן בשעון ישראל. כל לחיצת "שמור" מעדכנת את לוח הזמנים מיד.</p>
+      <form id="scheduleForm">
+        <div class="form-group" style="display:flex; align-items:center; gap:10px;">
+          <input type="checkbox" id="schedEnabled" ${sched.enabled ? 'checked' : ''} />
+          <label for="schedEnabled" style="margin:0;"><b>שליחה אוטומטית מופעלת</b></label>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>יום בשבוע</label>
+            <select id="schedDay">
+              ${dayNames.map((n, i) => `<option value="${i}" ${sched.dayOfWeek === i ? 'selected' : ''}>יום ${n}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>שעה (שעון ישראל)</label>
+            <select id="schedHour">
+              ${Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${sched.hour === h ? 'selected' : ''}>${String(h).padStart(2, '0')}:00</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="display:flex; align-items:flex-start; gap:10px;">
+          <input type="checkbox" id="schedApproval" ${sched.requireApproval ? 'checked' : ''} style="margin-top: 4px;" />
+          <label for="schedApproval" style="margin:0;">
+            <b>דרוש אישור ידני לפני השליחה</b>
+            <div class="muted" style="font-weight:400; margin-top:4px;">אם מסומן, האתר יקבע את העלון לשליחה בזמן שנקבע ויחכה לאישורך בעמוד הראשי או בלשונית "התראות". בלי לחיצה על "אשר" — המייל לא יישלח.</div>
+          </label>
+        </div>
+        <button class="btn" type="submit">${icon('check', { size: 18 })} שמור תזמון</button>
+        <span id="scheduleStatus" style="margin-right:14px;"></span>
+      </form>
+    </div>
 
     <div class="admin-card">
       <h3 style="margin-top:0;">לוגו</h3>
@@ -989,6 +1076,29 @@ async function renderSettings(root) {
       await adminApi('/admin/config', { method: 'POST', body: obj });
       showToast('נשמר');
     } catch (err) { alert(err.message); }
+  });
+
+  root.querySelector('#scheduleForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = root.querySelector('#scheduleStatus');
+    const next = {
+      enabled: root.querySelector('#schedEnabled').checked,
+      dayOfWeek: parseInt(root.querySelector('#schedDay').value, 10),
+      hour: parseInt(root.querySelector('#schedHour').value, 10),
+      requireApproval: root.querySelector('#schedApproval').checked,
+    };
+    status.innerHTML = '<span class="muted">שומר…</span>';
+    try {
+      await adminApi('/admin/config', { method: 'POST', body: { dispatchSchedule: next } });
+      const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][next.dayOfWeek];
+      const summary = next.enabled
+        ? `נקבע: יום ${dayName} ב-${String(next.hour).padStart(2, '0')}:00${next.requireApproval ? ' (עם אישור)' : ' (אוטומטי)'}`
+        : 'שליחה אוטומטית כבויה';
+      status.innerHTML = `<span class="admin-status success" style="display:inline-block; padding:4px 10px;">${summary}</span>`;
+      showToast('התזמון עודכן');
+    } catch (err) {
+      status.innerHTML = `<span class="admin-status error" style="display:inline-block; padding:4px 10px;">${err.message}</span>`;
+    }
   });
 }
 

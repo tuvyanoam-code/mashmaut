@@ -121,7 +121,34 @@ export async function renderStats(root) {
 
   document.getElementById('refreshStats').addEventListener('click', () => renderStats(root));
   document.getElementById('sendNow').addEventListener('click', async () => {
-    if (!confirm('לשלוח את העלון של השבוע לכל המנויים?')) return;
+    // Two-step confirmation with the actual bulletin name + subscriber count
+    // so it can't be triggered accidentally.
+    const status = document.getElementById('actionStatus');
+    status.innerHTML = `<div class="admin-status info">בודק…</div>`;
+    let parshaName = 'העלון האחרון';
+    let subCount = '?';
+    try {
+      const idxR = await fetch('/data/index.json', { cache: 'no-store' });
+      const idx = await idxR.json();
+      const weeks = idx.weeks || [];
+      const withOrder = weeks.filter((w) => typeof w.displayOrder === 'number');
+      const latest = withOrder.length
+        ? withOrder.sort((a, b) => a.displayOrder - b.displayOrder)[0]
+        : weeks.sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''))[0];
+      if (latest) parshaName = `פרשת ${latest.parshaName}`;
+      const subR = await fetch(apiBase + '/admin/subscribers', { headers: { Authorization: 'Bearer ' + apiKey } });
+      const subData = await subR.json();
+      if (subData.ok && Array.isArray(subData.subscribers)) subCount = subData.subscribers.length;
+    } catch { /* best-effort lookup */ }
+    status.innerHTML = '';
+    const ack = prompt(
+      `שליחה ידנית של ${parshaName} ל-${subCount} מנויים.\n\nשליחה זו לא ניתנת לביטול לאחר שתישלח.\nכדי לאשר, הקלד "שלח" ולחץ אישור.`
+    );
+    if (ack === null) return;
+    if ((ack || '').trim() !== 'שלח') {
+      status.innerHTML = '<div class="admin-status error">השליחה בוטלה — לא הוקלד "שלח".</div>';
+      return;
+    }
     await runAction(apiBase, apiKey, '/admin/send-now', { method: 'POST' }, 'sent');
   });
   document.getElementById('testEmail').addEventListener('click', async () => {

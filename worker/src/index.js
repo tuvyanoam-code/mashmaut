@@ -386,6 +386,47 @@ async function fetchLatestBulletin(env) {
   return latest;
 }
 
+async function fetchSiteConfig(env) {
+  try {
+    const r = await fetch(`${env.SITE_URL.replace(/\/$/, '')}/data/config.json`, { cf: { cacheTtl: 0 } });
+    if (!r.ok) return {};
+    return await r.json();
+  } catch { return {}; }
+}
+
+// Default schedule when none is set: Thursday 19:00 Israel time.
+const DEFAULT_SCHEDULE = {
+  enabled: true,
+  dayOfWeek: 4,       // 0=Sunday … 4=Thursday … 6=Saturday
+  hour: 19,           // local Israel hour
+  requireApproval: false,
+};
+
+function getSchedule(config) {
+  const s = (config && config.dispatchSchedule) || {};
+  return {
+    enabled: typeof s.enabled === 'boolean' ? s.enabled : DEFAULT_SCHEDULE.enabled,
+    dayOfWeek: Number.isInteger(s.dayOfWeek) ? s.dayOfWeek : DEFAULT_SCHEDULE.dayOfWeek,
+    hour: Number.isInteger(s.hour) ? s.hour : DEFAULT_SCHEDULE.hour,
+    requireApproval: !!s.requireApproval,
+  };
+}
+
+// Get the current Israel-local Date by re-parsing a timezone-coerced string.
+// JS doesn't expose timezone-aware Date objects, but this trick is reliable
+// for read-only inspection of weekday/hour.
+function israelNow() {
+  const localized = new Date().toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' });
+  return new Date(localized);
+}
+
+// ISO-week-style key that flips at the schedule day, used to dedupe sends.
+function weekKey() {
+  const il = israelNow();
+  // Year-month-day works fine — we'll pair it with the bulletin slug.
+  return il.toISOString().slice(0, 10);
+}
+
 async function sendBulletinToAll(env) {
   const week = await fetchLatestBulletin(env);
   if (!week) return { ok: false, error: 'no bulletin' };
@@ -404,8 +445,11 @@ async function sendBulletinToAll(env) {
       console.log('send failed for', s.email, e.message);
     }
   }
-  // Log the dispatch + admin notification
+  // Log the dispatch + admin notification + last-sent marker (for week dedupe).
   await env.EVENTS.put(`dispatch:${today()}:${week.slug}`, JSON.stringify({ sent, failed, at: new Date().toISOString() }));
+  await env.EVENTS.put('last-sent', JSON.stringify({
+    slug: week.slug, yearId: week.yearId, at: new Date().toISOString(),
+  }));
   await recordNotification(env, 'bulletin-sent', {
     slug: week.slug,
     parshaName: week.parshaName,
@@ -414,6 +458,48 @@ async function sendBulletinToAll(env) {
     failed,
   });
   return { ok: true, sent, failed };
+}
+
+// Decide what to do when the hourly cron fires. Honors the user's schedule
+// (day/hour in Israel time), an "automatic dispatch off" toggle, an "approval
+// required" gate, and a per-bulletin dedupe so we never double-send.
+async function maybeSendOnSchedule(env) {
+  const config = await fetchSiteConfig(env);
+  const sched = getSchedule(config);
+  if (!sched.enabled) return { skipped: 'auto-dispatch disabled' };
+
+  const il = israelNow();
+  if (il.getDay() !== sched.dayOfWeek) return { skipped: `wrong day (${il.getDay()} vs ${sched.dayOfWeek})` };
+  if (il.getHours() !== sched.hour) return { skipped: `wrong hour (${il.getHours()} vs ${sched.hour})` };
+
+  const week = await fetchLatestBulletin(env);
+  if (!week) return { skipped: 'no bulletin' };
+
+  // Dedupe: skip if we already sent this exact bulletin.
+  const lastSent = await env.EVENTS.get('last-sent', 'json');
+  if (lastSent && lastSent.slug === week.slug && lastSent.yearId === week.yearId) {
+    return { skipped: 'already-sent', slug: week.slug };
+  }
+  // Also skip if a pending-approval already exists for this bulletin.
+  const pending = await env.EVENTS.get('pending-dispatch', 'json');
+  if (pending && pending.slug === week.slug && pending.yearId === week.yearId) {
+    return { skipped: 'pending-approval', slug: week.slug };
+  }
+
+  if (sched.requireApproval) {
+    const payload = {
+      slug: week.slug,
+      yearId: week.yearId,
+      yearDisplay: week.yearDisplay || null,
+      parshaName: week.parshaName,
+      scheduledAt: new Date().toISOString(),
+    };
+    await env.EVENTS.put('pending-dispatch', JSON.stringify(payload));
+    await recordNotification(env, 'dispatch-pending', payload);
+    return { pending: true, slug: week.slug };
+  }
+
+  return await sendBulletinToAll(env);
 }
 
 // --- Routing -------------------------------------------------------------
@@ -586,6 +672,32 @@ export default {
         if (p === '/admin/notifications/mark-read' && request.method === 'POST') {
           return ok(await markNotificationsRead(env));
         }
+
+        if (p === '/admin/pending-dispatch' && request.method === 'GET') {
+          const pending = await env.EVENTS.get('pending-dispatch', 'json');
+          return ok({ pending: pending || null });
+        }
+        if (p === '/admin/pending-dispatch/approve' && request.method === 'POST') {
+          const pending = await env.EVENTS.get('pending-dispatch', 'json');
+          if (!pending) return err('no pending dispatch');
+          await env.EVENTS.delete('pending-dispatch');
+          const result = await sendBulletinToAll(env);
+          return ok(result);
+        }
+        if (p === '/admin/pending-dispatch/cancel' && request.method === 'POST') {
+          await env.EVENTS.delete('pending-dispatch');
+          return ok();
+        }
+        if (p === '/admin/schedule-info' && request.method === 'GET') {
+          // Read-only summary for the admin UI: current Israel time + active schedule.
+          const config = await fetchSiteConfig(env);
+          const sched = getSchedule(config);
+          const il = israelNow();
+          return ok({
+            schedule: sched,
+            israelNow: { weekday: il.getDay(), hour: il.getHours(), minute: il.getMinutes() },
+          });
+        }
         if (p === '/admin/send-now' && request.method === 'POST') {
           const result = await sendBulletinToAll(env);
           return ok(result);
@@ -710,6 +822,9 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(sendBulletinToAll(env).then((r) => console.log('cron send:', r)));
+    ctx.waitUntil(
+      maybeSendOnSchedule(env).then((r) => console.log('cron tick:', r))
+        .catch((e) => console.log('cron error:', e.message))
+    );
   },
 };

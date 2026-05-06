@@ -592,6 +592,28 @@
 .admin-status.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
 .admin-status.info { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
 
+/* ===== Pending dispatch banner ===== */
+.pending-dispatch-banner {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  background: #fff8e6;
+  border: 1px solid #f0d987;
+  box-shadow: 0 4px 16px -4px rgba(218, 165, 32, .25);
+}
+.pending-dispatch-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fde68a;
+  color: #92400e;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.pending-dispatch-body { flex: 1; min-width: 0; }
+
 /* ===== Notifications ===== */
 .notif-badge {
   display: inline-flex;

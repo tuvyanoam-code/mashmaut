@@ -3,10 +3,12 @@ main = "src/index.js"
 compatibility_date = "2024-12-30"
 account_id = "ea19fdb623516ff23c6cc375bea912bb"
 
-# Cron: every Thursday at 17:00 UTC (= ~19:00 Israel, summer offset varies).
-# Adjust when daylight saving changes if precise time matters.
+# Cron runs every hour. The worker's scheduled handler then reads
+# config.dispatchSchedule (day-of-week, hour, enabled, requireApproval) and
+# decides whether to send the weekly bulletin. This lets the admin reconfigure
+# the schedule at runtime without redeploying.
 [triggers]
-crons = ["0 17 * * 4"]
+crons = ["0 * * * *"]
 
 # KV namespaces — IDs are filled in by the setup script after `wrangler kv:namespace create`.
 [[kv_namespaces]]

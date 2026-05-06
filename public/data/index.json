@@ -27,7 +27,7 @@
         "bgEnd": "#cccccc",
         "text": "#7a4a00"
       },
-      "displayOrder": 1
+      "displayOrder": 0
     },
     {
       "yearId": "5785",
@@ -909,7 +909,7 @@
         "background": "#f4f8fd",
         "text": "#1a1a1a"
       },
-      "displayOrder": 0
+      "displayOrder": 1
     }
   ]
 }

@@ -23,12 +23,11 @@ export async function renderHome() {
 
   cancelLoading();
 
-  // The home pill resumes the user's last-visited bulletin only if there's
-  // an actual scroll position to jump back to — otherwise (e.g. they only
-  // opened the PDF) it would offer to "continue" with nothing to continue to.
-  const lastVisited = getLastVisited();
-  const resume = (lastVisited && Number.isFinite(lastVisited.pct) && lastVisited.pct >= 0.08)
-    ? lastVisited : null;
+  // The home pill points back to whichever bulletin the user last visited —
+  // text or PDF, scrolled or not. The pill's copy varies: if there's an
+  // actual scroll position, we offer to continue from there; otherwise we
+  // just offer to return to the page.
+  const resume = getLastVisited();
   app.innerHTML = `
     <div ${cssVars} class="fade-in">
       ${nav}
@@ -102,15 +101,24 @@ export async function renderHome() {
 }
 
 function renderResumePill(r) {
-  const pct = Math.round((r.pct || 0) * 100);
   const url = `/y/${r.yearId}/${r.slug}`;
+  const hasPosition = Number.isFinite(r.pct) && r.pct >= 0.08;
+  const lead = hasPosition
+    ? '<span class="muted">המשך מאיפה שעצרת —</span>'
+    : '<span class="muted">חזרה ל-</span>';
+  const pctTag = hasPosition
+    ? `<span class="resume-pill-pct">${Math.round(r.pct * 100)}%</span>`
+    : '';
+  const aria = hasPosition
+    ? `המשך לקרוא את פרשת ${r.parshaName}`
+    : `חזרה לפרשת ${r.parshaName}`;
   return `
-    <a class="resume-pill" href="${url}" aria-label="המשך לקרוא את פרשת ${r.parshaName}">
+    <a class="resume-pill" href="${url}" aria-label="${aria}">
       ${icon('book', { size: 16 })}
       <span class="resume-pill-text">
-        <span class="muted">המשך מאיפה שעצרת —</span>
+        ${lead}
         <b>פרשת ${r.parshaName}</b>
-        <span class="resume-pill-pct">${pct}%</span>
+        ${pctTag}
       </span>
       ${icon('arrowLeft', { size: 14 })}
     </a>

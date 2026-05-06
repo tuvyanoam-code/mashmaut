@@ -3,7 +3,7 @@
 
 import { icon } from '../icons.js';
 import { PARSHIOT, slugForHebrew, hebrewYearToNumber, numberToHebrewYear, cycleOrderForSlug } from '../lib/parshiot.js';
-import { loadIndex, loadConfig, loadBulletin } from '../lib/store.js';
+import { loadIndex, loadConfig, loadBulletin, patchConfig } from '../lib/store.js';
 import { showToast } from '../components/shareButtons.js';
 import { mountRichEditor } from '../components/richEditor.js';
 import { renderStats } from './admin/stats.js';
@@ -1080,6 +1080,7 @@ async function renderSettings(root) {
     try {
       const dataUrl = await fileToDataUrl(f);
       await adminApi('/admin/config', { method: 'POST', body: { logo: dataUrl } });
+      patchConfig({ logo: dataUrl });
       logoPreview.innerHTML = `<img src="${dataUrl}" alt="לוגו חדש" />`;
       logoRemove.disabled = false;
       logoStatus.textContent = 'הלוגו עודכן. רענן את האתר לראות את השינוי.';
@@ -1097,6 +1098,7 @@ async function renderSettings(root) {
     logoStatus.textContent = 'מסיר…';
     try {
       await adminApi('/admin/config', { method: 'POST', body: { logo: null } });
+      patchConfig({ logo: null });
       logoPreview.innerHTML = `<span class="logo-placeholder">${escapeHtml((config.siteName || 'משמעות').charAt(0))}</span>`;
       logoRemove.disabled = true;
       logoStatus.textContent = 'הלוגו הוסר.';
@@ -1114,6 +1116,7 @@ async function renderSettings(root) {
     fd.forEach((v, k) => obj[k] = v);
     try {
       await adminApi('/admin/config', { method: 'POST', body: obj });
+      patchConfig(obj);
       showToast('נשמר');
     } catch (err) { alert(err.message); }
   });
@@ -1130,6 +1133,9 @@ async function renderSettings(root) {
     status.innerHTML = '<span class="muted">שומר…</span>';
     try {
       await adminApi('/admin/config', { method: 'POST', body: { dispatchSchedule: next } });
+      // Reflect the saved values immediately on next navigation, without
+      // waiting for GitHub Pages to rebuild the static config.json.
+      patchConfig({ dispatchSchedule: next });
       const dayName = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'][next.dayOfWeek];
       const summary = next.enabled
         ? `נקבע: יום ${dayName} ב-${String(next.hour).padStart(2, '0')}:00${next.requireApproval ? ' (עם אישור)' : ' (אוטומטי)'}`

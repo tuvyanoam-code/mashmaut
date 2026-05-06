@@ -30,6 +30,18 @@ export async function loadConfig() {
   return _config;
 }
 
+/**
+ * Optimistically merge fields into the in-memory config cache. Use this in
+ * the admin panel right after a successful POST /admin/config so that
+ * navigating away and back reflects the just-saved values immediately —
+ * without waiting the ~60s for GitHub Pages to rebuild the static file.
+ */
+export function patchConfig(partial) {
+  if (!partial || typeof partial !== 'object') return;
+  if (_config) Object.assign(_config, partial);
+  else _config = { ...partial };
+}
+
 export async function loadIndex(force = false) {
   if (_index && !force) return _index;
   const r = await fetch(url('data/index.json'), { cache: 'no-store' });

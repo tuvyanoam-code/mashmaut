@@ -13,8 +13,8 @@
   "apiBase": "https://api.alonmashmaut.org",
   "dispatchSchedule": {
     "enabled": true,
-    "dayOfWeek": 4,
-    "hour": 19,
+    "dayOfWeek": 3,
+    "hour": 20,
     "requireApproval": true
   },
   "adminApiKey": "mashmaut-K9p4Qx8nVz2RmL7tBdF3wY",

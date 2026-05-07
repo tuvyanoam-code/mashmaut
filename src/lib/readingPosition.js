@@ -114,12 +114,35 @@ export function getLastVisited() {
   return entry;
 }
 
+/**
+ * Mark a bulletin as finished. Persists across refreshes / sessions so the
+ * reading-progress component can suppress the celebration (confetti, balloons,
+ * chime) on subsequent loads — the user already finished it once.
+ * Also clears the saved scroll position (no resume needed) and the
+ * lastVisitedKey if it pointed here.
+ */
+export function markFinished(yearId, slug) {
+  if (!yearId || !slug) return;
+  const all = read();
+  all._finished = all._finished || {};
+  all._finished[`${yearId}/${slug}`] = new Date().toISOString();
+  delete all[`${yearId}/${slug}`];
+  if (all._lastVisitedKey === `${yearId}/${slug}`) delete all._lastVisitedKey;
+  write(all);
+}
+
+export function isFinished(yearId, slug) {
+  if (!yearId || !slug) return false;
+  const all = read();
+  return !!(all._finished && all._finished[`${yearId}/${slug}`]);
+}
+
 /** Sweep stale entries (called opportunistically on app start). */
 export function pruneStalePositions() {
   const all = read();
   let changed = false;
   for (const k of Object.keys(all)) {
-    if (k === '_lastVisitedKey') continue;
+    if (k === '_lastVisitedKey' || k === '_finished') continue;
     if (!fresh(all[k])) { delete all[k]; changed = true; }
   }
   if (changed) write(all);

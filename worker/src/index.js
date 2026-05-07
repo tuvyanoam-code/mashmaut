@@ -206,6 +206,19 @@ const VALID_EVENTS = new Set(['view', 'pdf', 'finish', 'share', 'subscribe-cta']
 async function recordEvent(env, body, request) {
   const { type, slug = '', year = '', fp = '' } = body || {};
   if (!VALID_EVENTS.has(type)) return;
+
+  // Server-side dedupe per (fp, type, slug+year). Without this, the same
+  // browser refreshing the bulletin would inflate views/finishes/PDFs, and
+  // unique-vs-returning ratios would be useless.
+  // 400-day TTL — same as the counters; a fp that returns after that window
+  // is effectively a different browser anyway.
+  if (fp) {
+    const dedupeKey = `done:${type}:${year}/${slug}:${fp}`;
+    const already = await env.EVENTS.get(dedupeKey);
+    if (already) return;
+    await env.EVENTS.put(dedupeKey, '1', { expirationTtl: 60 * 60 * 24 * 400 });
+  }
+
   const date = today();
   const country = request?.cf?.country || 'unknown';
   const city = request?.cf?.city || '';
@@ -638,6 +651,25 @@ export default {
         if (!authed(request, env)) return err('unauthorized', 401);
         if (p === '/admin/auth' && request.method === 'POST') return ok({ valid: true });
         if (p === '/admin/stats') return ok(await buildStats(env));
+
+        if (p === '/admin/stats/reset' && request.method === 'POST') {
+          // Wipe analytics counters, fingerprints and dedupe markers. Keeps
+          // operational keys (notif:*, dispatch:*, last-sent, pending-*).
+          let deleted = 0;
+          for (const prefix of ['cnt:', 'fp:', 'done:']) {
+            let cursor;
+            do {
+              const res = await env.EVENTS.list({ prefix, cursor });
+              for (const k of res.keys) {
+                await env.EVENTS.delete(k.name);
+                deleted++;
+              }
+              cursor = res.cursor;
+              if (res.list_complete) break;
+            } while (cursor);
+          }
+          return ok({ deleted });
+        }
         if (p === '/admin/subscribers' && request.method === 'GET') return ok({ subscribers: await listSubscribers(env) });
 
         if (p === '/admin/subscribers/export.csv') {

@@ -3,7 +3,7 @@
 // indicator. When 100% reached the first time, plays a happy chord and confetti.
 
 import { icon } from '../icons.js';
-import { saveReadingPosition, clearReadingPosition } from '../lib/readingPosition.js';
+import { saveReadingPosition, markFinished, isFinished } from '../lib/readingPosition.js';
 
 const RADIUS = 26;
 const CIRC = 2 * Math.PI * RADIUS;
@@ -38,7 +38,12 @@ export function mountReadingProgress(targetSelector, onComplete, meta) {
   const progressEl = ring.querySelector('.ring-progress');
   const percentEl = ring.querySelector('.ring-percent');
 
-  let completed = false;
+  // Treat the bulletin as already finished if this browser previously
+  // reached the end. Suppresses the celebration on refresh + protects
+  // the saved reading-position from being clobbered with a near-100%
+  // entry the user has actually already completed.
+  let completed = !!(meta && isFinished(meta.yearId, meta.slug));
+  if (completed) ring.classList.add('complete');
   let raf = 0;
   let lastPersist = 0;
   const PERSIST_THROTTLE_MS = 1500;
@@ -81,8 +86,9 @@ export function mountReadingProgress(targetSelector, onComplete, meta) {
       completed = true;
       ring.classList.add('complete');
       celebrate();
-      // The user finished — drop the saved position.
-      if (meta && meta.yearId && meta.slug) clearReadingPosition(meta.yearId, meta.slug);
+      // Persist the "finished" flag — markFinished also clears any saved
+      // reading position so we don't offer to resume to the very end.
+      if (meta && meta.yearId && meta.slug) markFinished(meta.yearId, meta.slug);
       try { onComplete && onComplete(); } catch (_) {}
     }
   };

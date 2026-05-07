@@ -114,70 +114,38 @@ export async function renderStats(root) {
       </div>
     </div>
 
-    <div class="admin-card">
-      <h3>פעולות</h3>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button type="button" class="btn" id="sendNow">${icon('email', { size: 18 })} שלח עלון עכשיו לכל המנויים</button>
-        <button type="button" class="btn btn-secondary" id="testEmail">${icon('check', { size: 18 })} שלח מייל בדיקה לעצמך</button>
-      </div>
-      <div id="actionStatus" style="margin-top:14px;"></div>
+    <div class="admin-card" style="border-color: #f3d9d9;">
+      <h3 style="color: #b91c1c;">איפוס נתוני שימוש</h3>
+      <p class="muted" style="margin-top:0;">מוחק את כל מוני הצפיות, סיומי הקריאה, השיתופים, וזיהויי הדפדפנים. הפעולה <b>אינה הפיכה</b>. ההתראות, רשימת המנויים, התזמון, וההגדרות נשמרים.</p>
+      <button type="button" class="btn btn-secondary" id="resetStats">${icon('trash', { size: 18 })} אפס נתוני שימוש</button>
+      <div id="resetStatus" style="margin-top:14px;"></div>
     </div>
   `;
 
   document.getElementById('refreshStats').addEventListener('click', () => renderStats(root));
-  document.getElementById('sendNow').addEventListener('click', async () => {
-    // Two-step confirmation with the actual bulletin name + subscriber count
-    // so it can't be triggered accidentally.
-    const status = document.getElementById('actionStatus');
-    status.innerHTML = `<div class="admin-status info">בודק…</div>`;
-    let parshaName = 'העלון האחרון';
-    let subCount = '?';
-    try {
-      const idxR = await fetch('/data/index.json', { cache: 'no-store' });
-      const idx = await idxR.json();
-      const weeks = idx.weeks || [];
-      const withOrder = weeks.filter((w) => typeof w.displayOrder === 'number');
-      const latest = withOrder.length
-        ? withOrder.sort((a, b) => a.displayOrder - b.displayOrder)[0]
-        : weeks.sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''))[0];
-      if (latest) parshaName = `פרשת ${latest.parshaName}`;
-      const subR = await fetch(apiBase + '/admin/subscribers', { headers: { Authorization: 'Bearer ' + apiKey } });
-      const subData = await subR.json();
-      if (subData.ok && Array.isArray(subData.subscribers)) subCount = subData.subscribers.length;
-    } catch { /* best-effort lookup */ }
-    status.innerHTML = '';
-    const ack = prompt(
-      `שליחה ידנית של ${parshaName} ל-${subCount} מנויים.\n\nשליחה זו לא ניתנת לביטול לאחר שתישלח.\nכדי לאשר, הקלד "שלח" ולחץ אישור.`
-    );
+  document.getElementById('resetStats').addEventListener('click', async () => {
+    const status = document.getElementById('resetStatus');
+    const ack = prompt('כדי לאפס את כל נתוני השימוש (לא ניתן לבטל), הקלד "אפס" ולחץ אישור.');
     if (ack === null) return;
-    if ((ack || '').trim() !== 'שלח') {
-      status.innerHTML = '<div class="admin-status error">השליחה בוטלה — לא הוקלד "שלח".</div>';
+    if ((ack || '').trim() !== 'אפס') {
+      status.innerHTML = '<div class="admin-status error">בוטל — לא הוקלד "אפס".</div>';
       return;
     }
-    await runAction(apiBase, apiKey, '/admin/send-now', { method: 'POST' }, 'sent');
+    status.innerHTML = '<div class="admin-status info">מאפס…</div>';
+    try {
+      const r = await fetch(apiBase + '/admin/stats/reset', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || 'שגיאה');
+      status.innerHTML = `<div class="admin-status success">נמחקו ${data.deleted} רשומות. הגרף יתאפס מיד.</div>`;
+      setTimeout(() => renderStats(root), 1200);
+    } catch (e) {
+      status.innerHTML = `<div class="admin-status error">${e.message}</div>`;
+    }
   });
-  document.getElementById('testEmail').addEventListener('click', async () => {
-    await runAction(apiBase, apiKey, '/admin/test-email', { method: 'POST', body: {} }, 'בדיקה נשלחה');
-  });
-}
-
-async function runAction(base, key, path, opts, successText) {
-  const status = document.getElementById('actionStatus');
-  status.innerHTML = `<div class="admin-status info">פועל…</div>`;
-  try {
-    const r = await fetch(base + path, {
-      method: opts.method,
-      headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
-      body: opts.body ? JSON.stringify(opts.body) : undefined,
-    });
-    const data = await r.json();
-    if (!data.ok) throw new Error(data.error || 'שגיאה');
-    let detail = successText;
-    if (typeof data.sent === 'number') detail = `נשלחו ${data.sent} מיילים${data.failed ? `, ${data.failed} נכשלו` : ''}`;
-    status.innerHTML = `<div class="admin-status success">${detail}</div>`;
-  } catch (e) {
-    status.innerHTML = `<div class="admin-status error">${e.message}</div>`;
-  }
 }
 
 function statCard(label, value, type) {

@@ -983,6 +983,16 @@ async function renderSettings(root) {
     <header class="admin-header"><h1>הגדרות אתר</h1></header>
 
     <div class="admin-card">
+      <h3 style="margin-top:0;">פעולות מייל</h3>
+      <p class="muted" style="margin-top:0;">שליחה ידנית של העלון השבועי לכל המנויים, או מייל בדיקה לעצמך לבדיקת הזרימה.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="button" class="btn" id="sendNow">${icon('email', { size: 18 })} שלח עלון עכשיו לכל המנויים</button>
+        <button type="button" class="btn btn-secondary" id="testEmail">${icon('check', { size: 18 })} שלח מייל בדיקה לעצמך</button>
+      </div>
+      <div id="emailActionStatus" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="admin-card">
       <h3 style="margin-top:0;">תזמון שליחת העלון</h3>
       <p class="muted" style="margin-top:0;">קובע מתי המערכת שולחת את העלון השבועי האחרון לכל המנויים. השעות הן בשעון ישראל. כל לחיצת "שמור" מעדכנת את לוח הזמנים מיד.</p>
       <form id="scheduleForm">
@@ -1124,6 +1134,54 @@ async function renderSettings(root) {
       patchConfig(obj);
       showToast('נשמר');
     } catch (err) { alert(err.message); }
+  });
+
+  // Email actions (send-now / test). Same two-step confirmation as before.
+  root.querySelector('#sendNow').addEventListener('click', async () => {
+    const status = root.querySelector('#emailActionStatus');
+    status.innerHTML = `<div class="admin-status info">בודק…</div>`;
+    let parshaName = 'העלון האחרון';
+    let subCount = '?';
+    try {
+      const idx = await loadIndex(true);
+      const weeks = idx.weeks || [];
+      const withOrder = weeks.filter((w) => typeof w.displayOrder === 'number');
+      const latest = withOrder.length
+        ? withOrder.sort((a, b) => a.displayOrder - b.displayOrder)[0]
+        : weeks.sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''))[0];
+      if (latest) parshaName = `פרשת ${latest.parshaName}`;
+      const subData = await adminApi('/admin/subscribers');
+      if (Array.isArray(subData.subscribers)) subCount = subData.subscribers.length;
+    } catch { /* best-effort lookup */ }
+    status.innerHTML = '';
+    const ack = prompt(
+      `שליחה ידנית של ${parshaName} ל-${subCount} מנויים.\n\nשליחה זו לא ניתנת לביטול לאחר שתישלח.\nכדי לאשר, הקלד "שלח" ולחץ אישור.`
+    );
+    if (ack === null) return;
+    if ((ack || '').trim() !== 'שלח') {
+      status.innerHTML = '<div class="admin-status error">השליחה בוטלה — לא הוקלד "שלח".</div>';
+      return;
+    }
+    status.innerHTML = '<div class="admin-status info">שולח…</div>';
+    try {
+      const r = await adminApi('/admin/send-now', { method: 'POST', body: {} });
+      const detail = typeof r.sent === 'number'
+        ? `נשלחו ${r.sent} מיילים${r.failed ? `, ${r.failed} נכשלו` : ''}` : 'נשלח';
+      status.innerHTML = `<div class="admin-status success">${detail}</div>`;
+    } catch (e) {
+      status.innerHTML = `<div class="admin-status error">${e.message}</div>`;
+    }
+  });
+
+  root.querySelector('#testEmail').addEventListener('click', async () => {
+    const status = root.querySelector('#emailActionStatus');
+    status.innerHTML = '<div class="admin-status info">שולח מייל בדיקה…</div>';
+    try {
+      await adminApi('/admin/test-email', { method: 'POST', body: {} });
+      status.innerHTML = '<div class="admin-status success">בדיקה נשלחה</div>';
+    } catch (e) {
+      status.innerHTML = `<div class="admin-status error">${e.message}</div>`;
+    }
   });
 
   root.querySelector('#scheduleForm').addEventListener('submit', async (e) => {

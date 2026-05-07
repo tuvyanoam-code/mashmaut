@@ -7,6 +7,7 @@ import { icon } from '../icons.js';
 import { setPageSeo, plainSummary } from '../lib/seo.js';
 import { delayedLoading } from '../lib/loadingState.js';
 import { getReadingPosition, clearReadingPosition, markVisited } from '../lib/readingPosition.js';
+import { getLikeState, toggleLike } from '../lib/likes.js';
 
 export async function renderBulletin({ params }) {
   const app = document.getElementById('app');
@@ -65,8 +66,9 @@ export async function renderBulletin({ params }) {
           <a class="btn" href="${pdfHref}">${icon('pdf', { size: 18 })} פתח כ-PDF</a>
           <a class="btn btn-secondary" href="${pdfUrl(week.yearId, week.slug)}" download>${icon('download', { size: 18 })} הורד PDF</a>
         </div>
-        <div class="bulletin-actions-bar">
-          ${shareButtonsHtml({ url, parshaName: week.parshaName, year: week.yearDisplay })}
+        <div class="likes-bubble" data-likes-bubble hidden>
+          <span class="likes-bubble-icon" aria-hidden="true">${icon('heartFilled', { size: 16 })}</span>
+          <span class="likes-bubble-text"><b data-likes-count>0</b> אנשים אהבו את המאמר</span>
         </div>
       </header>
 
@@ -76,6 +78,18 @@ export async function renderBulletin({ params }) {
       <article class="bulletin-body" data-bulletin-content>
         ${week.textHtml || '<p class="muted center">אין טקסט זמין לעלון זה. נסה ב-PDF.</p>'}
       </article>
+
+      <section class="bulletin-end" aria-label="סוף העלון">
+        <button type="button" class="like-btn" data-like-btn aria-pressed="false">
+          <span class="like-btn-heart" data-like-icon>${icon('heart', { size: 22 })}</span>
+          <span class="like-btn-label">אהבתי</span>
+          <span class="like-btn-count" data-likes-count-bottom></span>
+        </button>
+        <div class="share-cta">
+          <p class="share-cta-line">נהנת מהקריאה? שתף עם חבר —</p>
+          ${shareButtonsHtml({ url, parshaName: week.parshaName, year: week.yearDisplay })}
+        </div>
+      </section>
 
       ${footerHtml(config)}
     </div>
@@ -167,7 +181,53 @@ export async function renderBulletin({ params }) {
   const saved = getReadingPosition(week.yearId, week.slug);
   if (saved) maybeShowResumeBanner(app, week, saved);
 
+  // Likes — fetch state in the background, hydrate the top bubble + bottom
+  // button. Click toggles with optimistic UI.
+  bindLikes(app, week);
+
   return unmountProgress;
+}
+
+function bindLikes(app, week) {
+  const bubble = app.querySelector('[data-likes-bubble]');
+  const countTop = app.querySelector('[data-likes-count]');
+  const button = app.querySelector('[data-like-btn]');
+  const iconHost = app.querySelector('[data-like-icon]');
+  const countBottom = app.querySelector('[data-likes-count-bottom]');
+  if (!button) return;
+
+  const renderState = (count, liked) => {
+    button.classList.toggle('liked', liked);
+    button.setAttribute('aria-pressed', liked ? 'true' : 'false');
+    if (iconHost) iconHost.innerHTML = icon(liked ? 'heartFilled' : 'heart', { size: 22 });
+    if (countBottom) countBottom.textContent = count > 0 ? String(count) : '';
+    if (countTop) countTop.textContent = String(count);
+    if (bubble) bubble.hidden = count === 0;
+  };
+
+  // Fetch initial state (non-blocking).
+  getLikeState(week.yearId, week.slug).then(({ count, liked }) => {
+    renderState(count, liked);
+  });
+
+  let inFlight = false;
+  button.addEventListener('click', async () => {
+    if (inFlight) return;
+    inFlight = true;
+    // Optimistic update.
+    const wasLiked = button.classList.contains('liked');
+    const currentText = (countBottom && countBottom.textContent) || '0';
+    const currentCount = parseInt(currentText, 10) || 0;
+    const optimisticCount = wasLiked ? Math.max(0, currentCount - 1) : currentCount + 1;
+    renderState(optimisticCount, !wasLiked);
+    button.classList.add('like-btn--pulse');
+    setTimeout(() => button.classList.remove('like-btn--pulse'), 400);
+    // Server roundtrip.
+    const result = await toggleLike(week.yearId, week.slug);
+    if (result) renderState(result.count, result.liked);
+    else renderState(currentCount, wasLiked); // rollback
+    inFlight = false;
+  });
 }
 
 function maybeShowResumeBanner(app, week, saved) {

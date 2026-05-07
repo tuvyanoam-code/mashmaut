@@ -273,6 +273,11 @@
   gap: 10px;
 }
 .cover-share .share-buttons { background: transparent; border-color: transparent; box-shadow: none; padding: 4px 0; }
+.cover-share-label {
+  font-size: .9rem;
+  color: var(--text-muted);
+  margin-inline-end: 4px;
+}
 
 /* About strip + archive CTA layout. */
 .about-strip {
@@ -943,6 +948,91 @@
   margin-bottom: 28px;
   font-weight: 500;
 }
+/* Likes bubble in the bulletin header. Subtle pill, per-bulletin color. */
+.likes-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  margin-top: 14px;
+  background: color-mix(in srgb, var(--bulletin-primary) 8%, var(--bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--bulletin-primary) 22%, var(--border));
+  border-radius: 999px;
+  font-size: .9rem;
+  color: var(--text);
+}
+.likes-bubble-icon {
+  display: inline-flex;
+  color: #e0556d;
+}
+.likes-bubble-text b {
+  color: var(--bulletin-primary);
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+
+/* End-of-article block: like button + share-with-a-friend CTA. */
+.bulletin-end {
+  max-width: var(--maxw-content);
+  margin: clamp(28px, 5vw, 44px) auto clamp(40px, 8vw, 64px);
+  padding: clamp(20px, 4vw, 28px) var(--page-x);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(16px, 3vw, 24px);
+  text-align: center;
+}
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), transform var(--transition);
+}
+.like-btn:hover {
+  border-color: color-mix(in srgb, #e0556d 40%, var(--border));
+  transform: translateY(-1px);
+}
+.like-btn-heart { color: var(--text-muted); transition: color var(--transition), transform var(--transition); display: inline-flex; }
+.like-btn:hover .like-btn-heart { color: #e0556d; }
+.like-btn.liked { background: color-mix(in srgb, #e0556d 8%, var(--bg-elevated)); border-color: color-mix(in srgb, #e0556d 35%, var(--border)); }
+.like-btn.liked .like-btn-heart { color: #e0556d; }
+.like-btn-count {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--bulletin-primary);
+  min-width: 0;
+  font-size: .92rem;
+}
+.like-btn-count:empty { display: none; }
+@keyframes likePulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.like-btn--pulse .like-btn-heart { animation: likePulse .4s ease; }
+
+.share-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.share-cta-line {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: clamp(.95rem, 2vw, 1.05rem);
+}
+
 .bulletin-teaser {
   margin: 4px 0 22px;
   padding: 10px 14px 10px 0;

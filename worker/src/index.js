@@ -593,6 +593,47 @@ export default {
         return ok();
       }
 
+      // --- Likes (public; per-fp dedupe) ---------------------------------
+
+      if (p === '/like-state' && request.method === 'GET') {
+        const slug = url.searchParams.get('slug') || '';
+        const year = url.searchParams.get('year') || '';
+        const fp = url.searchParams.get('fp') || '';
+        if (!slug || !year) return err('slug + year required');
+        const countKey = `like-count:${year}/${slug}`;
+        const count = parseInt(await env.EVENTS.get(countKey) || '0', 10);
+        let liked = false;
+        if (fp) {
+          liked = !!(await env.EVENTS.get(`like-fp:${year}/${slug}:${fp}`));
+        }
+        return ok({ count, liked });
+      }
+
+      if (p === '/like' && request.method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const { slug = '', year = '', fp = '' } = body;
+        if (!slug || !year || !fp) return err('slug + year + fp required');
+        const countKey = `like-count:${year}/${slug}`;
+        const fpKey = `like-fp:${year}/${slug}:${fp}`;
+        const already = await env.EVENTS.get(fpKey);
+        let count = parseInt(await env.EVENTS.get(countKey) || '0', 10);
+        let liked;
+        if (already) {
+          // Toggle off.
+          await env.EVENTS.delete(fpKey);
+          count = Math.max(0, count - 1);
+          liked = false;
+        } else {
+          // Toggle on (no TTL — persists indefinitely so the user can't
+          // double-like by waiting a TTL window).
+          await env.EVENTS.put(fpKey, '1');
+          count = count + 1;
+          liked = true;
+        }
+        await env.EVENTS.put(countKey, String(count));
+        return ok({ count, liked });
+      }
+
       if (p.startsWith('/admin/')) {
         if (!authed(request, env)) return err('unauthorized', 401);
         if (p === '/admin/auth' && request.method === 'POST') return ok({ valid: true });

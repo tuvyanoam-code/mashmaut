@@ -898,18 +898,19 @@
       "yearDisplay": "תשפ\"ו",
       "slug": "acharei-mot-kedoshim",
       "parshaName": "אחרי מות-קדושים",
-      "issueNumber": 49,
+      "issueNumber": "49",
       "dateLabel": null,
-      "teaser": "<mark>לכבוש.</mark> אהבה כובשת, אבל לא סתם. <mark>איך נמצא את אהבתינו בכל דבר בעולם?</mark>",
+      "teaser": "<strong>לכבוש.</strong> אהבה כובשת, אבל לא סתם. איך נמצא את אהבתינו <mark>בכל דבר בעולם?</mark>",
       "publishedAt": "2025-02-18T22:00:00.000Z",
       "colors": {
         "primary": "#1d4e89",
         "secondary": "#3066be",
         "accent": "#5b9eed",
         "background": "#f4f8fd",
+        "bgEnd": "#cccccc",
         "text": "#1a1a1a"
       },
-      "displayOrder": 0
+      "displayOrder": 1
     }
   ]
 }

@@ -68,7 +68,9 @@ export function mountReadingProgress(targetSelector, onComplete, meta) {
     percentEl.textContent = Math.round(pct * 100) + '%';
 
     // Persist mid-read position (throttled) so the user can resume next time.
-    if (meta && meta.yearId && meta.slug) {
+    // Skip while completed — once the user finished, scrolling back up to
+    // re-read a passage shouldn't write a "you stopped at 30%" mark.
+    if (meta && meta.yearId && meta.slug && !completed) {
       const now = Date.now();
       if (now - lastPersist > PERSIST_THROTTLE_MS) {
         lastPersist = now;

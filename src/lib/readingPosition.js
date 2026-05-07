@@ -43,6 +43,9 @@ export function saveReadingPosition(meta, pct, scrollTop) {
   // so we never want to overwrite that with a "near-100% but not quite" save.
   if (pct < SHOW_MIN_PCT || pct > SHOW_MAX_PCT) return;
   const all = read();
+  // If this browser already finished the bulletin, don't recreate a mid-read
+  // entry just because the user scrolled back up to glance at something.
+  if (all._finished && all._finished[`${meta.yearId}/${meta.slug}`]) return;
   all[key(meta.yearId, meta.slug)] = {
     pct,
     top: Math.round(scrollTop || 0),

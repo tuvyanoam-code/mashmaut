@@ -967,7 +967,7 @@
 }
 .likes-bubble-icon {
   display: inline-flex;
-  color: #e0556d;
+  color: var(--text-muted);
 }
 .likes-bubble-text b {
   color: var(--bulletin-primary);
@@ -1003,13 +1003,18 @@
   transition: background var(--transition), border-color var(--transition), transform var(--transition);
 }
 .like-btn:hover {
-  border-color: color-mix(in srgb, #e0556d 40%, var(--border));
+  border-color: color-mix(in srgb, var(--text) 25%, var(--border));
   transform: translateY(-1px);
 }
-.like-btn-heart { color: var(--text-muted); transition: color var(--transition), transform var(--transition); display: inline-flex; }
-.like-btn:hover .like-btn-heart { color: #e0556d; }
-.like-btn.liked { background: color-mix(in srgb, #e0556d 8%, var(--bg-elevated)); border-color: color-mix(in srgb, #e0556d 35%, var(--border)); }
-.like-btn.liked .like-btn-heart { color: #e0556d; }
+.like-btn-heart {
+  color: currentColor;
+  transition: transform var(--transition);
+  display: inline-flex;
+}
+.like-btn.liked {
+  background: color-mix(in srgb, var(--bulletin-primary) 6%, var(--bg-elevated));
+  border-color: color-mix(in srgb, var(--bulletin-primary) 25%, var(--border));
+}
 .like-btn-count {
   font-family: var(--font-display);
   font-weight: 700;

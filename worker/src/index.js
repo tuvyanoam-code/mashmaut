@@ -443,6 +443,11 @@ function weekKey() {
   return il.toISOString().slice(0, 10);
 }
 
+// Resend free tier: 2 requests/second. Without spacing, ~4-5 sends per second
+// would race past that and the surplus would 429. 700ms between sends keeps
+// us at ~1.4/sec — safely under the cap.
+const SEND_THROTTLE_MS = 700;
+
 async function sendBulletinToAll(env) {
   const week = await fetchLatestBulletin(env);
   if (!week) return { ok: false, error: 'no bulletin' };
@@ -450,16 +455,20 @@ async function sendBulletinToAll(env) {
   if (!subs.length) return { ok: true, sent: 0 };
   const tpl = buildBulletinEmail(env, week);
   let sent = 0, failed = 0;
-  // Send sequentially to respect rate limits
-  for (const s of subs) {
+  const failures = [];
+  // Send sequentially with throttling to respect Resend's rate limit.
+  for (let i = 0; i < subs.length; i++) {
+    const s = subs[i];
     try {
       const html = tpl.html.replace('{{EMAIL}}', encodeURIComponent(s.email));
       await sendEmail(env, s.email, tpl.subject, html);
       sent++;
     } catch (e) {
       failed++;
+      failures.push({ email: s.email, error: e.message });
       console.log('send failed for', s.email, e.message);
     }
+    if (i < subs.length - 1) await new Promise((r) => setTimeout(r, SEND_THROTTLE_MS));
   }
   // Log the dispatch + admin notification + last-sent marker (for week dedupe).
   await env.EVENTS.put(`dispatch:${today()}:${week.slug}`, JSON.stringify({ sent, failed, at: new Date().toISOString() }));
@@ -473,7 +482,7 @@ async function sendBulletinToAll(env) {
     sent,
     failed,
   });
-  return { ok: true, sent, failed };
+  return { ok: true, sent, failed, failures };
 }
 
 // Decide what to do when the hourly cron fires. Honors the user's schedule
@@ -652,6 +661,17 @@ export default {
         if (p === '/admin/auth' && request.method === 'POST') return ok({ valid: true });
         if (p === '/admin/stats') return ok(await buildStats(env));
 
+        if (p === '/admin/resend-recent' && request.method === 'GET') {
+          const limit = url.searchParams.get('limit') || '100';
+          const r = await fetch(`https://api.resend.com/emails?limit=${limit}`, {
+            headers: { Authorization: `Bearer ${env.RESEND_API_KEY}` },
+          });
+          const txt = await r.text();
+          let data;
+          try { data = JSON.parse(txt); } catch { data = { raw: txt }; }
+          return ok({ status: r.status, body: data });
+        }
+
         if (p === '/admin/stats/reset' && request.method === 'POST') {
           // Wipe analytics counters, fingerprints and dedupe markers. Keeps
           // operational keys (notif:*, dispatch:*, last-sent, pending-*).
@@ -777,6 +797,33 @@ export default {
         if (p === '/admin/send-now' && request.method === 'POST') {
           const result = await sendBulletinToAll(env);
           return ok(result);
+        }
+        if (p === '/admin/resend-to' && request.method === 'POST') {
+          // Send the current bulletin to a SPECIFIC list of emails (not all
+          // subscribers). Useful to recover from partial failures without
+          // re-spamming everyone.
+          const body = await request.json().catch(() => ({}));
+          const list = Array.isArray(body.emails) ? body.emails : [];
+          if (!list.length) return err('emails required');
+          const week = await fetchLatestBulletin(env);
+          if (!week) return err('no bulletin');
+          const tpl = buildBulletinEmail(env, week);
+          let sent = 0, failed = 0;
+          const failures = [];
+          for (let i = 0; i < list.length; i++) {
+            const email = list[i];
+            if (!isEmail(email)) { failed++; failures.push({ email, error: 'invalid' }); continue; }
+            try {
+              const html = tpl.html.replace('{{EMAIL}}', encodeURIComponent(email));
+              await sendEmail(env, email, tpl.subject, html);
+              sent++;
+            } catch (e) {
+              failed++;
+              failures.push({ email, error: e.message });
+            }
+            if (i < list.length - 1) await new Promise((r) => setTimeout(r, SEND_THROTTLE_MS));
+          }
+          return ok({ sent, failed, failures });
         }
         if (p === '/admin/test-email' && request.method === 'POST') {
           const body = await request.json().catch(() => ({}));

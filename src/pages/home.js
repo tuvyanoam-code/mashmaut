@@ -186,7 +186,7 @@ function renderCover(week, config) {
       </div>
 
       <div class="cover-share">
-        <span class="cover-share-label">שתף עם חבר:</span>
+        <span class="cover-share-label">שתף עם חבר</span>
         ${shareButtonsHtml({ url: fullUrl, parshaName: week.parshaName, year: week.yearDisplay })}
       </div>
     </main>

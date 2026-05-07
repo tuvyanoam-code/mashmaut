@@ -71,16 +71,19 @@ export function mountReadingProgress(targetSelector, onComplete, meta) {
       }
     }
 
-    if (pct >= 0.99 && !completed) {
+    // The pct calculation is viewport-relative; even when the user has
+    // scrolled the article's bottom into view, pct typically tops out around
+    // 0.93–0.96. Treating only ≥ 0.99 as "finished" meant the celebration
+    // (and the 'finish' analytics event) fired almost never. 0.92 maps to
+    // "the bottom of the article is fully on screen and the user has paused
+    // there" — a fair definition of finishing.
+    if (pct >= 0.92 && !completed) {
       completed = true;
       ring.classList.add('complete');
       celebrate();
       // The user finished — drop the saved position.
       if (meta && meta.yearId && meta.slug) clearReadingPosition(meta.yearId, meta.slug);
       try { onComplete && onComplete(); } catch (_) {}
-    } else if (pct < 0.95 && completed) {
-      // Allow re-celebrating only after scrolling well back up
-      // (Keep `completed` true to avoid re-firing on micro-scrolls)
     }
   };
 

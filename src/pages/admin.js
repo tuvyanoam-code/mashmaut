@@ -8,7 +8,7 @@ import { showToast } from '../components/shareButtons.js';
 import { mountRichEditor } from '../components/richEditor.js';
 import { renderStats } from './admin/stats.js';
 import { renderNotifications, getUnreadNotifCount } from './admin/notifications.js';
-import { convertWordToHtml, extractPdfPalette, fileToBase64 } from '../lib/fileProcess.js';
+import { convertWordToHtml, extractPdfPalette, extractPdfText, fileToBase64 } from '../lib/fileProcess.js';
 
 const KEY_STORAGE = 'mashmaut.adminKey';
 
@@ -495,17 +495,22 @@ async function renderUpload(root) {
     const wordFile = root.querySelector('#wordDrop input[type=file]').files[0] || null;
 
     status.innerHTML = `<div class="admin-status info">מעבד קבצים…</div>`;
-    let pdfBase64, wordBase64, textHtml = '', plainText = '', headings = [], colors;
+    let pdfBase64, wordBase64, textHtml = '', plainText = '', headings = [], colors, pdfText = '';
     try {
       pdfBase64 = await fileToBase64(pdfFile);
       const pdfBuf = await pdfFile.arrayBuffer();
       colors = await extractPdfPalette(pdfBuf);
+      // Extract PDF text once so it's available for search even when there
+      // is no Word file (PDF-only bulletin).
+      pdfText = await extractPdfText(pdfBuf);
       if (wordFile) {
         wordBase64 = await fileToBase64(wordFile);
         const wordBuf = await wordFile.arrayBuffer();
         const r = await convertWordToHtml(wordBuf);
         textHtml = r.html; plainText = r.plainText; headings = r.headings;
       }
+      // For search: prefer Word's plainText (cleaner), fall back to PDF text.
+      if (!plainText) plainText = pdfText;
     } catch (err) {
       status.innerHTML = `<div class="admin-status error">שגיאה בעיבוד הקבצים: ${err.message}</div>`;
       return;
@@ -1303,10 +1308,16 @@ async function renderEditor(root) {
       let pdfBase64, wordBase64;
       let week2 = { ...week, ...meta, teaser: teaserEditor.value || null, colors: newColors, styleOverrides: newOverrides };
       if (newPdf) {
+        const pdfBuf = await newPdf.arrayBuffer();
         pdfBase64 = await fileToBase64(newPdf);
-        week2.colors = await extractPdfPalette(await newPdf.arrayBuffer());
+        week2.colors = await extractPdfPalette(pdfBuf);
         // Honor any user overrides over fresh extraction
         Object.assign(week2.colors, newColors);
+        // Refresh PDF-text snapshot for search.
+        const newPdfText = await extractPdfText(pdfBuf);
+        if (newPdfText && (!week2.plainText || !week.textHtml)) {
+          week2.plainText = newPdfText;
+        }
       }
       if (newWord) {
         wordBase64 = await fileToBase64(newWord);

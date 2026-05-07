@@ -106,6 +106,35 @@ const FALLBACK_PALETTES = [
   { primary: '#9d0208', secondary: '#d00000', accent: '#dc2f02', background: '#fdf6f5', bgEnd: '#f7d8d4', text: '#1a1a1a' },
 ];
 
+/**
+ * Extract plain text from every page of a PDF (browser-side via pdf.js).
+ * Used at upload time so PDF-only bulletins (no Word file) are still
+ * searchable. Returns "" on failure — search just falls back to title +
+ * teaser as before.
+ */
+export async function extractPdfText(arrayBuffer) {
+  try {
+    const pdfjsLib = await loadPdfjs();
+    const doc = await pdfjsLib.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      disableFontFace: true,
+    }).promise;
+    const parts = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      // pdf.js returns each text fragment as an item with `.str`. Joining
+      // with spaces is good enough for search; we don't need perfect prose.
+      const pageText = content.items.map((it) => it.str || '').join(' ');
+      parts.push(pageText);
+    }
+    return parts.join('\n\n').replace(/\s+/g, ' ').trim();
+  } catch (e) {
+    console.warn('PDF text extraction failed:', e.message);
+    return '';
+  }
+}
+
 export async function extractPdfPalette(arrayBuffer) {
   try {
     const pdfjsLib = await loadPdfjs();

@@ -93,8 +93,10 @@ export async function renderNotifications(root) {
   }
 }
 
-/** Hide every unread-badge element in the document. */
+/** Hide every unread-badge element in the document — and mute the count for
+ * a window so the next refresh doesn't bring it back due to KV lag. */
 function clearAllBadges() {
+  muteUnreadFor(90_000);
   document.querySelectorAll('[data-notif-badge]').forEach((el) => {
     el.hidden = true;
     el.textContent = '';
@@ -159,8 +161,20 @@ function escapeHtml(s) {
   }[c]));
 }
 
+// Mute the unread count for a window after mark-read fires. Cloudflare KV is
+// eventually consistent; the next /admin/notifications fetch can return the
+// stale `notif-read-until` cursor and report unread > 0 again, making the
+// badge re-appear seconds after the user marked everything read. While muted
+// we just report 0.
+let _mutedUntil = 0;
+
+export function muteUnreadFor(ms = 90_000) {
+  _mutedUntil = Math.max(_mutedUntil, Date.now() + ms);
+}
+
 /** Fetch unread count for the sidebar/tabbar badge. Returns 0 on failure. */
 export async function getUnreadNotifCount() {
+  if (Date.now() < _mutedUntil) return 0;
   try {
     const data = await api('/admin/notifications');
     return data.unread || 0;

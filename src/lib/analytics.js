@@ -28,17 +28,27 @@ export async function track(type, ctx = {}) {
       year: ctx.year || '',
       fp: fingerprint(),
     };
-    // Use sendBeacon when possible so the request survives navigation
+    const payload = JSON.stringify(body);
+    // Use sendBeacon so the request survives navigation. Important: the Blob
+    // Content-Type must be a CORS-safe value (text/plain) — application/json
+    // would force a preflight that some browsers silently drop for cross-
+    // origin sendBeacon. The worker reads the body via request.json() which
+    // parses by content, not Content-Type, so this works fine server-side.
+    let beaconed = false;
     if (navigator.sendBeacon) {
-      const blob = new Blob([JSON.stringify(body)], { type: 'application/json' });
-      navigator.sendBeacon(base + '/event', blob);
-      return;
+      try {
+        const blob = new Blob([payload], { type: 'text/plain;charset=UTF-8' });
+        beaconed = navigator.sendBeacon(base + '/event', blob);
+      } catch { beaconed = false; }
     }
+    if (beaconed) return;
+    // Fallback: keepalive fetch — also survives navigation (newer browsers).
     fetch(base + '/event', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: payload,
       keepalive: true,
+      mode: 'cors',
     }).catch(() => {});
   } catch (_) { /* never throw from analytics */ }
 }

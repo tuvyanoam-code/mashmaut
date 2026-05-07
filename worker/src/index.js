@@ -306,6 +306,8 @@ async function sendEmail(env, to, subject, html) {
   if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY missing');
   const fromName = env.FROM_NAME || 'משמעות';
   const fromEmail = env.FROM_EMAIL || 'onboarding@resend.dev';
+  // Replies go to the admin's real inbox, not the no-reply sender domain.
+  const replyTo = env.ADMIN_EMAIL || 'alonmashmaut@gmail.com';
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -315,6 +317,7 @@ async function sendEmail(env, to, subject, html) {
     body: JSON.stringify({
       from: `${fromName} <${fromEmail}>`,
       to: Array.isArray(to) ? to : [to],
+      reply_to: replyTo,
       subject,
       html,
     }),

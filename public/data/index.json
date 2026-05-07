@@ -911,6 +911,25 @@
         "text": "#1a1a1a"
       },
       "displayOrder": 1
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "behar-bechukotai",
+      "parshaName": "בהר-בחקתי",
+      "issueNumber": 51,
+      "dateLabel": "כ\"א אייר",
+      "teaser": "<strong>וְנָתַתִּי שָׁלוֹם בָּאָרֶץ:</strong> לראות את המציאות בעיניים טובות. מהי <mark>הדרך האמיתית לשלום?</mark>",
+      "publishedAt": "2026-05-07T16:03:23.018Z",
+      "colors": {
+        "primary": "#97491c",
+        "secondary": "#f8e862",
+        "accent": "#e9d762",
+        "background": "#f7f0ed",
+        "bgEnd": "#efe4dd",
+        "text": "#1a1a1a"
+      },
+      "displayOrder": 0
     }
   ]
 }

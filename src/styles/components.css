@@ -1262,35 +1262,43 @@
 .reading-time svg { color: var(--bulletin-primary); }
 
 /* ===== Share buttons ===== */
+/* Each button is its own circle with a soft beige border and a forest-green
+   icon. No container pill, no brand-color hover fills — uniform neutral
+   style across all channels. */
 .share-buttons {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 14px;
   align-items: center;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 5px;
+  background: transparent;
+  border: none;
+  padding: 0;
   max-width: 100%;
 }
 .share-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: transparent;
-  color: var(--text);
-  border: none;
+  background: var(--bg-elevated);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
   flex-shrink: 0;
-  transition: background var(--transition), color var(--transition), transform var(--transition);
+  transition: background var(--transition), border-color var(--transition), transform var(--transition);
 }
-.share-btn:hover { background: var(--bulletin-primary); color: #fff; transform: scale(1.05); }
-.share-btn[data-channel="whatsapp"]:hover { background: #25D366; }
-.share-btn[data-channel="telegram"]:hover { background: #0088cc; }
-.share-btn[data-channel="email"]:hover { background: #4a5568; }
-.share-btn[data-channel="copy"].copied { background: var(--bulletin-primary); color: #fff; }
+.share-btn:hover {
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  color: var(--accent);
+  transform: translateY(-1px);
+  opacity: 1;
+}
+.share-btn[data-channel="copy"].copied {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-elevated));
+  border-color: var(--accent);
+}
 
 /* ===== PDF view ===== */
 .pdf-page {

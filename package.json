@@ -7,6 +7,7 @@
     "dev": "vite",
     "prebuild": "node scripts/build-seo.js",
     "build": "vite build",
+    "postbuild": "node scripts/prerender.js",
     "preview": "vite preview",
     "admin": "node admin/server.js",
     "import": "node scripts/bulk-import.js",

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מוקאפים — משמעות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500;700;900&family=Heebo:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --ink-soft: #555;
+    --ink-mute: #888;
+    --bg: #f7f5f0;
+    --hairline: #e5e1d6;
+    --accent: #2d6a4f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Heebo", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 60px 32px 40px;
+    max-width: 1200px; margin: 0 auto;
+  }
+  header .small {
+    font-family: "Heebo", sans-serif; font-weight: 500;
+    font-size: 12px; letter-spacing: .55em;
+    color: var(--accent); margin-bottom: 14px;
+  }
+  header h1 {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 500;
+    font-size: clamp(36px, 5vw, 56px); color: var(--ink);
+    letter-spacing: -.01em; line-height: 1.15;
+    margin-bottom: 14px;
+  }
+  header p {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 400;
+    font-size: 18px; color: var(--ink-soft);
+    max-width: 720px;
+  }
+
+  .grid {
+    max-width: 1200px;
+    margin: 0 auto; padding: 0 32px 80px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 28px;
+  }
+
+  /* featured row — E spans full width */
+  .grid-featured {
+    max-width: 1200px;
+    margin: 0 auto; padding: 0 32px 28px;
+  }
+  .card.featured {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    align-items: stretch;
+  }
+  .card.featured .card-preview { aspect-ratio: auto; min-height: 320px; }
+  .card.featured .card-body { padding: 36px 36px 36px; }
+  .featured-tag {
+    display: inline-block;
+    font-family: "Heebo", sans-serif; font-weight: 600;
+    font-size: 10px; letter-spacing: .35em;
+    color: #fff; background: #c2541b;
+    padding: 4px 12px; border-radius: 999px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 800px) {
+    .card.featured { grid-template-columns: 1fr; }
+  }
+  .preview-f {
+    background:
+      radial-gradient(ellipse 60% 45% at 95% 0%, rgba(217,106,47,.20) 0%, transparent 60%),
+      radial-gradient(ellipse 55% 40% at 5% 25%, rgba(69,130,123,.16) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 45% at 100% 80%, rgba(216,160,57,.14) 0%, transparent 55%),
+      #fbf5e9;
+    color: #25201a;
+    font-family: "Assistant", sans-serif;
+  }
+  .preview-f .label { font-weight: 800; letter-spacing: -.02em; }
+  .preview-f .accent { color: #d96a2f; position: relative; }
+  .preview-f .accent::after {
+    content: ""; position: absolute; left: -2%; right: -2%; bottom: -.05em; height: .18em;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='10' viewBox='0 0 120 10' preserveAspectRatio='none'><path d='M2 6 C 22 1, 44 9, 66 5 S 100 1, 118 6' stroke='%23d8a039' stroke-width='2.4' fill='none' stroke-linecap='round'/></svg>") no-repeat center / 100% 100%;
+  }
+
+  .card {
+    display: flex; flex-direction: column;
+    background: #fff;
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    overflow: hidden;
+    text-decoration: none; color: var(--ink);
+    transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 24px 40px -24px rgba(0,0,0,.18);
+  }
+
+  .card-preview {
+    aspect-ratio: 16 / 10;
+    border-bottom: 1px solid var(--hairline);
+    position: relative;
+    display: grid; place-items: center;
+    overflow: hidden;
+    padding: 30px;
+  }
+  .card-preview .label {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 500;
+    font-size: clamp(28px, 4vw, 48px); line-height: 1.1;
+    text-align: center;
+    z-index: 2; position: relative;
+  }
+  .card-preview .sub {
+    font-family: "Heebo", sans-serif;
+    font-size: 11px; letter-spacing: .35em;
+    margin-top: 10px; opacity: .8;
+    z-index: 2; position: relative;
+  }
+
+  /* unique preview backgrounds per direction */
+  .preview-a {
+    background: #f4ecd8;
+    background-image:
+      radial-gradient(ellipse at 15% 8%, rgba(184,151,98,.25), transparent 55%),
+      radial-gradient(ellipse at 85% 92%, rgba(31,58,46,.12), transparent 50%);
+    color: #1f3a2e;
+  }
+  .preview-a::before {
+    content: ""; position: absolute; inset: 18px;
+    border: 1px solid rgba(160,122,44,.4);
+    pointer-events: none;
+  }
+  .preview-a::after {
+    content: ""; position: absolute; inset: 24px;
+    border: 1px solid rgba(160,122,44,.2);
+    pointer-events: none;
+  }
+
+  .preview-b {
+    background: #fbfaf6;
+    color: #1a1815;
+  }
+  .preview-b .accent { color: #c2541b; }
+
+  .preview-c {
+    background:
+      radial-gradient(ellipse 80% 60% at 90% 0%, #f9e7d8 0%, transparent 60%),
+      radial-gradient(ellipse 70% 50% at 0% 30%, #c9dcd8 0%, transparent 55%),
+      radial-gradient(ellipse 60% 50% at 100% 100%, #f5d8c3 0%, transparent 50%),
+      radial-gradient(ellipse 50% 40% at 20% 90%, #d8d6b3 0%, transparent 55%),
+      #fbf5ed;
+    color: #2d5e5a;
+  }
+
+  .preview-d {
+    background: #efe4d0;
+    color: #36421a;
+  }
+  .preview-d::before {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 18px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='56' height='18' viewBox='0 0 56 18'><g fill='none' stroke='%234f5f2a' stroke-width='1' opacity='.55'><path d='M0 9 L14 0 L28 9 L42 0 L56 9' /><circle cx='14' cy='9' r='1.6' fill='%238b1f2c' stroke='none'/><circle cx='42' cy='9' r='1.6' fill='%23a06a28' stroke='none'/></g></svg>");
+    background-size: 56px 18px;
+    background-repeat: repeat-x;
+  }
+  .preview-d::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 18px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='56' height='18' viewBox='0 0 56 18'><g fill='none' stroke='%234f5f2a' stroke-width='1' opacity='.55'><path d='M0 9 L14 18 L28 9 L42 18 L56 9' /><circle cx='14' cy='9' r='1.6' fill='%238b1f2c' stroke='none'/><circle cx='42' cy='9' r='1.6' fill='%23a06a28' stroke='none'/></g></svg>");
+    background-size: 56px 18px;
+    background-repeat: repeat-x;
+  }
+
+  .card-body { padding: 24px 24px 26px; flex: 1; display: flex; flex-direction: column; }
+  .card-eyebrow {
+    font-family: "Heebo", sans-serif; font-weight: 600;
+    font-size: 11px; letter-spacing: .4em;
+    color: var(--accent); margin-bottom: 8px;
+  }
+  .card-title {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 500;
+    font-size: 26px; color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .card-desc {
+    font-family: "Heebo", sans-serif; font-weight: 300;
+    font-size: 14px; color: var(--ink-soft);
+    margin-bottom: 18px;
+  }
+  .card-tags {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
+  }
+  .card-tags span {
+    font-family: "Heebo", sans-serif; font-weight: 500;
+    font-size: 11px; letter-spacing: .04em;
+    padding: 3px 10px; border-radius: 999px;
+    background: var(--bg); color: var(--ink-soft);
+    border: 1px solid var(--hairline);
+  }
+  .card-cta {
+    margin-top: auto;
+    font-family: "Heebo", sans-serif; font-weight: 500;
+    font-size: 13px; letter-spacing: .25em;
+    color: var(--accent);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-cta::after {
+    content: "←"; transition: transform .3s;
+  }
+  .card:hover .card-cta::after { transform: translateX(-4px); }
+
+  .footer-note {
+    max-width: 1200px; margin: 0 auto;
+    padding: 40px 32px 80px;
+    border-top: 1px solid var(--hairline);
+    font-family: "Heebo", sans-serif; font-size: 13px;
+    color: var(--ink-mute); line-height: 1.8;
+  }
+  .footer-note strong { color: var(--ink-soft); font-weight: 500; }
+  .footer-note code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--bg); padding: 2px 8px; border-radius: 4px;
+    font-size: 12px; border: 1px solid var(--hairline);
+    direction: ltr; display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="small">משמעות · בחינת שפה ויזואלית</div>
+  <h1>כיוונים לעידון השפה הוויזואלית של האתר</h1>
+  <p>
+    כל מוקאפ מציג את אותו תוכן (מסך הבית — Splash + Cover של פרשת אמור) בשפה עיצובית שונה.
+    כולם מתאימים לאופי הקליגרפי של הלוגו, מרוסנים יותר מהעיצוב הנוכחי,
+    ושומרים על חום ישראלי שמח — אבל בדרכים שונות.
+    <strong>E</strong> הוא הכיוון ההיברידי החדש לפי הבקשה — מציג את כל התוכן והכפתורים של האתר 1:1.
+  </p>
+</header>
+
+<div class="grid-featured">
+  <a class="card featured" href="f-shemesh.html">
+    <div class="card-preview preview-f">
+      <div>
+        <div class="label">כן, גם אתה<br>יכול <span class="accent">להבין</span>.</div>
+        <div class="sub">שמש · v2 משופר</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <span class="featured-tag">הכיוון העדכני</span>
+      <div class="card-eyebrow">F · שמש</div>
+      <div class="card-title">פתיחה מפוצלת עם חמימות אופטימית</div>
+      <p class="card-desc">
+        Layout מפוצל מ-B (לוגו מימין, כותרת משמאל) עם שמש קטנה ועיטור chip של פרשת השבוע.
+        רחיצות אקווארל מובהקות יותר. Assistant בלבד עם ניגוד משקלים — נקי, מודרני,
+        משאיר את הקליגרפיה ללוגו. צבעים חמים יותר ואופטימיים. כל התוכן 1:1 מהאתר.
+      </p>
+      <div class="card-tags">
+        <span>קרם חם · כתום שקיעה · טורקיז · דבש</span>
+        <span>Assistant (300 → 800)</span>
+        <span>פתיחה מפוצלת + chip + שמש</span>
+      </div>
+      <div class="card-cta">צפה במוקאפ</div>
+    </div>
+  </a>
+</div>
+
+<div class="grid">
+
+  <a class="card" href="a-pergament.html">
+    <div class="card-preview preview-a">
+      <div>
+        <div class="label">אֱמֹר</div>
+        <div class="sub">פרגמנט · קלאסי</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-eyebrow">A · פרגמנט</div>
+      <div class="card-title">כתב יד עברי</div>
+      <p class="card-desc">
+        אווירה של ספר עתיק. צבע פרגמנט קרם, ירוק יער עמוק, רמזי זהב, מסגרת כפולה דקה,
+        קליגרפיה דומיננטית. שמרני־מכובד, מהדהד את עולם הספר היהודי הקלאסי.
+      </p>
+      <div class="card-tags">
+        <span>קרם · ירוק יער · זהב</span>
+        <span>Frank Ruhl Libre + Noto Serif</span>
+        <span>טקסטורת נייר</span>
+      </div>
+      <div class="card-cta">צפה במוקאפ</div>
+    </div>
+  </a>
+
+  <a class="card" href="b-ohel-lavan.html">
+    <div class="card-preview preview-b">
+      <div>
+        <div class="label">כן, גם אתה<br>יכול <span class="accent">להבין</span></div>
+        <div class="sub">אוהל לבן · עיתוני</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-eyebrow">B · אוהל לבן</div>
+      <div class="card-title">מינימליסט עיתוני</div>
+      <p class="card-desc">
+        הרבה אוויר. צבע יחיד חם (כתום זעפרן) שמופיע במינון מדוד. טיפוגרפיה גדולה ומאופקת,
+        קווי עזר דקיקים. כמו מגזין ספרותי — שקט, מכובד, אבל עם נשמה חמה.
+      </p>
+      <div class="card-tags">
+        <span>לבן · שחור · זעפרן</span>
+        <span>Frank Ruhl + Heebo</span>
+        <span>Editorial</span>
+      </div>
+      <div class="card-cta">צפה במוקאפ</div>
+    </div>
+  </a>
+
+  <a class="card" href="c-yam-tichoni.html">
+    <div class="card-preview preview-c">
+      <div>
+        <div class="label">אֱמֹר</div>
+        <div class="sub">ים תיכוני · אקווארל</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-eyebrow">C · ים תיכוני</div>
+      <div class="card-title">אקווארל ארץ־ישראלי</div>
+      <p class="card-desc">
+        רחיצות אקווארל רכות — אפרסק, טורקיז דהוי, טרקוטה. כפתורים מעוגלים, ציורי יד עדינים
+        (שמש, קווים גליים), זרימה אורגנית. החמימות הישראלית במיטבה — שמחה אבל לא צעקנית.
+      </p>
+      <div class="card-tags">
+        <span>אפרסק · טורקיז · טרקוטה</span>
+        <span>Frank Ruhl + Assistant</span>
+        <span>Watercolor</span>
+      </div>
+      <div class="card-cta">צפה במוקאפ</div>
+    </div>
+  </a>
+
+  <a class="card" href="d-yerushalayim.html">
+    <div class="card-preview preview-d">
+      <div>
+        <div class="label">אֱמֹר</div>
+        <div class="sub">חצר ירושלמית · מסורתי</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-eyebrow">D · חצר ירושלמית</div>
+      <div class="card-title">אבן ירושלמית עם נגיעות מזרח</div>
+      <p class="card-desc">
+        אבן ירושלמית בז׳, ירוק זית עמוק, רימון, ברונזה. מסגרת קמורה דמוית טאבלט,
+        פסי קרמיקה גיאומטריים, אייקון רימון. ישראלי־מסורתי בלי להיות עמוס,
+        עם נוכחות חזקה אבל מכובדת.
+      </p>
+      <div class="card-tags">
+        <span>אבן · זית · רימון · ברונזה</span>
+        <span>Suez One + Frank Ruhl + Assistant</span>
+        <span>תבניות קרמיקה</span>
+      </div>
+      <div class="card-cta">צפה במוקאפ</div>
+    </div>
+  </a>
+
+</div>
+
+<div class="footer-note">
+  <p style="margin-bottom: 12px;">
+    <strong>איך לפתוח:</strong> אם אתה רוצה לראות את המוקאפים בנוחות עם רענון מהיר —
+    <code>cd /Users/tuvyanoamlevitt/Downloads/mashmaut-site && python3 -m http.server 8765</code>
+    ואז לפתוח <code>http://localhost:8765/mockups/</code>.
+  </p>
+  <p style="margin-bottom: 12px;">
+    <strong>אפשר גם פשוט</strong> ללחוץ דאבל־קליק על כל קובץ <code>.html</code> בתיקייה הזו (ייפתח בדפדפן ישירות).
+  </p>
+  <p>
+    <strong>חשוב:</strong> זו שכבת מוקאפים בלבד — הקבצים מחוץ ל־<code>public/</code> ו־<code>src/</code>,
+    לא נכללים בבילד של Vite, ולא יתפרסמו לאתר. אפשר למחוק אותם בכל רגע.
+  </p>
+</div>
+
+</body>
+</html>

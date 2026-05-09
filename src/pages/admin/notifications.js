@@ -3,29 +3,10 @@
 // times. Marks all as read on render.
 
 import { icon } from '../../icons.js';
-import { loadConfig } from '../../lib/store.js';
+import { adminCall } from '../../lib/adminApi.js';
+import { applyShowMore } from '../../lib/showMore.js';
 
-const KEY_STORAGE = 'mashmaut.adminKey';
-function getKey() {
-  try { return localStorage.getItem(KEY_STORAGE) || ''; } catch (_) { return ''; }
-}
-
-async function api(path, opts = {}) {
-  const cfg = await loadConfig();
-  const base = (cfg.apiBase || '').replace(/\/$/, '');
-  if (!base) throw new Error('API לא מוגדר');
-  const r = await fetch(base + path, {
-    method: opts.method || 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + getKey(),
-    },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok || data.ok === false) throw new Error(data.error || 'שגיאת שרת');
-  return data;
-}
+const api = adminCall;
 
 export async function renderNotifications(root) {
   // Don't blank up-front — keep previous section visible until data arrives.
@@ -57,12 +38,15 @@ export async function renderNotifications(root) {
       </div>
     ` : `
       <div class="admin-card" style="padding:0; overflow:hidden;">
-        <ul class="notif-list">
+        <ul class="notif-list" id="notifList">
           ${items.map((n) => renderItem(n, readUntil)).join('')}
         </ul>
       </div>
     `}
   `;
+
+  const ul = root.querySelector('#notifList');
+  if (ul) applyShowMore(ul, { initial: 10, after: ul.parentElement });
 
   const btn = root.querySelector('#markAllRead');
   if (btn) {
@@ -135,6 +119,20 @@ function describe(n) {
       const detail = `נשלחו ${n.sent || 0} מיילים${n.failed ? ` · ${n.failed} נכשלו` : ''}`;
       const name = n.parshaName ? `פרשת ${n.parshaName}` : (n.slug || '');
       return { kind: 'info', icon: 'check', text: `העלון נשלח: <b>${escapeHtml(name)}</b> <span class="muted">${detail}</span>` };
+    }
+    case 'stats-archived': {
+      const sizeKb = n.sizeBytes ? (n.sizeBytes / 1024).toFixed(1) + ' KB' : '';
+      const range = n.periodStart && n.periodEnd ? `${n.periodStart.slice(0, 10)} → ${n.periodEnd.slice(0, 10)}` : '';
+      return { kind: 'info', icon: 'archive', text: `נתוני שימוש אורכבו <span class="muted">${escapeHtml(range)}${sizeKb ? ' · ' + sizeKb : ''}</span>` };
+    }
+    case 'comment-reported': {
+      const where = n.parshaName ? `פרשת ${n.parshaName}` : (n.slug || '');
+      const preview = n.preview ? ` <span class="muted">"${escapeHtml(n.preview)}"</span>` : '';
+      return { kind: 'neg', icon: 'eye', text: `דווח על תגובה ב-<b>${escapeHtml(where)}</b>${preview}` };
+    }
+    case 'dispatch-pending': {
+      const name = n.parshaName ? `פרשת ${n.parshaName}` : (n.slug || '');
+      return { kind: 'info', icon: 'calendar', text: `העלון <b>${escapeHtml(name)}</b> ממתין לאישור שליחה` };
     }
     default:
       return { kind: 'info', icon: 'eye', text: escapeHtml(n.type || '') };

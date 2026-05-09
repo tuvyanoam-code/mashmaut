@@ -48,6 +48,21 @@ const GH_HEADERS = (env) => ({
 });
 
 async function ghGetFile(env, path) {
+  // In staging, never call the GitHub API. Read JSON from the public CDN
+  // instead so admin POSTs that merge with existing config/index can still
+  // function (writes themselves are no-op'd in ghPutFile). For non-JSON paths
+  // (PDFs, Word docs) just return null since staging never writes those back.
+  if (env.STAGING_MODE === '1') {
+    if (!path.endsWith('.json') || !path.startsWith('public/')) return null;
+    try {
+      const publicPath = path.slice('public/'.length);
+      const r = await fetch(`${(env.SITE_URL || '').replace(/\/$/, '')}/${publicPath}`, { cf: { cacheTtl: 0 } });
+      if (!r.ok) return null;
+      const txt = await r.text();
+      const b64 = btoa(unescape(encodeURIComponent(txt)));
+      return { content: b64, sha: 'staging' };
+    } catch (_) { return null; }
+  }
   const r = await fetch(GH(env, path), { headers: GH_HEADERS(env) });
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(`GitHub get ${path}: ${r.status}`);
@@ -55,6 +70,13 @@ async function ghGetFile(env, path) {
 }
 
 async function ghPutFile(env, path, contentBase64, message, sha) {
+  // Staging guard: never write to GitHub from the staging worker. This is the
+  // primary safety net — the secondary one is GITHUB_BRANCH="staging" (no such
+  // branch exists in the repo, so any leaked write would 404 anyway).
+  if (env.STAGING_MODE === '1') {
+    console.log('staging: ghPutFile no-op for', path);
+    return { staged: true, path };
+  }
   const body = {
     message,
     content: contentBase64,
@@ -74,6 +96,10 @@ async function ghPutFile(env, path, contentBase64, message, sha) {
 }
 
 async function ghDeleteFile(env, path, sha, message) {
+  if (env.STAGING_MODE === '1') {
+    console.log('staging: ghDeleteFile no-op for', path);
+    return;
+  }
   const r = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`, {
     method: 'DELETE',
     headers: { ...GH_HEADERS(env), 'Content-Type': 'application/json' },
@@ -313,9 +339,415 @@ async function buildStats(env) {
   return { byDay, byType, byCountry, byCity, bySlug, unique, returning, finishers, sharers };
 }
 
+// --- Stats archive -------------------------------------------------------
+// Periodically (default: weekly) snapshot the current `cnt:*` / `fp:*` /
+// `done:*` keys into a CSV, store it under `archive:<isoTs>`, then wipe the
+// counters. The admin can browse archives and download any of them. This
+// keeps the live dashboard focused on the recent period the admin cares
+// about, while preserving the full history.
+
+const STATS_ARCHIVE_MAX = 100;     // keep most recent N archives
+const ARCHIVE_TTL_DAYS = 0;        // 0 = no expiry (KV value); we trim by count.
+
+function csvEscape(v) {
+  const s = v == null ? '' : String(v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function buildStatsCsv(stats, periodStart, periodEnd) {
+  const lines = [];
+  lines.push(`# mashmaut stats archive`);
+  lines.push(`# period_start,${csvEscape(periodStart)}`);
+  lines.push(`# period_end,${csvEscape(periodEnd)}`);
+  lines.push('');
+
+  // Daily activity
+  lines.push('# byDay');
+  lines.push('date,view,pdf,finish,share,subscribe-cta');
+  const days = Object.keys(stats.byDay || {}).sort();
+  for (const d of days) {
+    const row = stats.byDay[d] || {};
+    lines.push([d, row.view || 0, row.pdf || 0, row.finish || 0, row.share || 0, row['subscribe-cta'] || 0].map(csvEscape).join(','));
+  }
+  lines.push('');
+
+  // Per-bulletin
+  lines.push('# bySlug');
+  lines.push('slug,view,pdf,finish,share');
+  const slugs = Object.entries(stats.bySlug || {}).sort((a, b) => (b[1].view || 0) - (a[1].view || 0));
+  for (const [slug, vals] of slugs) {
+    lines.push([slug, vals.view || 0, vals.pdf || 0, vals.finish || 0, vals.share || 0].map(csvEscape).join(','));
+  }
+  lines.push('');
+
+  // Country
+  lines.push('# byCountry');
+  lines.push('country,views');
+  const countries = Object.entries(stats.byCountry || {}).sort((a, b) => b[1] - a[1]);
+  for (const [c, n] of countries) lines.push([c, n].map(csvEscape).join(','));
+  lines.push('');
+
+  // City
+  lines.push('# byCity');
+  lines.push('country/city,views');
+  const cities = Object.entries(stats.byCity || {}).sort((a, b) => b[1] - a[1]);
+  for (const [c, n] of cities) lines.push([c, n].map(csvEscape).join(','));
+  lines.push('');
+
+  // Aggregate type totals
+  lines.push('# byType');
+  lines.push('type,total');
+  for (const [t, n] of Object.entries(stats.byType || {})) lines.push([t, n].map(csvEscape).join(','));
+  lines.push('');
+
+  // Fingerprint summary
+  lines.push('# fingerprintSummary');
+  lines.push('metric,value');
+  lines.push(['unique_browsers', stats.unique || 0].map(csvEscape).join(','));
+  lines.push(['returning_browsers', stats.returning || 0].map(csvEscape).join(','));
+  lines.push(['finishers', stats.finishers || 0].map(csvEscape).join(','));
+  lines.push(['sharers', stats.sharers || 0].map(csvEscape).join(','));
+
+  // BOM so Excel opens UTF-8 cleanly with Hebrew intact.
+  return '﻿' + lines.join('\n');
+}
+
+async function listArchives(env) {
+  const out = [];
+  let cursor;
+  do {
+    const res = await env.EVENTS.list({ prefix: 'archive:', cursor });
+    for (const k of res.keys) {
+      // Pull metadata only — don't read the (potentially large) CSV body
+      // unless asked to download. We stored sizeBytes on the value itself,
+      // so we have to fetch lightweight stub keys to get it. To avoid a
+      // second key, we encode metadata in the value but only return the
+      // header here.
+      const v = await env.EVENTS.get(k.name, 'json');
+      if (!v) continue;
+      out.push({
+        id: v.id || k.name.slice('archive:'.length),
+        periodStart: v.periodStart || null,
+        periodEnd: v.periodEnd || null,
+        sizeBytes: v.sizeBytes || (v.csv ? v.csv.length : 0),
+        createdAt: v.createdAt || v.periodEnd || null,
+      });
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+  // Newest first.
+  out.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  return out;
+}
+
+async function trimArchives(env, keep = STATS_ARCHIVE_MAX) {
+  const list = await listArchives(env);
+  if (list.length <= keep) return 0;
+  const toDelete = list.slice(keep);
+  for (const a of toDelete) {
+    await env.EVENTS.delete('archive:' + a.id);
+  }
+  return toDelete.length;
+}
+
+async function maybeArchiveStats(env, opts = {}) {
+  const config = await fetchSiteConfig(env);
+  const sa = (config && config.statsArchive) || {};
+  if (!sa.enabled && !opts.force) return { skipped: 'archive disabled' };
+  // periodDays accepts fractional values for testing convenience (e.g. 0.001).
+  const periodDays = (typeof sa.periodDays === 'number' && sa.periodDays > 0) ? sa.periodDays : 7;
+  const now = Date.now();
+  const last = await env.EVENTS.get('last-stats-archive');
+  const lastMs = last ? Date.parse(last) : 0;
+  if (!opts.force && lastMs && (now - lastMs) < periodDays * 24 * 60 * 60 * 1000) {
+    return { skipped: 'too soon', last, periodDays };
+  }
+
+  // Build snapshot.
+  const stats = await buildStats(env);
+  const periodStart = last || new Date(now - periodDays * 24 * 60 * 60 * 1000).toISOString();
+  const periodEnd = new Date(now).toISOString();
+  const csv = buildStatsCsv(stats, periodStart, periodEnd);
+  const sizeBytes = csv.length;
+  const id = periodEnd;
+
+  // 1) Write archive FIRST. If this throws, we never wipe.
+  const value = { id, periodStart, periodEnd, sizeBytes, csv, createdAt: periodEnd };
+  const putOpts = ARCHIVE_TTL_DAYS > 0 ? { expirationTtl: ARCHIVE_TTL_DAYS * 24 * 60 * 60 } : undefined;
+  await env.EVENTS.put('archive:' + id, JSON.stringify(value), putOpts);
+
+  // 2) Wipe `cnt:*` + `fp:*` + `done:*` (same logic as /admin/stats/reset).
+  let deleted = 0;
+  for (const prefix of ['cnt:', 'fp:', 'done:']) {
+    let cursor;
+    do {
+      const res = await env.EVENTS.list({ prefix, cursor });
+      for (const k of res.keys) { await env.EVENTS.delete(k.name); deleted++; }
+      cursor = res.cursor;
+      if (res.list_complete) break;
+    } while (cursor);
+  }
+
+  // 3) Update cursor + record notification + trim old archives.
+  await env.EVENTS.put('last-stats-archive', periodEnd);
+  await recordNotification(env, 'stats-archived', { id, periodStart, periodEnd, sizeBytes, deleted });
+  const trimmed = await trimArchives(env, STATS_ARCHIVE_MAX);
+  return { ok: true, id, sizeBytes, deleted, trimmed };
+}
+
+// --- Discussions (per-bulletin threads) ----------------------------------
+// Each bulletin can have many discussion *threads*. A thread has a title and
+// an opening message; replies are chronological inside it. The bulletin page
+// shows only the list of thread titles (with a "show" link). The full thread
+// lives on its own page, so the bulletin stays uncluttered.
+//
+// Key map (all in EVENTS):
+//   thread:<year>/<slug>:<sortableId>           → { id, title, body, author, fp, createdAt, editedAt?, lastAt, replyCount, deleted?, isAdmin? }
+//   reply:<year>/<slug>/<threadId>:<sortableId> → { id, threadId, body, author, fp, createdAt, editedAt?, deleted?, isAdmin? }
+//   reaction:<msgRef>:<fp>                       → emoji (msgRef = "t:<id>" or "r:<id>")
+//   reactionAgg:<msgRef>                         → { "❤": n, ... }
+//   name:<normalized>                            → { fp, lastSeen }     (180d TTL)
+//   rl:<fp>:<unixMinute>                         → count                (90s TTL)
+//   report:<msgRef>:<fp>                         → reason               (90d TTL)
+//   report-count:<msgRef>                        → int
+
+const ALLOWED_REACTIONS = new Set(['❤', '🙏', '👍', '🤔', '😮']);
+const COMMENT_RATE_PER_MIN = 5;
+const COMMENT_EDIT_WINDOW_MS = 15 * 60 * 1000;
+const COMMENT_BODY_MAX = 4000;
+const COMMENT_TITLE_MAX = 120;
+const NAME_TTL_DAYS = 180;
+
+const SLUG_RE = /^[A-Za-z0-9_\-]{1,64}$/;
+const YEAR_RE = /^[A-Za-z0-9_\-]{1,16}$/;
+const FP_RE = /^[A-Za-z0-9_\-]{6,64}$/;
+const COMMENT_ID_RE = /^[0-9]{14}-[A-Za-z0-9]{1,12}$/;
+
+function commentSortableId() {
+  const ms = Date.now().toString().padStart(14, '0');
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `${ms}-${rand}`;
+}
+
+function stripHtml(s) {
+  return String(s == null ? '' : s).replace(/<[^>]+>/g, '');
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizeName(s) {
+  let n = String(s || '').trim();
+  if (n.normalize) n = n.normalize('NFC');
+  n = n.replace(/[​-‍﻿]/g, '');
+  n = n.replace(/\s+/g, ' ');
+  return n.toLowerCase();
+}
+
+function isValidDisplayName(s) {
+  const n = String(s || '').trim();
+  if (n.length < 2 || n.length > 40) return false;
+  if (/[<>]/.test(n)) return false;
+  return true;
+}
+
+async function checkRateLimit(env, fp) {
+  if (!fp) return { ok: true };
+  const minute = Math.floor(Date.now() / 60000);
+  const key = `rl:${fp}:${minute}`;
+  const cur = parseInt(await env.EVENTS.get(key) || '0', 10);
+  if (cur >= COMMENT_RATE_PER_MIN) return { ok: false, retryAfterSec: 60 - (Math.floor(Date.now() / 1000) % 60) };
+  await env.EVENTS.put(key, String(cur + 1), { expirationTtl: 90 });
+  return { ok: true };
+}
+
+async function reserveDisplayName(env, name, fp) {
+  const norm = normalizeName(name);
+  if (!norm) return { ok: false, error: 'שם לא תקין' };
+  const key = 'name:' + norm;
+  const cur = await env.EVENTS.get(key, 'json');
+  const ttl = NAME_TTL_DAYS * 24 * 60 * 60;
+  if (cur && cur.fp && cur.fp !== fp) {
+    return { ok: false, error: 'השם תפוס. בחר שם אחר.' };
+  }
+  await env.EVENTS.put(key, JSON.stringify({ fp, lastSeen: new Date().toISOString() }), { expirationTtl: ttl });
+  const after = await env.EVENTS.get(key, 'json');
+  if (after && after.fp && after.fp !== fp) {
+    return { ok: false, error: 'השם תפוס. בחר שם אחר.' };
+  }
+  return { ok: true };
+}
+
+// --- thread / reply storage ---
+
+function threadKey(year, slug, threadId) {
+  return `thread:${year}/${slug}:${threadId}`;
+}
+
+function replyKey(year, slug, threadId, replyId) {
+  return `reply:${year}/${slug}/${threadId}:${replyId}`;
+}
+
+async function findThread(env, year, slug, threadId) {
+  if (!COMMENT_ID_RE.test(threadId)) return null;
+  const key = threadKey(year, slug, threadId);
+  const v = await env.EVENTS.get(key, 'json');
+  return v ? { key, value: v } : null;
+}
+
+async function findReply(env, year, slug, threadId, replyId) {
+  if (!COMMENT_ID_RE.test(threadId) || !COMMENT_ID_RE.test(replyId)) return null;
+  const key = replyKey(year, slug, threadId, replyId);
+  const v = await env.EVENTS.get(key, 'json');
+  return v ? { key, value: v } : null;
+}
+
+async function listThreadsForBulletin(env, year, slug) {
+  const out = [];
+  let cursor;
+  const prefix = `thread:${year}/${slug}:`;
+  do {
+    const res = await env.EVENTS.list({ prefix, cursor });
+    const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+    for (let i = 0; i < res.keys.length; i++) {
+      const v = values[i]; if (!v) continue;
+      out.push(v);
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+  // Newest first — the bulletin's preview list shows the most recent on top.
+  out.sort((a, b) => (b.id || '').localeCompare(a.id || ''));
+  return out;
+}
+
+async function listRepliesInThread(env, year, slug, threadId) {
+  const out = [];
+  let cursor;
+  const prefix = `reply:${year}/${slug}/${threadId}:`;
+  do {
+    const res = await env.EVENTS.list({ prefix, cursor });
+    const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+    for (let i = 0; i < res.keys.length; i++) {
+      const v = values[i]; if (!v) continue;
+      out.push(v);
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+  // Oldest first — chronological reading order inside a thread.
+  out.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+  return out;
+}
+
+// --- reactions (work with refs: 't:<id>' for thread, 'r:<id>' for reply) ---
+
+function reactionRef(kind, id) { return `${kind}:${id}`; }
+
+async function getReactionAgg(env, ref) {
+  const v = await env.EVENTS.get(`reactionAgg:${ref}`, 'json');
+  return v || {};
+}
+
+async function applyReaction(env, ref, fp, emoji) {
+  if (emoji && !ALLOWED_REACTIONS.has(emoji)) return { ok: false, error: 'אימוג׳י לא נתמך' };
+  const fpKey = `reaction:${ref}:${fp}`;
+  const aggKey = `reactionAgg:${ref}`;
+  const prev = await env.EVENTS.get(fpKey);
+  const agg = await getReactionAgg(env, ref);
+  let next;
+  if (!emoji || (prev && prev === emoji)) {
+    if (prev) {
+      await env.EVENTS.delete(fpKey);
+      agg[prev] = Math.max(0, (agg[prev] || 0) - 1);
+      if (agg[prev] === 0) delete agg[prev];
+    }
+    next = null;
+  } else {
+    if (prev) {
+      agg[prev] = Math.max(0, (agg[prev] || 0) - 1);
+      if (agg[prev] === 0) delete agg[prev];
+    }
+    await env.EVENTS.put(fpKey, emoji);
+    agg[emoji] = (agg[emoji] || 0) + 1;
+    next = emoji;
+  }
+  await env.EVENTS.put(aggKey, JSON.stringify(agg));
+  return { ok: true, agg, my: next };
+}
+
+async function getReactionsForThread(env, threadId, replies) {
+  const out = { [threadId]: await getReactionAgg(env, reactionRef('t', threadId)) };
+  for (const r of replies) {
+    if (r.deleted) { out[r.id] = {}; continue; }
+    out[r.id] = await getReactionAgg(env, reactionRef('r', r.id));
+  }
+  return out;
+}
+
+// --- create / append ---
+
+async function createThread(env, year, slug, payload) {
+  const id = commentSortableId();
+  const now = new Date().toISOString();
+  const full = {
+    id,
+    title: payload.title,
+    body: payload.body,
+    author: payload.author,
+    fp: payload.fp,
+    createdAt: now,
+    lastAt: now,
+    replyCount: 0,
+    ...(payload.isAdmin ? { isAdmin: true } : {}),
+  };
+  await env.EVENTS.put(threadKey(year, slug, id), JSON.stringify(full));
+  return full;
+}
+
+async function appendReply(env, year, slug, threadId, payload) {
+  const id = commentSortableId();
+  const now = new Date().toISOString();
+  const full = {
+    id,
+    threadId,
+    body: payload.body,
+    author: payload.author,
+    fp: payload.fp,
+    createdAt: now,
+    ...(payload.isAdmin ? { isAdmin: true } : {}),
+  };
+  await env.EVENTS.put(replyKey(year, slug, threadId, id), JSON.stringify(full));
+  // Bump thread's lastAt + replyCount.
+  const t = await findThread(env, year, slug, threadId);
+  if (t) {
+    const next = { ...t.value, lastAt: now, replyCount: (t.value.replyCount || 0) + 1 };
+    await env.EVENTS.put(t.key, JSON.stringify(next));
+  }
+  return full;
+}
+
 // --- Email sending (Resend) ----------------------------------------------
 
 async function sendEmail(env, to, subject, html) {
+  // Staging guard: only ever send mail to the admin's own inbox. Combined with
+  // FROM_EMAIL pointed at Resend's sandbox sender, this is double-protection
+  // against accidentally emailing real subscribers from a staging tick.
+  if (env.STAGING_MODE === '1') {
+    const allow = (env.ADMIN_EMAIL || '').toLowerCase();
+    const recipients = (Array.isArray(to) ? to : [to]).map((s) => String(s || '').toLowerCase());
+    if (!allow || !recipients.every((r) => r === allow)) {
+      console.log('staging: sendEmail blocked, recipients=', recipients);
+      return { id: 'staging-noop' };
+    }
+  }
   if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY missing');
   const fromName = env.FROM_NAME || 'משמעות';
   const fromEmail = env.FROM_EMAIL || 'onboarding@resend.dev';
@@ -656,6 +1088,220 @@ export default {
         return ok({ count, liked });
       }
 
+      // --- Discussions (public; per-bulletin threads) -------------------
+
+      // List all threads for a bulletin (lightweight — for the bulletin's
+      // preview list. Doesn't include reply bodies).
+      if (p === '/discuss/threads' && request.method === 'GET') {
+        const slug = url.searchParams.get('slug') || '';
+        const year = url.searchParams.get('year') || '';
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year required');
+        const threads = await listThreadsForBulletin(env, year, slug);
+        // Strip the body from the preview list — it's loaded only when the
+        // user opens an individual thread.
+        const lite = threads.map((t) => ({
+          id: t.id, title: t.title, author: t.author,
+          createdAt: t.createdAt, lastAt: t.lastAt, replyCount: t.replyCount || 0,
+          deleted: !!t.deleted, isAdmin: !!t.isAdmin,
+        }));
+        return ok({ threads: lite });
+      }
+
+      // Open a new thread.
+      if (p === '/discuss/threads' && request.method === 'POST') {
+        const config = await fetchSiteConfig(env);
+        if (config && config.commentsEnabled === false) return err('comments disabled', 403);
+        const body = await request.json().catch(() => ({}));
+        if (body.honeypot) return ok({ ignored: true });
+        const slug = String(body.slug || '');
+        const year = String(body.year || '');
+        const fp = String(body.fp || '');
+        const author = String(body.displayName || '').trim();
+        const title = String(body.title || '').trim();
+        const text = String(body.body || '').trim();
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
+        if (!FP_RE.test(fp)) return err('fp invalid');
+        if (!isValidDisplayName(author)) return err('שם תצוגה לא תקין (2–40 תווים)');
+        if (!title || title.length > COMMENT_TITLE_MAX) return err(`כותרת חסרה או ארוכה (עד ${COMMENT_TITLE_MAX})`);
+        if (!text || text.length > COMMENT_BODY_MAX) return err(`תוכן חסר או ארוך מדי (עד ${COMMENT_BODY_MAX})`);
+        const rl = await checkRateLimit(env, fp);
+        if (!rl.ok) return err('יותר מדי הודעות. נסה שוב בעוד דקה.', 429);
+        const reserved = await reserveDisplayName(env, author, fp);
+        if (!reserved.ok) return err(reserved.error, 409);
+        const cleanTitle = stripHtml(title).slice(0, COMMENT_TITLE_MAX);
+        const cleanBody = stripHtml(text).slice(0, COMMENT_BODY_MAX);
+        const saved = await createThread(env, year, slug, { title: cleanTitle, body: cleanBody, author, fp });
+        return ok({ thread: saved });
+      }
+
+      // Read one full thread (header + replies + reactions).
+      if (p.startsWith('/discuss/threads/') && !p.endsWith('/reply') && !p.endsWith('/react') && !p.endsWith('/report') && request.method === 'GET') {
+        const threadId = p.slice('/discuss/threads/'.length);
+        const slug = url.searchParams.get('slug') || '';
+        const year = url.searchParams.get('year') || '';
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year required');
+        if (!COMMENT_ID_RE.test(threadId)) return err('threadId invalid');
+        const t = await findThread(env, year, slug, threadId);
+        if (!t) return err('thread not found', 404);
+        const replies = await listRepliesInThread(env, year, slug, threadId);
+        const reactions = await getReactionsForThread(env, threadId, replies);
+        return ok({ thread: t.value, replies, reactions });
+      }
+
+      // Reply to a thread.
+      if (p.startsWith('/discuss/threads/') && p.endsWith('/reply') && request.method === 'POST') {
+        const config = await fetchSiteConfig(env);
+        if (config && config.commentsEnabled === false) return err('comments disabled', 403);
+        const threadId = p.slice('/discuss/threads/'.length, -'/reply'.length);
+        const body = await request.json().catch(() => ({}));
+        if (body.honeypot) return ok({ ignored: true });
+        const slug = String(body.slug || '');
+        const year = String(body.year || '');
+        const fp = String(body.fp || '');
+        const author = String(body.displayName || '').trim();
+        const text = String(body.body || '').trim();
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
+        if (!FP_RE.test(fp)) return err('fp invalid');
+        if (!COMMENT_ID_RE.test(threadId)) return err('threadId invalid');
+        if (!isValidDisplayName(author)) return err('שם תצוגה לא תקין (2–40 תווים)');
+        if (!text || text.length > COMMENT_BODY_MAX) return err(`תוכן חסר או ארוך מדי (עד ${COMMENT_BODY_MAX})`);
+        const t = await findThread(env, year, slug, threadId);
+        if (!t || t.value.deleted) return err('thread not found', 404);
+        const rl = await checkRateLimit(env, fp);
+        if (!rl.ok) return err('יותר מדי הודעות. נסה שוב בעוד דקה.', 429);
+        const reserved = await reserveDisplayName(env, author, fp);
+        if (!reserved.ok) return err(reserved.error, 409);
+        const cleanBody = stripHtml(text).slice(0, COMMENT_BODY_MAX);
+        const saved = await appendReply(env, year, slug, threadId, { body: cleanBody, author, fp });
+        return ok({ reply: saved });
+      }
+
+      // Edit a thread (own only, within window). Body may include title and/or body.
+      if (p.startsWith('/discuss/threads/') && !p.endsWith('/reply') && !p.endsWith('/react') && !p.endsWith('/report') && request.method === 'PUT') {
+        const threadId = p.slice('/discuss/threads/'.length);
+        const body = await request.json().catch(() => ({}));
+        const slug = String(body.slug || '');
+        const year = String(body.year || '');
+        const fp = String(body.fp || '');
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
+        if (!FP_RE.test(fp)) return err('fp invalid');
+        if (!COMMENT_ID_RE.test(threadId)) return err('threadId invalid');
+        const t = await findThread(env, year, slug, threadId);
+        if (!t) return err('not found', 404);
+        if (t.value.deleted) return err('deleted', 410);
+        if (t.value.fp !== fp) return err('אין הרשאה לערוך', 403);
+        const ageMs = Date.now() - Date.parse(t.value.createdAt);
+        if (ageMs > COMMENT_EDIT_WINDOW_MS) return err('חלון העריכה (15 דק׳) חלף', 409);
+        const next = { ...t.value };
+        if (body.title !== undefined) {
+          const title = stripHtml(String(body.title || '').trim()).slice(0, COMMENT_TITLE_MAX);
+          if (!title) return err('כותרת לא תקינה');
+          next.title = title;
+        }
+        if (body.body !== undefined) {
+          const text = stripHtml(String(body.body || '').trim()).slice(0, COMMENT_BODY_MAX);
+          if (!text) return err('תוכן לא תקין');
+          next.body = text;
+        }
+        next.editedAt = new Date().toISOString();
+        await env.EVENTS.put(t.key, JSON.stringify(next));
+        return ok({ thread: next });
+      }
+
+      // Edit a reply (own only, within window).
+      if (p.startsWith('/discuss/replies/') && request.method === 'PUT') {
+        const replyId = p.slice('/discuss/replies/'.length);
+        const body = await request.json().catch(() => ({}));
+        const slug = String(body.slug || '');
+        const year = String(body.year || '');
+        const threadId = String(body.threadId || '');
+        const fp = String(body.fp || '');
+        const text = String(body.body || '').trim();
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
+        if (!FP_RE.test(fp)) return err('fp invalid');
+        if (!COMMENT_ID_RE.test(threadId) || !COMMENT_ID_RE.test(replyId)) return err('id invalid');
+        if (!text || text.length > COMMENT_BODY_MAX) return err('תוכן לא תקין');
+        const r = await findReply(env, year, slug, threadId, replyId);
+        if (!r) return err('not found', 404);
+        if (r.value.deleted) return err('deleted', 410);
+        if (r.value.fp !== fp) return err('אין הרשאה לערוך', 403);
+        const ageMs = Date.now() - Date.parse(r.value.createdAt);
+        if (ageMs > COMMENT_EDIT_WINDOW_MS) return err('חלון העריכה (15 דק׳) חלף', 409);
+        const next = { ...r.value, body: stripHtml(text).slice(0, COMMENT_BODY_MAX), editedAt: new Date().toISOString() };
+        await env.EVENTS.put(r.key, JSON.stringify(next));
+        return ok({ reply: next });
+      }
+
+      // Reactions on threads.
+      if (p.startsWith('/discuss/threads/') && p.endsWith('/react') && request.method === 'POST') {
+        const threadId = p.slice('/discuss/threads/'.length, -'/react'.length);
+        const body = await request.json().catch(() => ({}));
+        const slug = String(body.slug || '');
+        const year = String(body.year || '');
+        const fp = String(body.fp || '');
+        const emoji = String(body.emoji || '');
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
+        if (!FP_RE.test(fp)) return err('fp invalid');
+        if (!COMMENT_ID_RE.test(threadId)) return err('threadId invalid');
+        const t = await findThread(env, year, slug, threadId);
+        if (!t || t.value.deleted) return err('not found', 404);
+        const result = await applyReaction(env, reactionRef('t', threadId), fp, emoji);
+        return result.ok ? ok(result) : err(result.error || 'שגיאה');
+      }
+
+      // Reactions on replies.
+      if (p.startsWith('/discuss/replies/') && p.endsWith('/react') && request.method === 'POST') {
+        const replyId = p.slice('/discuss/replies/'.length, -'/react'.length);
+        const body = await request.json().catch(() => ({}));
+        const slug = String(body.slug || '');
+        const year = String(body.year || '');
+        const threadId = String(body.threadId || '');
+        const fp = String(body.fp || '');
+        const emoji = String(body.emoji || '');
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
+        if (!FP_RE.test(fp)) return err('fp invalid');
+        if (!COMMENT_ID_RE.test(threadId) || !COMMENT_ID_RE.test(replyId)) return err('id invalid');
+        const r = await findReply(env, year, slug, threadId, replyId);
+        if (!r || r.value.deleted) return err('not found', 404);
+        const result = await applyReaction(env, reactionRef('r', replyId), fp, emoji);
+        return result.ok ? ok(result) : err(result.error || 'שגיאה');
+      }
+
+      // Reports — works on either threads or replies.
+      if ((p.startsWith('/discuss/threads/') || p.startsWith('/discuss/replies/')) && p.endsWith('/report') && request.method === 'POST') {
+        const isThread = p.startsWith('/discuss/threads/');
+        const id = isThread
+          ? p.slice('/discuss/threads/'.length, -'/report'.length)
+          : p.slice('/discuss/replies/'.length, -'/report'.length);
+        const body = await request.json().catch(() => ({}));
+        const slug = String(body.slug || '');
+        const year = String(body.year || '');
+        const threadId = String(body.threadId || (isThread ? id : ''));
+        const fp = String(body.fp || '');
+        const reason = String(body.reason || '').slice(0, 200);
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
+        if (!FP_RE.test(fp)) return err('fp invalid');
+        if (!COMMENT_ID_RE.test(id)) return err('id invalid');
+        const found = isThread
+          ? await findThread(env, year, slug, id)
+          : await findReply(env, year, slug, threadId, id);
+        if (!found) return err('not found', 404);
+        const ref = reactionRef(isThread ? 't' : 'r', id);
+        const reportKey = `report:${ref}:${fp}`;
+        if (!(await env.EVENTS.get(reportKey))) {
+          await env.EVENTS.put(reportKey, reason || '1', { expirationTtl: 90 * 24 * 60 * 60 });
+          const cur = parseInt(await env.EVENTS.get(`report-count:${ref}`) || '0', 10);
+          await env.EVENTS.put(`report-count:${ref}`, String(cur + 1));
+          await recordNotification(env, 'comment-reported', {
+            ref, kind: isThread ? 'thread' : 'reply', threadId: isThread ? id : threadId,
+            year, slug, reason: reason || null,
+            author: found.value.author || null,
+            preview: (isThread ? found.value.title : found.value.body || '').slice(0, 120),
+          });
+        }
+        return ok();
+      }
+
       if (p.startsWith('/admin/')) {
         if (!authed(request, env)) return err('unauthorized', 401);
         if (p === '/admin/auth' && request.method === 'POST') return ok({ valid: true });
@@ -935,6 +1581,158 @@ export default {
           return ok();
         }
 
+        // --- Stats archive (admin) ---
+
+        if (p === '/admin/stats/archives' && request.method === 'GET') {
+          return ok({ archives: await listArchives(env) });
+        }
+
+        if (p.startsWith('/admin/stats/archives/') && request.method === 'GET') {
+          const id = p.slice('/admin/stats/archives/'.length);
+          if (!id) return err('id required');
+          const v = await env.EVENTS.get('archive:' + id, 'json');
+          if (!v) return err('archive not found', 404);
+          const filename = `mashmaut-stats-${(v.periodStart || 'start').slice(0, 10)}_to_${(v.periodEnd || 'end').slice(0, 10)}.csv`;
+          return new Response(v.csv || '', {
+            headers: {
+              ...CORS,
+              'Content-Type': 'text/csv;charset=utf-8',
+              'Content-Disposition': `attachment; filename="${filename}"`,
+            },
+          });
+        }
+
+        if (p.startsWith('/admin/stats/archives/') && request.method === 'DELETE') {
+          const id = p.slice('/admin/stats/archives/'.length);
+          if (!id) return err('id required');
+          await env.EVENTS.delete('archive:' + id);
+          return ok({ deleted: id });
+        }
+
+        // Debug-only endpoint: trigger an archive run synchronously. Gated
+        // behind STAGING_MODE so it can't be invoked in production.
+        if (p === '/admin/stats/archive-now' && request.method === 'POST') {
+          if (env.STAGING_MODE !== '1') return err('staging only', 403);
+          const result = await maybeArchiveStats(env, { force: true });
+          return ok(result);
+        }
+
+        // --- Discussions (admin) ---
+
+        // Flat list of all threads across all bulletins, newest activity first.
+        // O(threads) — one KV list call (paginated) + one get per thread.
+        if (p === '/admin/discuss/threads' && request.method === 'GET') {
+          const out = [];
+          let cursor;
+          do {
+            const res = await env.EVENTS.list({ prefix: 'thread:', cursor });
+            const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+            for (let i = 0; i < res.keys.length; i++) {
+              const v = values[i]; if (!v) continue;
+              // Key: thread:<year>/<slug>:<id>
+              const tail = res.keys[i].name.slice('thread:'.length);
+              const slashIdx = tail.indexOf('/');
+              const colonIdx = tail.indexOf(':', slashIdx + 1);
+              if (slashIdx < 0 || colonIdx < 0) continue;
+              const year = tail.slice(0, slashIdx);
+              const slug = tail.slice(slashIdx + 1, colonIdx);
+              out.push({ year, slug, ...v });
+            }
+            cursor = res.cursor;
+            if (res.list_complete) break;
+          } while (cursor);
+          out.sort((a, b) => (b.lastAt || '').localeCompare(a.lastAt || ''));
+          return ok({ threads: out });
+        }
+
+        // Full thread for moderation (same as public GET but with report counts).
+        if (p.startsWith('/admin/discuss/threads/') && request.method === 'GET') {
+          const rest = p.slice('/admin/discuss/threads/'.length);
+          // Path is /<year>/<slug>/<threadId> for admin.
+          const parts = rest.split('/');
+          if (parts.length !== 3) return err('path: /admin/discuss/threads/<year>/<slug>/<threadId>');
+          const [year, slug, threadId] = parts;
+          if (!SLUG_RE.test(slug) || !YEAR_RE.test(year) || !COMMENT_ID_RE.test(threadId)) return err('invalid');
+          const t = await findThread(env, year, slug, threadId);
+          if (!t) return err('not found', 404);
+          const replies = await listRepliesInThread(env, year, slug, threadId);
+          const reactions = await getReactionsForThread(env, threadId, replies);
+          // Pull report counts.
+          const reports = {};
+          const tReportN = parseInt(await env.EVENTS.get(`report-count:t:${threadId}`) || '0', 10);
+          if (tReportN > 0) reports[threadId] = tReportN;
+          for (const r of replies) {
+            const n = parseInt(await env.EVENTS.get(`report-count:r:${r.id}`) || '0', 10);
+            if (n > 0) reports[r.id] = n;
+          }
+          return ok({ thread: t.value, replies, reactions, reports });
+        }
+
+        // Soft-delete a thread or a single reply.
+        if (p === '/admin/discuss/delete' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const slug = String(body.slug || '');
+          const year = String(body.year || '');
+          const threadId = String(body.threadId || '');
+          const replyId = body.replyId ? String(body.replyId) : null;
+          if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('year+slug required');
+          if (!COMMENT_ID_RE.test(threadId)) return err('threadId invalid');
+          if (replyId) {
+            if (!COMMENT_ID_RE.test(replyId)) return err('replyId invalid');
+            const r = await findReply(env, year, slug, threadId, replyId);
+            if (!r) return err('not found', 404);
+            const next = { ...r.value, deleted: true, deletedAt: new Date().toISOString() };
+            await env.EVENTS.put(r.key, JSON.stringify(next));
+            return ok({ deleted: 'reply', id: replyId });
+          }
+          const t = await findThread(env, year, slug, threadId);
+          if (!t) return err('not found', 404);
+          const next = { ...t.value, deleted: true, deletedAt: new Date().toISOString() };
+          await env.EVENTS.put(t.key, JSON.stringify(next));
+          return ok({ deleted: 'thread', id: threadId });
+        }
+
+        // Admin replies into a thread.
+        if (p === '/admin/discuss/reply' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const slug = String(body.slug || '');
+          const year = String(body.year || '');
+          const threadId = String(body.threadId || '');
+          const text = String(body.body || '').trim();
+          if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('year+slug required');
+          if (!COMMENT_ID_RE.test(threadId)) return err('threadId invalid');
+          if (!text) return err('body required');
+          const t = await findThread(env, year, slug, threadId);
+          if (!t || t.value.deleted) return err('thread not found', 404);
+          const author = body.author && String(body.author).trim() || 'צוות משמעות';
+          const adminFp = 'admin-' + (env.ADMIN_EMAIL || 'admin');
+          const cleanBody = stripHtml(text).slice(0, COMMENT_BODY_MAX);
+          const saved = await appendReply(env, year, slug, threadId, {
+            body: cleanBody, author, fp: adminFp, isAdmin: true,
+          });
+          return ok({ reply: saved });
+        }
+
+        // Admin starts a NEW thread directly (e.g. announcement).
+        if (p === '/admin/discuss/new-thread' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const slug = String(body.slug || '');
+          const year = String(body.year || '');
+          const title = String(body.title || '').trim();
+          const text = String(body.body || '').trim();
+          if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('year+slug required');
+          if (!title || title.length > COMMENT_TITLE_MAX) return err('title invalid');
+          if (!text) return err('body required');
+          const author = body.author && String(body.author).trim() || 'צוות משמעות';
+          const adminFp = 'admin-' + (env.ADMIN_EMAIL || 'admin');
+          const cleanBody = stripHtml(text).slice(0, COMMENT_BODY_MAX);
+          const cleanTitle = stripHtml(title).slice(0, COMMENT_TITLE_MAX);
+          const saved = await createThread(env, year, slug, {
+            title: cleanTitle, body: cleanBody, author, fp: adminFp, isAdmin: true,
+          });
+          return ok({ thread: saved });
+        }
+
         return err('admin route not found', 404);
       }
 
@@ -945,9 +1743,17 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
+    // Two independent scheduled jobs share the hourly tick:
+    //   1) maybeSendOnSchedule — weekly bulletin dispatch.
+    //   2) maybeArchiveStats — periodic stats archive + reset.
+    // Both are no-ops on most ticks (they each check their own gating).
     ctx.waitUntil(
-      maybeSendOnSchedule(env).then((r) => console.log('cron tick:', r))
-        .catch((e) => console.log('cron error:', e.message))
+      maybeSendOnSchedule(env).then((r) => console.log('cron dispatch:', r))
+        .catch((e) => console.log('cron dispatch error:', e.message))
+    );
+    ctx.waitUntil(
+      maybeArchiveStats(env).then((r) => console.log('cron archive:', r))
+        .catch((e) => console.log('cron archive error:', e.message))
     );
   },
 };

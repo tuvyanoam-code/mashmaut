@@ -87,14 +87,16 @@ export async function renderHome() {
 
   bindNav();
 
-  // SEO: home reflects the latest bulletin's parsha + the publication tagline.
+  // SEO: the home page title is intentionally evergreen — it does NOT
+  // reference the current parsha. Otherwise Google indexes the homepage as if
+  // it were a single-parsha page, and searches for other parshiot don't lead
+  // back here. The description may mention the current bulletin (it changes
+  // weekly anyway), but the <title> stays stable across the year.
+  const homeTitle = 'עלון משמעות — פרשת השבוע מתורת הרב יצחק גינזבורג';
   const siteName = config.siteName || 'משמעות';
-  const homeTitle = latest
-    ? `${siteName} — פרשת ${latest.parshaName} · עלון פרשת השבוע`
-    : `${siteName} — עלון פרשת השבוע מתוך תורתו של הרב יצחק גינזבורג שליט"א`;
   const homeDesc = latest
-    ? `${siteName} — עלון פרשת השבוע. השבוע: פרשת ${latest.parshaName}${latest.issueNumber ? `, גליון ${latest.issueNumber}` : ''}. ${plainSummary(latest.teaser, 140)}`
-    : `${siteName} — עלון פרשת השבוע מתוך תורתו של הרב יצחק גינזבורג שליט"א. שיחות שבועיות בגובה העיניים.`;
+    ? `עלון ${siteName} — פרשת השבוע מתורת הרב יצחק גינזבורג. השבוע: פרשת ${latest.parshaName}${latest.issueNumber ? `, גליון ${latest.issueNumber}` : ''}. ${plainSummary(latest.teaser, 140)}`
+    : 'עלון משמעות — פרשת השבוע מתורת הרב יצחק גינזבורג. שיחות שבועיות בגובה העיניים, ארכיון מלא, חיפוש, והרשמה למייל.';
   setPageSeo({ title: homeTitle, description: homeDesc, path: '/' });
 
   track('view', { slug: 'home' });

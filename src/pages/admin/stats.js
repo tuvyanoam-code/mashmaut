@@ -1,37 +1,19 @@
 // Admin analytics view. Pulls aggregated stats from the Worker /admin/stats
-// endpoint using the configured admin API key.
+// endpoint. Includes a "היסטוריה" modal listing archived snapshots that can
+// be downloaded as CSV.
 
 import { icon } from '../../icons.js';
-import { loadConfig } from '../../lib/store.js';
+import { adminCall, adminDownload } from '../../lib/adminApi.js';
+import { applyShowMore } from '../../lib/showMore.js';
 
 export async function renderStats(root) {
-  const cfg = await loadConfig();
-  const apiBase = (cfg.apiBase || '').replace(/\/$/, '');
-  const apiKey = cfg.adminApiKey || '';
-
-  if (!apiBase || !apiKey) {
-    root.innerHTML = `
-      <header class="admin-header"><h1>גרף שימוש</h1></header>
-      <div class="admin-card">
-        <p>שירות האנליטיקס עוד לא מוגדר.</p>
-        <p>היכנס ל-<a href="/admin/settings">הגדרות</a>, מלא את הכתובת של ה-API ואת מפתח האדמין, ואז חזור לכאן.</p>
-      </div>`;
-    return;
-  }
-
   // Don't blank up-front — keep previous section visible until data arrives.
   const t = setTimeout(() => {
     root.innerHTML = `<header class="admin-header"><h1>גרף שימוש</h1></header><div class="loading"><div class="spinner"></div></div>`;
   }, 250);
   let stats;
   try {
-    const r = await fetch(apiBase + '/admin/stats', {
-      headers: { Authorization: 'Bearer ' + apiKey },
-    });
-    if (!r.ok) throw new Error('שגיאת חיבור ל-API');
-    const data = await r.json();
-    if (!data.ok) throw new Error(data.error || 'שגיאה');
-    stats = data;
+    stats = await adminCall('/admin/stats');
   } catch (e) {
     clearTimeout(t);
     root.innerHTML = `
@@ -44,13 +26,16 @@ export async function renderStats(root) {
   const days = Object.keys(stats.byDay || {}).sort();
   const totals = stats.byType || {};
   const countries = Object.entries(stats.byCountry || {}).sort((a, b) => b[1] - a[1]);
-  const cities = Object.entries(stats.byCity || {}).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const cities = Object.entries(stats.byCity || {}).sort((a, b) => b[1] - a[1]);
   const slugs = Object.entries(stats.bySlug || {}).sort((a, b) => (b[1].view || 0) - (a[1].view || 0));
 
   root.innerHTML = `
     <header class="admin-header">
       <h1>גרף שימוש</h1>
-      <button type="button" class="btn btn-secondary" id="refreshStats">${icon('settings', { size: 18 })} רענן</button>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn btn-secondary" id="historyBtn">${icon('archive', { size: 18 })} היסטוריה</button>
+        <button type="button" class="btn btn-secondary" id="refreshStats">${icon('settings', { size: 18 })} רענן</button>
+      </div>
     </header>
 
     <div class="stats-grid">
@@ -70,12 +55,12 @@ export async function renderStats(root) {
     <div class="admin-card">
       <h3>פירוט לפי עלון</h3>
       ${slugs.length ? `
-        <table class="admin-table">
+        <table class="admin-table" id="slugTable">
           <thead><tr><th>עלון</th><th>צפיות</th><th>PDF</th><th>סיומי קריאה</th><th>שיתופים</th></tr></thead>
-          <tbody>
+          <tbody data-show-more-target="slugs">
             ${slugs.map(([slug, vals]) => `
               <tr>
-                <td data-label="עלון"><b>${slug}</b></td>
+                <td data-label="עלון"><b>${escapeHtml(slug)}</b></td>
                 <td data-label="צפיות">${vals.view || 0}</td>
                 <td data-label="PDF">${vals.pdf || 0}</td>
                 <td data-label="סיומי קריאה">${vals.finish || 0}</td>
@@ -88,8 +73,7 @@ export async function renderStats(root) {
 
     <p class="muted" style="font-size:.85rem; margin: -6px 0 14px; line-height:1.5;">
       <b>הערה על מדינה/עיר:</b> משתמשים שמפעילים iCloud Private Relay של אפל (אייפון/מק) או VPN
-      יוצגו לפי שרת המעבר של ספק הפרטיות, לא לפי מיקומם האמיתי — לכן כניסות מאייפון לעיתים מופיעות
-      כ"ארה״ב / ניו-יורק" או "Cloudflare". המספרים הכלליים (צפיות, סיומים, שיתופים) אמינים, רק
+      יוצגו לפי שרת המעבר של ספק הפרטיות, לא לפי מיקומם האמיתי. המספרים הכלליים אמינים, רק
       ההצגה הגיאוגרפית מטעה במכשירים האלה.
     </p>
 
@@ -98,8 +82,8 @@ export async function renderStats(root) {
         <h3>לפי מדינה</h3>
         ${countries.length ? `
           <table class="admin-table">
-            <tbody>
-              ${countries.map(([c, n]) => `<tr><td data-label="מדינה">${c}</td><td data-label="מספר">${n}</td></tr>`).join('')}
+            <tbody data-show-more-target="countries">
+              ${countries.map(([c, n]) => `<tr><td data-label="מדינה">${escapeHtml(c)}</td><td data-label="מספר">${n}</td></tr>`).join('')}
             </tbody>
           </table>` : '<p class="muted">עוד אין נתונים.</p>'}
       </div>
@@ -107,8 +91,8 @@ export async function renderStats(root) {
         <h3>ערים מובילות</h3>
         ${cities.length ? `
           <table class="admin-table">
-            <tbody>
-              ${cities.map(([c, n]) => `<tr><td data-label="עיר">${c}</td><td data-label="מספר">${n}</td></tr>`).join('')}
+            <tbody data-show-more-target="cities">
+              ${cities.map(([c, n]) => `<tr><td data-label="עיר">${escapeHtml(c)}</td><td data-label="מספר">${n}</td></tr>`).join('')}
             </tbody>
           </table>` : '<p class="muted">עוד אין נתונים.</p>'}
       </div>
@@ -116,13 +100,21 @@ export async function renderStats(root) {
 
     <div class="admin-card" style="border-color: #f3d9d9;">
       <h3 style="color: #b91c1c;">איפוס נתוני שימוש</h3>
-      <p class="muted" style="margin-top:0;">מוחק את כל מוני הצפיות, סיומי הקריאה, השיתופים, וזיהויי הדפדפנים. הפעולה <b>אינה הפיכה</b>. ההתראות, רשימת המנויים, התזמון, וההגדרות נשמרים.</p>
+      <p class="muted" style="margin-top:0;">מוחק את כל מוני הצפיות, סיומי הקריאה, השיתופים, וזיהויי הדפדפנים. הפעולה <b>אינה הפיכה</b>. ההתראות, רשימת המנויים, התזמון, וההגדרות נשמרים. אם הוגדר ארכוב אוטומטי בהגדרות, הנתונים נשמרים בארכיון לפני האיפוס האוטומטי.</p>
       <button type="button" class="btn btn-secondary" id="resetStats">${icon('trash', { size: 18 })} אפס נתוני שימוש</button>
       <div id="resetStatus" style="margin-top:14px;"></div>
     </div>
   `;
 
+  // Apply "הצג עוד" — first 10, button to expand.
+  for (const sel of ['slugs', 'countries', 'cities']) {
+    const tbody = root.querySelector(`[data-show-more-target="${sel}"]`);
+    if (tbody) applyShowMore(tbody, { initial: 10, after: tbody.parentElement });
+  }
+
   document.getElementById('refreshStats').addEventListener('click', () => renderStats(root));
+  document.getElementById('historyBtn').addEventListener('click', () => openHistoryModal());
+
   document.getElementById('resetStats').addEventListener('click', async () => {
     const status = document.getElementById('resetStatus');
     const ack = prompt('כדי לאפס את כל נתוני השימוש (לא ניתן לבטל), הקלד "אפס" ולחץ אישור.');
@@ -133,13 +125,7 @@ export async function renderStats(root) {
     }
     status.innerHTML = '<div class="admin-status info">מאפס…</div>';
     try {
-      const r = await fetch(apiBase + '/admin/stats/reset', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-        body: '{}',
-      });
-      const data = await r.json();
-      if (!data.ok) throw new Error(data.error || 'שגיאה');
+      const data = await adminCall('/admin/stats/reset', { method: 'POST', body: {} });
       status.innerHTML = `<div class="admin-status success">נמחקו ${data.deleted} רשומות. הגרף יתאפס מיד.</div>`;
       setTimeout(() => renderStats(root), 1200);
     } catch (e) {
@@ -147,6 +133,97 @@ export async function renderStats(root) {
     }
   });
 }
+
+async function openHistoryModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay history-overlay';
+  overlay.innerHTML = `
+    <div class="modal history-modal" role="dialog" aria-modal="true" aria-label="היסטוריית ארכיון נתוני שימוש">
+      <button type="button" class="modal-close" aria-label="סגור">${icon('close', { size: 20 })}</button>
+      <h3 style="margin: 0 0 6px;">היסטוריית נתוני שימוש</h3>
+      <p class="muted" style="margin: 0 0 18px;">בכל סוף תקופה (כברירת מחדל: שבוע) הנתונים מתאפסים אוטומטית, ונשמר ארכיון CSV הניתן להורדה.</p>
+      <div data-history-content><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  const close = () => {
+    overlay.classList.remove('visible');
+    setTimeout(() => overlay.remove(), 200);
+  };
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector('.modal-close').addEventListener('click', close);
+
+  const content = overlay.querySelector('[data-history-content]');
+  let archives;
+  try {
+    const data = await adminCall('/admin/stats/archives');
+    archives = data.archives || [];
+  } catch (e) {
+    content.innerHTML = `<p class="admin-status error">${e.message}</p>`;
+    return;
+  }
+  if (archives.length === 0) {
+    content.innerHTML = `<p class="muted" style="text-align:center; padding: 16px 8px;">עוד אין ארכיונים. הראשון יווצר בסוף התקופה.</p>`;
+    return;
+  }
+  content.innerHTML = `
+    <ul class="history-list">
+      ${archives.map((a) => `
+        <li class="history-item">
+          <div class="history-meta">
+            <div class="history-range"><b>${formatRange(a.periodStart, a.periodEnd)}</b></div>
+            <div class="history-size muted">${(a.sizeBytes / 1024).toFixed(1)} KB</div>
+          </div>
+          <div class="history-actions">
+            <button type="button" class="btn btn-secondary" data-download data-id="${escapeAttr(a.id)}">${icon('download', { size: 16 })} הורד CSV</button>
+            <button type="button" class="btn-text" data-del data-id="${escapeAttr(a.id)}">${icon('trash', { size: 14 })} מחק</button>
+          </div>
+        </li>
+      `).join('')}
+    </ul>
+  `;
+  content.querySelectorAll('[data-download]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        await adminDownload('/admin/stats/archives/' + encodeURIComponent(btn.dataset.id));
+      } catch (e) {
+        alert(e.message || 'שגיאה');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+  content.querySelectorAll('[data-del]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('למחוק את הארכיון?')) return;
+      btn.disabled = true;
+      try {
+        await adminCall('/admin/stats/archives/' + encodeURIComponent(btn.dataset.id), { method: 'DELETE' });
+        // Re-render the modal content.
+        close();
+        openHistoryModal();
+      } catch (e) {
+        btn.disabled = false;
+        alert(e.message || 'שגיאה');
+      }
+    });
+  });
+}
+
+function formatRange(start, end) {
+  const s = (start || '').slice(0, 10);
+  const e = (end || '').slice(0, 10);
+  if (!s && !e) return '';
+  return s + ' → ' + e;
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
 
 function statCard(label, value, type) {
   return `
@@ -166,7 +243,6 @@ function renderDailyChart(days, byDay) {
 }
 
 function renderBarChart(days, byDay) {
-  // Show last 30 days
   const recent = days.slice(-30);
   const series = ['view', 'pdf', 'finish', 'share'];
   const colors = { view: '#2d6a4f', pdf: '#52b788', finish: '#ff8b5a', share: '#ff7ab6' };
@@ -196,7 +272,6 @@ function renderBarChart(days, byDay) {
 }
 
 function renderSparkline(days, byDay) {
-  // Last 30 days, summed per day, as an SVG sparkline.
   const recent = days.slice(-30);
   const totals = recent.map((d) => {
     const r = byDay[d] || {};
@@ -207,7 +282,7 @@ function renderSparkline(days, byDay) {
   const total7 = sum(totals.slice(-7));
   const totalToday = totals[totals.length - 1] || 0;
 
-  const W = 320; // viewBox width — scales to container
+  const W = 320;
   const H = 70;
   const max = Math.max(1, ...totals);
   const stepX = recent.length > 1 ? W / (recent.length - 1) : W;

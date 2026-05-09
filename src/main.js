@@ -10,12 +10,16 @@ import { renderBulletin } from './pages/bulletin.js';
 import { renderPdf } from './pages/pdfView.js';
 import { renderSearch } from './pages/search.js';
 import { renderAdmin } from './pages/admin.js';
+import { renderDiscussNew } from './pages/discussNew.js';
+import { renderDiscussThread } from './pages/discussThread.js';
 
 defineRoute('/', renderHome);
 defineRoute('/years', renderYears);
 defineRoute('/y/:year', renderYear);
 defineRoute('/y/:year/:slug', renderBulletin);
 defineRoute('/y/:year/:slug/pdf', renderPdf);
+defineRoute('/y/:year/:slug/discuss/new', renderDiscussNew);
+defineRoute('/y/:year/:slug/discuss/:threadId', renderDiscussThread);
 defineRoute('/search', renderSearch);
 defineRoute('/admin', renderAdmin);
 defineRoute('/admin/:section', renderAdmin);

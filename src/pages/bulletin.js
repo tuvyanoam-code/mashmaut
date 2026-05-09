@@ -8,6 +8,7 @@ import { setPageSeo, plainSummary } from '../lib/seo.js';
 import { delayedLoading } from '../lib/loadingState.js';
 import { getReadingPosition, clearReadingPosition, markVisited } from '../lib/readingPosition.js';
 import { getLikeState, toggleLike } from '../lib/likes.js';
+import { mountThreadList } from '../components/threadList.js';
 
 export async function renderBulletin({ params }) {
   const app = document.getElementById('app');
@@ -90,6 +91,8 @@ export async function renderBulletin({ params }) {
           ${shareButtonsHtml({ url, parshaName: week.parshaName, year: week.yearDisplay })}
         </div>
       </section>
+
+      ${config.commentsEnabled === false ? '' : `<div id="threadList" class="bulletin-threadlist-mount"></div>`}
 
       ${footerHtml(config)}
     </div>
@@ -185,7 +188,22 @@ export async function renderBulletin({ params }) {
   // button. Click toggles with optimistic UI.
   bindLikes(app, week);
 
-  return unmountProgress;
+  // Thread list — small, minimalist preview of existing discussions + a
+  // "התחל שיחה" link. Full conversation lives on its own page (/discuss/...).
+  let unmountThreadList = () => {};
+  if (config.commentsEnabled !== false) {
+    const mount = app.querySelector('#threadList');
+    if (mount) {
+      unmountThreadList = mountThreadList(mount, {
+        yearId: week.yearId, slug: week.slug, parshaName: week.parshaName,
+      });
+    }
+  }
+
+  return () => {
+    try { unmountProgress && unmountProgress(); } catch (_) {}
+    try { unmountThreadList && unmountThreadList(); } catch (_) {}
+  };
 }
 
 function bindLikes(app, week) {

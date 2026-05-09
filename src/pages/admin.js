@@ -8,41 +8,16 @@ import { showToast } from '../components/shareButtons.js';
 import { mountRichEditor } from '../components/richEditor.js';
 import { renderStats } from './admin/stats.js';
 import { renderNotifications, getUnreadNotifCount } from './admin/notifications.js';
+import { renderComments } from './admin/comments.js';
 import { convertWordToHtml, extractPdfPalette, extractPdfText, fileToBase64 } from '../lib/fileProcess.js';
+import { apiBase } from '../lib/api.js';
+import { getAdminKey as getKey, setAdminKey as setKey, clearAdminKey as clearKey, adminCall, adminDownload } from '../lib/adminApi.js';
+import { applyShowMore } from '../lib/showMore.js';
 
-const KEY_STORAGE = 'mashmaut.adminKey';
+const KEY_STORAGE = 'mashmaut.adminKey'; // kept for legacy code paths; new code should use getKey/setKey/clearKey
 
-function getKey() {
-  try { return localStorage.getItem(KEY_STORAGE) || ''; } catch (_) { return ''; }
-}
-function setKey(v) {
-  try { localStorage.setItem(KEY_STORAGE, v); } catch (_) {}
-}
-function clearKey() {
-  try { localStorage.removeItem(KEY_STORAGE); } catch (_) {}
-}
-
-async function adminApi(path, opts = {}) {
-  const cfg = await loadConfig();
-  const base = (cfg.apiBase || '').replace(/\/$/, '');
-  if (!base) throw new Error('API לא מוגדר');
-  const r = await fetch(base + path, {
-    method: opts.method || 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + getKey(),
-      ...(opts.headers || {}),
-    },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  if (r.status === 401) {
-    clearKey();
-    throw new Error('סיסמה שגויה — התחבר מחדש');
-  }
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok || data.ok === false) throw new Error(data.error || 'שגיאת שרת');
-  return data;
-}
+// Wrapper kept for backwards-compat with existing admin.js code paths.
+const adminApi = adminCall;
 
 export async function renderAdmin({ params }) {
   const app = document.getElementById('app');
@@ -89,7 +64,7 @@ export async function renderAdmin({ params }) {
     app.querySelectorAll('.admin-tab').forEach((el) => {
       const href = el.getAttribute('href') || '';
       const targetId = href.replace(/^\/admin\/?/, '') || 'dashboard';
-      const moreSections = ['years', 'subscribers', 'settings', 'edit', 'notifications'];
+      const moreSections = ['years', 'subscribers', 'settings', 'edit', 'notifications', 'comments'];
       const moreActive = moreSections.includes(section);
       if (el.id === 'adminMoreBtn') el.classList.toggle('active', moreActive);
       else el.classList.toggle('active', targetId === section);
@@ -108,6 +83,7 @@ export async function renderAdmin({ params }) {
     case 'years': await renderYearsAdmin(main); break;
     case 'stats': await renderStats(main); break;
     case 'subscribers': await renderSubscribers(main); break;
+    case 'comments': await renderComments(main); break;
     case 'notifications': await renderNotifications(main); break;
     case 'settings': await renderSettings(main); break;
     case 'edit': await renderEditor(main); break;
@@ -174,6 +150,7 @@ function renderSidebar(active) {
     { id: 'bulletins', label: 'עלונים', icon: 'book' },
     { id: 'years', label: 'שנים', icon: 'calendar' },
     { id: 'stats', label: 'גרף שימוש', icon: 'eye' },
+    { id: 'comments', label: 'שיחות', icon: 'share' },
     { id: 'subscribers', label: 'מנויים', icon: 'email' },
     { id: 'settings', label: 'הגדרות', icon: 'settings' },
   ];
@@ -214,7 +191,7 @@ function renderTabbar(active) {
     { id: 'bulletins', label: 'עלונים', icon: 'book' },
     { id: 'stats', label: 'שימוש', icon: 'eye' },
   ];
-  const moreSections = ['years', 'subscribers', 'settings', 'edit', 'notifications'];
+  const moreSections = ['years', 'subscribers', 'settings', 'edit', 'notifications', 'comments'];
   const moreActive = moreSections.includes(active);
   return `
     <nav class="admin-tabbar" aria-label="ניווט מהיר">
@@ -248,6 +225,7 @@ function renderMobileBack(section) {
 function renderMoreSheet(active) {
   const items = [
     { id: 'notifications', label: 'התראות', icon: 'email', href: '/admin/notifications', badge: true },
+    { id: 'comments', label: 'שיחות', icon: 'share', href: '/admin/comments' },
     { id: 'subscribers', label: 'מנויים', icon: 'email', href: '/admin/subscribers' },
     { id: 'years', label: 'שנים', icon: 'calendar', href: '/admin/years' },
     { id: 'settings', label: 'הגדרות', icon: 'settings', href: '/admin/settings' },
@@ -764,8 +742,7 @@ async function renderSubscribers(root) {
 
   // Local UI state — rebuilt in-place via repaint().
   let state = { selectMode: false, selected: new Set(), query: '' };
-  const cfg = await loadConfig();
-  const apiBase = (cfg.apiBase || '').replace(/\/$/, '');
+  const apiBaseUrl = await apiBase();
 
   function visible() {
     const q = state.query.trim().toLowerCase();
@@ -847,7 +824,7 @@ async function renderSubscribers(root) {
       exportBtn.addEventListener('click', async () => {
         exportBtn.disabled = true;
         try {
-          const r = await fetch(apiBase + '/admin/subscribers/export.csv', {
+          const r = await fetch(apiBaseUrl + '/admin/subscribers/export.csv', {
             headers: { Authorization: 'Bearer ' + getKey() },
           });
           if (!r.ok) throw new Error('שגיאה בייצוא');
@@ -970,6 +947,12 @@ async function renderSubscribers(root) {
         paint();
       });
     });
+    // Cap visible rows at 10; user can expand. Skip when in select mode so
+    // bulk-actions cover the entire visible+hidden range from a single screen.
+    if (!state.selectMode) {
+      const tbody = root.querySelector('#subsTable tbody');
+      if (tbody) applyShowMore(tbody, { initial: 10, after: tbody.parentElement });
+    }
   }
 
   paint();
@@ -1023,6 +1006,36 @@ async function renderSettings(root) {
         </div>
         <button class="btn" type="submit">${icon('check', { size: 18 })} שמור תזמון</button>
         <span id="scheduleStatus" style="margin-right:14px;"></span>
+      </form>
+    </div>
+
+    <div class="admin-card">
+      <h3 style="margin-top:0;">ארכיון נתוני שימוש</h3>
+      <p class="muted" style="margin-top:0;">בכל סוף תקופה (ברירת מחדל: שבוע) המערכת שומרת את כל נתוני הצפיות בקובץ CSV ומאפסת את הגרף, כך שתראה תמיד תמונה עדכנית של התקופה הנוכחית. את הקבצים השמורים אפשר להוריד מ"היסטוריה" שבעמוד גרף שימוש.</p>
+      <form id="archiveForm">
+        <div class="form-group" style="display:flex; align-items:center; gap:10px;">
+          <input type="checkbox" id="archiveEnabled" ${(config.statsArchive && config.statsArchive.enabled) ? 'checked' : ''} />
+          <label for="archiveEnabled" style="margin:0;"><b>ארכוב אוטומטי מופעל</b></label>
+        </div>
+        <div class="form-group">
+          <label>תקופה (בימים)</label>
+          <input type="number" id="archivePeriod" min="1" max="365" value="${(config.statsArchive && config.statsArchive.periodDays) || 7}" style="max-width:120px;" />
+        </div>
+        <button class="btn" type="submit">${icon('check', { size: 18 })} שמור</button>
+        <span id="archiveStatus" style="margin-right:14px;"></span>
+      </form>
+    </div>
+
+    <div class="admin-card">
+      <h3 style="margin-top:0;">שיחות בעלונים</h3>
+      <p class="muted" style="margin-top:0;">קוראים יכולים לפתוח שיחה ולהגיב על כל עלון. כל המידע נגיש דרך לשונית "שיחות" שבפאנל. כיבוי משבית מיד את כל אזורי התגובות באתר; הנתונים נשמרים ויחזרו אם תפעיל מחדש.</p>
+      <form id="commentsForm">
+        <div class="form-group" style="display:flex; align-items:center; gap:10px;">
+          <input type="checkbox" id="commentsEnabled" ${config.commentsEnabled === false ? '' : 'checked'} />
+          <label for="commentsEnabled" style="margin:0;"><b>שיחות מופעלות</b></label>
+        </div>
+        <button class="btn" type="submit">${icon('check', { size: 18 })} שמור</button>
+        <span id="commentsStatus" style="margin-right:14px;"></span>
       </form>
     </div>
 
@@ -1205,6 +1218,42 @@ async function renderSettings(root) {
         : 'שליחה אוטומטית כבויה';
       status.innerHTML = `<span class="admin-status success" style="display:inline-block; padding:4px 10px;">${summary}</span>`;
       showToast('התזמון עודכן');
+    } catch (err) {
+      status.innerHTML = `<span class="admin-status error" style="display:inline-block; padding:4px 10px;">${err.message}</span>`;
+    }
+  });
+
+  root.querySelector('#archiveForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = root.querySelector('#archiveStatus');
+    const next = {
+      enabled: root.querySelector('#archiveEnabled').checked,
+      periodDays: Math.max(1, Math.min(365, parseInt(root.querySelector('#archivePeriod').value, 10) || 7)),
+    };
+    status.innerHTML = '<span class="muted">שומר…</span>';
+    try {
+      await adminApi('/admin/config', { method: 'POST', body: { statsArchive: next } });
+      patchConfig({ statsArchive: next });
+      const summary = next.enabled
+        ? `ארכוב פעיל · כל ${next.periodDays} ימים`
+        : 'ארכוב כבוי';
+      status.innerHTML = `<span class="admin-status success" style="display:inline-block; padding:4px 10px;">${summary}</span>`;
+      showToast('ההגדרה נשמרה');
+    } catch (err) {
+      status.innerHTML = `<span class="admin-status error" style="display:inline-block; padding:4px 10px;">${err.message}</span>`;
+    }
+  });
+
+  root.querySelector('#commentsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = root.querySelector('#commentsStatus');
+    const enabled = root.querySelector('#commentsEnabled').checked;
+    status.innerHTML = '<span class="muted">שומר…</span>';
+    try {
+      await adminApi('/admin/config', { method: 'POST', body: { commentsEnabled: enabled } });
+      patchConfig({ commentsEnabled: enabled });
+      status.innerHTML = `<span class="admin-status success" style="display:inline-block; padding:4px 10px;">${enabled ? 'שיחות מופעלות' : 'שיחות כבויות'}</span>`;
+      showToast('ההגדרה נשמרה');
     } catch (err) {
       status.innerHTML = `<span class="admin-status error" style="display:inline-block; padding:4px 10px;">${err.message}</span>`;
     }

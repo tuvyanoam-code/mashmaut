@@ -33,3 +33,51 @@ GITHUB_BRANCH = "main"
 [[routes]]
 pattern = "api.alonmashmaut.org"
 custom_domain = true
+
+# ============================================================================
+# Staging environment
+#
+# Deploy:    cd worker && npx wrangler deploy --env staging
+# Logs:      cd worker && npx wrangler tail --env staging
+# Secrets:   npx wrangler secret put <NAME> --env staging
+#
+# CRITICAL safety design — two layers of protection at all times:
+#   1. STAGING_MODE=1 → Worker code skips GitHub writes + restricts email to
+#      ADMIN_EMAIL only.
+#   2. GITHUB_BRANCH=staging → no such branch exists in the repo, so any
+#      leaked write would 404 anyway.
+#   3. crons = [] → automatic dispatch never fires from staging.
+#
+# Use a SEPARATE ADMIN_API_KEY from production so a leaked staging key cannot
+# be used against production.
+# ============================================================================
+
+[env.staging]
+name = "mashmaut-api-staging"
+# Explicitly NO routes for staging — uses the workers.dev URL only.
+# Without this, wrangler v3 inherits the top-level [[routes]] block and
+# would prompt to repoint api.alonmashmaut.org (production!) at staging.
+routes = []
+workers_dev = true
+
+[env.staging.triggers]
+crons = []
+
+[[env.staging.kv_namespaces]]
+binding = "EMAILS"
+id = "6ee79234d9704efca65ceef6c0802553"
+
+[[env.staging.kv_namespaces]]
+binding = "EVENTS"
+id = "c2c5c1e449d045928ca331c3a06afd41"
+
+[env.staging.vars]
+SITE_URL = "https://alonmashmaut.org"          # read-only — staging reads PROD bulletin JSON via the public CDN
+API_URL = "https://mashmaut-api-staging.alonmashmaut-ea1.workers.dev"
+SITE_NAME = "משמעות (staging)"
+ADMIN_EMAIL = "alonmashmaut@gmail.com"
+FROM_EMAIL = "onboarding@resend.dev"           # Resend sandbox sender — only allows sends to verified addresses
+FROM_NAME = "משמעות staging"
+GITHUB_REPO = "tuvyanoam-code/mashmaut"
+GITHUB_BRANCH = "staging"                       # NOTE: this branch does not exist; any leaked write would 404
+STAGING_MODE = "1"

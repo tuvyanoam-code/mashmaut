@@ -1632,3 +1632,365 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .empty-state h2 { color: var(--text); margin-bottom: 12px; }
+
+/* ===== Thread list (mounted at the bottom of each bulletin) =====
+ * Minimalist: just a "התחל שיחה" link + a flat list of titles. Each row is
+ * one line — title (with a fade-out mask near its right end so long titles
+ * don't visually crash into "הצג") + a small "הצג" link. No colors, no
+ * borders, no shadows. */
+.bulletin-threadlist-mount {
+  margin: clamp(28px, 5vw, 44px) auto 0;
+  max-width: var(--maxw-content, 720px);
+  padding: 0 var(--page-x, 16px);
+}
+.threadlist {
+  border-top: 1px solid var(--border, #ece6d8);
+  padding-top: 18px;
+}
+.threadlist-new {
+  display: inline-block;
+  font-size: .92rem;
+  color: var(--text-muted, #888);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+  margin-bottom: 14px;
+}
+.threadlist-new:hover { color: var(--text, #1a1a1a); }
+.threadlist-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.threadlist-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px dotted var(--border, #ece6d8);
+  font-size: .95rem;
+}
+.threadlist-row:first-child { border-top: 0; }
+.threadlist-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  /* Fade-out mask near the inline-end so long titles don't slam into "הצג". */
+  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 36px);
+          mask-image: linear-gradient(to left, transparent 0, #000 36px);
+  color: var(--text, #1a1a1a);
+}
+.threadlist-show {
+  flex-shrink: 0;
+  font-size: .88rem;
+  color: var(--text-muted, #888);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.threadlist-show:hover {
+  color: var(--text, #1a1a1a);
+  border-bottom-color: currentColor;
+}
+
+/* ===== Discuss pages (new thread + single thread view) =====
+ * Same minimalist palette: cream background (page default), thin dotted
+ * dividers, no bubble backgrounds, no badges. */
+.discuss-page {
+  max-width: var(--maxw-content, 720px);
+  margin: 0 auto;
+  padding: clamp(20px, 4vw, 32px) var(--page-x, 16px) clamp(40px, 8vw, 80px);
+}
+.discuss-back {
+  display: inline-block;
+  font-size: .9rem;
+  color: var(--text-muted, #888);
+  text-decoration: none;
+  margin-bottom: 22px;
+}
+.discuss-back:hover { color: var(--text, #1a1a1a); }
+.discuss-page-title {
+  font-size: clamp(1.4rem, 3.6vw, 1.8rem);
+  margin: 0 0 24px;
+  font-weight: 700;
+  color: var(--text, #1a1a1a);
+}
+.discuss-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.discuss-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: .9rem;
+  color: var(--text-muted, #888);
+}
+.discuss-label input,
+.discuss-label textarea,
+.discuss-reply-form textarea,
+.discuss-edit input,
+.discuss-edit textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #ece6d8);
+  border-radius: 8px;
+  font: inherit;
+  background: #fff;
+  color: var(--text, #1a1a1a);
+  box-sizing: border-box;
+  resize: vertical;
+}
+.discuss-label input:focus,
+.discuss-label textarea:focus,
+.discuss-reply-form textarea:focus,
+.discuss-edit input:focus,
+.discuss-edit textarea:focus {
+  outline: none;
+  border-color: var(--text, #1a1a1a);
+}
+.discuss-form-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.discuss-cancel {
+  font-size: .9rem;
+  color: var(--text-muted, #888);
+  text-decoration: none;
+}
+.discuss-cancel:hover { color: var(--text, #1a1a1a); }
+.discuss-submit {
+  background: var(--text, #1a1a1a);
+  color: #fff;
+  border: 0;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: .92rem;
+  cursor: pointer;
+}
+.discuss-submit:hover { opacity: .85; }
+.discuss-status { font-size: .85rem; color: var(--text-muted, #888); margin: 0; min-height: 1.2em; }
+.discuss-status.error { color: #b91c1c; }
+.discuss-status.info { color: var(--text-muted, #888); }
+
+/* Single-thread message blocks. */
+.discuss-msg {
+  position: relative;
+  padding: 18px 0 14px;
+  border-top: 1px dotted var(--border, #ece6d8);
+}
+.discuss-msg:first-of-type { border-top: 0; padding-top: 0; }
+.discuss-msg.deleted { color: var(--text-muted, #888); }
+.discuss-msg-title {
+  font-size: clamp(1.3rem, 3.2vw, 1.6rem);
+  margin: 0 0 12px;
+  font-weight: 700;
+  color: var(--text, #1a1a1a);
+  line-height: 1.3;
+}
+.discuss-msg-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-size: .85rem;
+  margin-bottom: 6px;
+}
+.discuss-msg-author { color: var(--text, #1a1a1a); font-weight: 600; }
+.discuss-msg-time { font-size: .8rem; }
+.discuss-msg-body {
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--text, #1a1a1a);
+}
+.discuss-msg-chevron {
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: 6px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--text-muted, #888);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color .15s ease, transform .15s ease;
+}
+.discuss-msg-chevron:hover { color: var(--text, #1a1a1a); }
+.discuss-msg-chevron[aria-expanded="true"] { transform: rotate(180deg); color: var(--text, #1a1a1a); }
+.discuss-actions {
+  margin-top: 12px;
+  padding-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: center;
+}
+.discuss-actions-reactions {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.discuss-reaction {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: .95rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--text, #1a1a1a);
+}
+.discuss-reaction:hover { background: rgba(0, 0, 0, .04); }
+.discuss-actions-links {
+  display: inline-flex;
+  gap: 14px;
+}
+.discuss-link {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: .85rem;
+  color: var(--text-muted, #888);
+  padding: 2px;
+}
+.discuss-link:hover { color: var(--text, #1a1a1a); text-decoration: underline; }
+.discuss-link--muted { color: var(--text-muted, #888); }
+.discuss-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+.discuss-edit-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  align-items: center;
+}
+.discuss-reply-form {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border, #ece6d8);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+}
+
+/* ===== Show-more list expander ===== */
+.show-more-btn {
+  display: block;
+  margin: 12px auto 4px;
+  background: transparent;
+  border: 1px dashed var(--border, #ece6d8);
+  border-radius: 999px;
+  padding: 6px 16px;
+  font: inherit;
+  font-size: .88rem;
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.show-more-btn:hover {
+  background: var(--accent-soft, #f0eada);
+  color: var(--accent, #2d6a4f);
+  border-color: var(--accent, #2d6a4f);
+  border-style: solid;
+}
+
+/* ===== Stats archive history modal ===== */
+.history-modal { max-width: 560px; width: 100%; }
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--accent-soft, #f0eada);
+  border-radius: 12px;
+}
+.history-meta { min-width: 0; }
+.history-range { font-weight: 600; font-size: .95rem; }
+.history-size { font-size: .8rem; }
+.history-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ===== Display name prompt modal ===== */
+.name-prompt { max-width: 420px; width: 100%; text-align: right; }
+.name-prompt-form input[type="text"]:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent, #2d6a4f) 30%, transparent);
+  outline-offset: 1px;
+  border-color: var(--accent, #2d6a4f);
+}
+
+/* ===== Admin: comments panel ===== */
+.admin-comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin-comment {
+  background: var(--accent-soft, #f0eada);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.admin-comment.admin-reply {
+  background: #e8f3ee;
+}
+.admin-comment.deleted {
+  background: #f5f4ef;
+  color: var(--text-muted, #888);
+}
+.admin-comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: .9rem;
+  margin-bottom: 6px;
+}
+.admin-comment-body {
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.admin-comment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: .85rem;
+}
+.admin-comment-reactions { color: var(--text-muted, #888); }
+.admin-comment-replies {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-inline-start: 18px;
+  border-inline-start: 2px solid var(--border, #ece6d8);
+}

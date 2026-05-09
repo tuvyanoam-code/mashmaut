@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B · אוהל לבן — מוקאפ משמעות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500;700;900&family=Heebo:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1815;
+    --ink-soft: #6b6660;
+    --ink-muted: #9d9892;
+    --paper: #fbfaf6;
+    --paper-warm: #f5f0e6;
+    --hairline: #e8e2d4;
+    --saffron: #c2541b;       /* the single warm accent */
+    --saffron-deep: #8f3a0e;
+    --olive: #5e6b3a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Heebo", "Frank Ruhl Libre", sans-serif;
+    font-weight: 300;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.7;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── nav (almost invisible) ─── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    padding: 24px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(to bottom, var(--paper) 60%, transparent);
+  }
+  .nav-logo { display: flex; align-items: center; gap: 14px; }
+  .nav-logo img { height: 32px; width: auto; opacity: .9; }
+  .nav-logo .name {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 400;
+    font-size: 19px; color: var(--ink); letter-spacing: .08em;
+  }
+  .nav-links { display: flex; gap: 36px; }
+  .nav-links a {
+    font-family: "Heebo", sans-serif; font-weight: 400;
+    color: var(--ink-soft); text-decoration: none;
+    font-size: 14px; letter-spacing: .04em;
+    transition: color .25s;
+  }
+  .nav-links a:hover { color: var(--saffron); }
+
+  /* ─── splash ─── */
+  .splash {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    padding: 0 8vw;
+    gap: 6vw;
+    position: relative;
+  }
+  .splash-mark {
+    text-align: center;
+    position: relative;
+  }
+  .splash-mark img {
+    width: min(360px, 100%); height: auto;
+    filter: drop-shadow(0 8px 32px rgba(0,0,0,.06));
+    animation: floatIn 1.4s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .splash-text { position: relative; }
+
+  .eyebrow {
+    font-family: "Heebo", sans-serif; font-weight: 400;
+    font-size: 12px; letter-spacing: .55em;
+    color: var(--saffron); margin-bottom: 28px;
+    animation: fadeUp 1.2s cubic-bezier(.2,.7,.2,1) .2s both;
+  }
+  .eyebrow::after {
+    content: ""; display: inline-block; vertical-align: middle;
+    width: 50px; height: 1px; background: var(--saffron);
+    margin-right: 14px;
+  }
+
+  .hero-quote {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 400;
+    font-size: clamp(46px, 7vw, 88px);
+    line-height: 1.1; letter-spacing: -.018em;
+    color: var(--ink); margin-bottom: 36px;
+    animation: fadeUp 1.2s cubic-bezier(.2,.7,.2,1) .35s both;
+  }
+  .hero-quote .accent {
+    color: var(--saffron); font-style: normal;
+    position: relative;
+  }
+  .hero-quote .accent::after {
+    content: "."; color: var(--saffron);
+  }
+
+  .hero-tagline {
+    font-family: "Heebo", sans-serif; font-weight: 300;
+    font-size: clamp(15px, 1.4vw, 17px);
+    color: var(--ink-soft);
+    max-width: 380px; line-height: 1.8;
+    margin-bottom: 56px;
+    animation: fadeUp 1.2s cubic-bezier(.2,.7,.2,1) .5s both;
+  }
+
+  .scroll-cue {
+    display: inline-flex; align-items: center; gap: 14px;
+    text-decoration: none; color: var(--ink-soft);
+    font-family: "Heebo", sans-serif; font-size: 13px;
+    letter-spacing: .25em;
+    transition: color .3s, transform .3s;
+    animation: fadeUp 1.2s cubic-bezier(.2,.7,.2,1) .65s both;
+  }
+  .scroll-cue:hover { color: var(--saffron); transform: translateX(-4px); }
+  .scroll-cue .arrow {
+    width: 60px; height: 1px; background: currentColor;
+    position: relative; transition: width .3s;
+  }
+  .scroll-cue:hover .arrow { width: 80px; }
+  .scroll-cue .arrow::after {
+    content: ""; position: absolute; left: 0; top: 50%;
+    width: 8px; height: 8px;
+    border-left: 1px solid currentColor; border-bottom: 1px solid currentColor;
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  /* ─── cover ─── */
+  .cover {
+    padding: 12vh 8vw 16vh;
+    max-width: 1280px; margin: 0 auto;
+    position: relative;
+  }
+  .cover-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 100px;
+    align-items: center;
+  }
+
+  .cover-side {
+    border-right: 1px solid var(--hairline);
+    padding-right: 36px;
+  }
+  .cover-side .label {
+    font-family: "Heebo", sans-serif; font-size: 11px;
+    letter-spacing: .55em; color: var(--ink-muted);
+    margin-bottom: 18px;
+  }
+  .cover-side .number {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 300;
+    font-size: 96px; color: var(--ink); line-height: .9;
+    margin-bottom: 24px;
+    letter-spacing: -.04em;
+  }
+  .cover-side .meta {
+    font-family: "Heebo", sans-serif; font-size: 14px;
+    color: var(--ink-soft); line-height: 2;
+  }
+  .cover-side .meta .key {
+    display: inline-block; width: 85px;
+    color: var(--ink-muted); font-size: 12px;
+    letter-spacing: .15em;
+  }
+
+  .cover-main { padding-bottom: 8px; }
+  .cover-main .label {
+    font-family: "Heebo", sans-serif; font-size: 11px;
+    letter-spacing: .55em; color: var(--saffron);
+    margin-bottom: 22px;
+  }
+  .parsha-name {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 400;
+    font-size: clamp(72px, 11vw, 156px);
+    color: var(--ink); line-height: .95;
+    letter-spacing: -.04em;
+    margin-bottom: 38px;
+  }
+
+  .teaser {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 400;
+    font-size: clamp(20px, 2.2vw, 26px);
+    color: var(--ink-soft); line-height: 1.55;
+    max-width: 540px;
+    margin-bottom: 48px;
+  }
+  .teaser .first-letter {
+    color: var(--saffron); font-weight: 500;
+  }
+
+  .cta-row { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  .btn-primary {
+    font-family: "Heebo", sans-serif; font-weight: 400;
+    padding: 16px 36px;
+    background: var(--ink); color: var(--paper);
+    text-decoration: none; font-size: 14px;
+    letter-spacing: .25em; border: none;
+    transition: all .35s;
+    cursor: pointer;
+  }
+  .btn-primary:hover {
+    background: var(--saffron); transform: translateY(-2px);
+    box-shadow: 0 12px 24px -12px rgba(194,84,27,.5);
+  }
+  .btn-link {
+    font-family: "Heebo", sans-serif; font-weight: 400;
+    color: var(--ink-soft); text-decoration: none;
+    font-size: 14px; letter-spacing: .15em;
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 4px;
+    transition: color .25s, border-color .25s;
+  }
+  .btn-link:hover { color: var(--saffron); border-color: var(--saffron); }
+
+  /* ─── footer ─── */
+  .foot {
+    border-top: 1px solid var(--hairline);
+    padding: 36px 8vw;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: "Heebo", sans-serif; font-size: 12px;
+    color: var(--ink-muted); letter-spacing: .15em;
+  }
+  .foot .dot { color: var(--saffron); margin: 0 12px; }
+
+  /* ─── animations ─── */
+  @keyframes floatIn {
+    from { opacity: 0; transform: scale(.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+  @media (max-width: 900px) {
+    nav { padding: 16px 24px; }
+    .nav-links { gap: 20px; }
+    .splash { grid-template-columns: 1fr; padding: 100px 24px 60px; gap: 40px; text-align: center; }
+    .splash-text { text-align: right; }
+    .splash-mark img { width: 220px; }
+    .cover { padding: 60px 24px 80px; }
+    .cover-grid { grid-template-columns: 1fr; gap: 40px; }
+    .cover-side { border-right: none; border-bottom: 1px solid var(--hairline); padding-right: 0; padding-bottom: 28px; }
+    .cover-side .number { font-size: 64px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <img src="../public/logo.png" alt="משמעות">
+    <span class="name">משמעות</span>
+  </div>
+  <div class="nav-links">
+    <a href="#">ארכיון</a>
+    <a href="#">חיפוש</a>
+    <a href="#">הרשמה</a>
+  </div>
+</nav>
+
+<section class="splash">
+  <div class="splash-mark">
+    <img src="../public/logo.png" alt="משמעות">
+  </div>
+  <div class="splash-text">
+    <div class="eyebrow">פרשת השבוע</div>
+    <h1 class="hero-quote">
+      כן, גם אתה<br>
+      יכול <span class="accent">להבין</span>
+    </h1>
+    <p class="hero-tagline">
+      רעיונות לפרשת השבוע מתוך תורתו של הרב יצחק גינזבורג שליט"א.
+      פרשת השבוע בגובה העיניים — לכל אחד, ובעיקר לך.
+    </p>
+    <a href="#cover" class="scroll-cue">
+      <span class="arrow"></span>
+      <span>העלון השבוע</span>
+    </a>
+  </div>
+</section>
+
+<section class="cover" id="cover">
+  <div class="cover-grid">
+    <aside class="cover-side">
+      <div class="label">גליון</div>
+      <div class="number">50</div>
+      <div class="meta">
+        <div><span class="key">שנה</span> תשפ״ו</div>
+        <div><span class="key">תאריך</span> י׳ באייר</div>
+        <div><span class="key">קריאה</span> 7 דקות</div>
+      </div>
+    </aside>
+    <div class="cover-main">
+      <div class="label">פרשת השבוע</div>
+      <h2 class="parsha-name">אֱמֹר</h2>
+      <p class="teaser">
+        <span class="first-letter">ל</span>התקדש, לקדש, אבל לגמרי בטבעיות.
+        למה אי אפשר לומר לך לקדש את השם?
+      </p>
+      <div class="cta-row">
+        <a href="#" class="btn-primary">קריאת העלון</a>
+        <a href="#" class="btn-link">פתיחת ה־PDF</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div>משמעות <span class="dot">·</span> תשפ״ו</div>
+  <div>הרשמה לעלון השבועי</div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C · ים תיכוני — מוקאפ משמעות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500;700&family=Assistant:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #2d2520;
+    --ink-soft: #6b554a;
+    --ink-muted: #9c8779;
+
+    --canvas: #fbf5ed;        /* warm cream */
+    --canvas-rose: #f9e7d8;   /* peach wash */
+    --canvas-blush: #f5d8c3;
+    --canvas-sea:   #c9dcd8;  /* dusty teal */
+    --canvas-olive: #d8d6b3;
+
+    --terracotta: #c5532a;
+    --terracotta-deep: #9a3d1a;
+    --teal-deep: #2d5e5a;
+    --teal: #4a8580;
+    --honey: #d49a3a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Assistant", "Frank Ruhl Libre", sans-serif;
+    background: var(--canvas);
+    color: var(--ink);
+    line-height: 1.7;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 90% 0%, var(--canvas-rose) 0%, transparent 60%),
+      radial-gradient(ellipse 70% 50% at 0% 30%, var(--canvas-sea) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 50% at 100% 100%, var(--canvas-blush) 0%, transparent 50%),
+      radial-gradient(ellipse 50% 40% at 20% 90%, var(--canvas-olive) 0%, transparent 55%);
+    background-attachment: fixed;
+  }
+
+  /* paper grain overlay */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7'/><feColorMatrix values='0 0 0 0 0.45  0 0 0 0 0.30  0 0 0 0 0.20  0 0 0 .045 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode: multiply;
+  }
+  main, nav { position: relative; z-index: 2; }
+
+  /* ─── nav ─── */
+  nav {
+    padding: 22px 36px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo { display: flex; align-items: center; gap: 12px; }
+  .nav-logo img { height: 36px; width: auto; filter: hue-rotate(-8deg) saturate(1.05); }
+  .nav-logo .name {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 500;
+    font-size: 22px; color: var(--teal-deep); letter-spacing: .04em;
+  }
+  .nav-links { display: flex; gap: 28px; }
+  .nav-links a {
+    font-family: "Assistant", sans-serif; font-weight: 500;
+    color: var(--ink-soft); text-decoration: none;
+    font-size: 15px; letter-spacing: .03em;
+    padding-bottom: 4px;
+    border-bottom: 1px solid transparent;
+    transition: all .25s;
+  }
+  .nav-links a:hover { color: var(--terracotta); border-color: var(--terracotta); }
+
+  /* ─── splash ─── */
+  .splash {
+    min-height: calc(100vh - 80px);
+    display: grid; place-items: center;
+    text-align: center; padding: 40px 24px 60px;
+    position: relative;
+  }
+
+  /* watercolor brush behind logo */
+  .brush {
+    position: absolute; left: 50%; top: 26%;
+    transform: translate(-50%, -50%);
+    width: clamp(420px, 70vw, 760px); height: clamp(280px, 50vw, 520px);
+    background: radial-gradient(ellipse at center, rgba(74,133,128,.28), rgba(212,154,58,.18) 40%, transparent 70%);
+    filter: blur(14px);
+    pointer-events: none;
+  }
+
+  .splash-inner { position: relative; max-width: 760px; }
+
+  .splash-logo {
+    width: 280px; height: auto; margin: 0 auto 30px;
+    filter: drop-shadow(0 6px 24px rgba(45,94,90,.18));
+    animation: dropIn 1.2s cubic-bezier(.2,.7,.2,1) both;
+  }
+
+  /* hand-drawn sun ornament */
+  .sun {
+    width: 72px; height: 72px; margin: 0 auto 22px;
+    color: var(--honey);
+    animation: spin 60s linear infinite, fadeUp 1.2s cubic-bezier(.2,.7,.2,1) .15s both;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hero-quote {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 500;
+    font-size: clamp(40px, 6.6vw, 76px); line-height: 1.12;
+    color: var(--teal-deep); letter-spacing: -.005em;
+    margin-bottom: 22px;
+    animation: fadeUp 1.2s cubic-bezier(.2,.7,.2,1) .25s both;
+  }
+  .hero-quote .warm {
+    color: var(--terracotta);
+    background: linear-gradient(transparent 65%, rgba(212,154,58,.45) 65%);
+    padding: 0 4px;
+  }
+
+  .hero-tagline {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 400;
+    font-size: clamp(17px, 1.9vw, 20px);
+    color: var(--ink-soft); max-width: 520px;
+    margin: 0 auto 40px; line-height: 1.7;
+    animation: fadeUp 1.2s cubic-bezier(.2,.7,.2,1) .4s both;
+  }
+
+  .scroll-cue {
+    display: inline-flex; flex-direction: column; align-items: center; gap: 12px;
+    text-decoration: none; color: var(--teal-deep);
+    font-family: "Assistant", sans-serif;
+    animation: fadeUp 1.2s cubic-bezier(.2,.7,.2,1) .55s both;
+  }
+  .scroll-cue .text {
+    font-size: 13px; letter-spacing: .35em; color: var(--terracotta);
+    font-weight: 500;
+  }
+  .scroll-cue svg { width: 28px; height: 28px; animation: bob 2.4s ease-in-out infinite; }
+  @keyframes bob {
+    0%,100% { transform: translateY(0); }
+    50%     { transform: translateY(8px); }
+  }
+
+  /* ─── cover ─── */
+  .cover {
+    padding: 80px 24px 120px;
+    max-width: 1080px; margin: 0 auto;
+    position: relative;
+  }
+
+  .cover-eyebrow {
+    text-align: center; margin-bottom: 36px;
+    font-family: "Assistant", sans-serif; font-weight: 600;
+    font-size: 13px; letter-spacing: .5em;
+    color: var(--terracotta);
+  }
+  .cover-eyebrow::before, .cover-eyebrow::after {
+    content: "·"; margin: 0 12px; color: var(--honey);
+  }
+
+  .cover-card {
+    position: relative;
+    background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.35));
+    backdrop-filter: blur(2px);
+    border-radius: 24px;
+    padding: 56px 48px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.7) inset,
+      0 30px 60px -30px rgba(45,94,90,.18),
+      0 8px 24px -12px rgba(197,83,42,.12);
+  }
+  /* watercolor splash backgrounds */
+  .cover-card::before {
+    content: ""; position: absolute; right: -40px; top: -40px;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle at 30% 30%, rgba(197,83,42,.32), transparent 65%);
+    border-radius: 50%; filter: blur(20px);
+    pointer-events: none; z-index: -1;
+  }
+  .cover-card::after {
+    content: ""; position: absolute; left: -50px; bottom: -50px;
+    width: 260px; height: 260px;
+    background: radial-gradient(circle at 70% 70%, rgba(74,133,128,.32), transparent 65%);
+    border-radius: 50%; filter: blur(22px);
+    pointer-events: none; z-index: -1;
+  }
+
+  .cover-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 36px;
+  }
+  .issue-badge {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: "Frank Ruhl Libre", serif;
+    font-size: 14px; color: var(--ink-soft);
+    letter-spacing: .15em;
+  }
+  .issue-badge .num {
+    font-size: 28px; color: var(--terracotta); font-weight: 500;
+    letter-spacing: -.02em;
+  }
+  .issue-badge .sep { color: var(--honey); }
+  .issue-meta {
+    font-family: "Assistant", sans-serif; font-size: 13px;
+    color: var(--ink-soft); letter-spacing: .2em;
+  }
+
+  .parsha-eyebrow {
+    font-family: "Assistant", sans-serif; font-weight: 500;
+    font-size: 14px; color: var(--teal); letter-spacing: .35em;
+    margin-bottom: 14px;
+  }
+
+  .parsha-name {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 700;
+    font-size: clamp(64px, 10vw, 130px); line-height: 1;
+    color: var(--teal-deep); letter-spacing: -.02em;
+    margin-bottom: 18px;
+    background: linear-gradient(180deg, var(--teal-deep) 0%, var(--terracotta) 130%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .underline {
+    display: block; width: 110px; height: 18px; margin-bottom: 30px;
+    color: var(--honey);
+    overflow: visible;
+  }
+
+  .teaser {
+    font-family: "Frank Ruhl Libre", serif; font-weight: 400;
+    font-size: clamp(20px, 2.3vw, 25px); line-height: 1.55;
+    color: var(--ink); max-width: 620px;
+    margin-bottom: 44px;
+  }
+
+  .cta-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    font-family: "Assistant", sans-serif; font-weight: 600;
+    padding: 14px 30px; border-radius: 999px;
+    background: var(--terracotta); color: #fff;
+    font-size: 15px; letter-spacing: .08em;
+    text-decoration: none; border: none; cursor: pointer;
+    transition: all .35s cubic-bezier(.2,.7,.2,1);
+    box-shadow: 0 6px 16px -6px rgba(197,83,42,.5);
+  }
+  .btn:hover { transform: translateY(-2px); background: var(--terracotta-deep); box-shadow: 0 14px 26px -10px rgba(197,83,42,.55); }
+  .btn.outline {
+    background: transparent; color: var(--teal-deep);
+    border: 1.5px solid var(--teal);
+    box-shadow: none;
+  }
+  .btn.outline:hover { background: var(--teal-deep); color: #fff; border-color: var(--teal-deep); }
+
+  /* ─── footer ─── */
+  .foot {
+    text-align: center; padding: 0 24px 50px;
+    font-family: "Assistant", sans-serif; font-size: 13px;
+    color: var(--ink-muted); letter-spacing: .15em;
+  }
+  .foot .heart { color: var(--terracotta); }
+
+  /* animations */
+  @keyframes dropIn {
+    from { opacity: 0; transform: translateY(-20px) scale(.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+  @media (max-width: 700px) {
+    nav { padding: 16px 20px; }
+    .nav-links { gap: 18px; }
+    .cover-card { padding: 36px 24px; }
+    .cover-top { flex-direction: column; gap: 16px; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <img src="../public/logo.png" alt="משמעות">
+    <span class="name">משמעות</span>
+  </div>
+  <div class="nav-links">
+    <a href="#">ארכיון</a>
+    <a href="#">חיפוש</a>
+    <a href="#">הרשמה</a>
+  </div>
+</nav>
+
+<main>
+<section class="splash">
+  <div class="brush"></div>
+  <div class="splash-inner">
+    <img class="splash-logo" src="../public/logo.png" alt="משמעות">
+
+    <svg class="sun" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <circle cx="50" cy="50" r="14"/>
+      <line x1="50" y1="14" x2="50" y2="22"/>
+      <line x1="50" y1="78" x2="50" y2="86"/>
+      <line x1="14" y1="50" x2="22" y2="50"/>
+      <line x1="78" y1="50" x2="86" y2="50"/>
+      <line x1="24.6" y1="24.6" x2="30.3" y2="30.3"/>
+      <line x1="69.7" y1="69.7" x2="75.4" y2="75.4"/>
+      <line x1="24.6" y1="75.4" x2="30.3" y2="69.7"/>
+      <line x1="69.7" y1="30.3" x2="75.4" y2="24.6"/>
+    </svg>
+
+    <h1 class="hero-quote">
+      כן, גם אתה<br>
+      יכול <span class="warm">להבין</span>.
+    </h1>
+
+    <p class="hero-tagline">
+      רעיונות לפרשת השבוע מתוך תורתו של<br>
+      הרב יצחק גינזבורג שליט"א
+    </p>
+
+    <a href="#cover" class="scroll-cue">
+      <span class="text">לעלון השבוע</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor"/>
+      </svg>
+    </a>
+  </div>
+</section>
+
+<section class="cover" id="cover">
+  <div class="cover-eyebrow">העלון של השבוע</div>
+
+  <article class="cover-card">
+    <div class="cover-top">
+      <div class="issue-badge">
+        <span>גליון</span>
+        <span class="num">№ 50</span>
+        <span class="sep">·</span>
+        <span>תשפ״ו</span>
+      </div>
+      <div class="issue-meta">י׳ באייר · 7 דק׳ קריאה</div>
+    </div>
+
+    <div class="parsha-eyebrow">פרשת</div>
+    <h2 class="parsha-name">אֱמֹר</h2>
+
+    <svg class="underline" viewBox="0 0 110 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+      <path d="M2 9 C 18 2, 35 16, 55 9 S 92 2, 108 11" />
+    </svg>
+
+    <p class="teaser">
+      להתקדש, לקדש, אבל לגמרי בטבעיות.
+      למה אי אפשר לומר לך לקדש את השם?
+    </p>
+
+    <div class="cta-row">
+      <a href="#" class="btn">קריאת העלון</a>
+      <a href="#" class="btn outline">פתיחת ה־PDF</a>
+    </div>
+  </article>
+</section>
+</main>
+
+<footer class="foot">משמעות · תשפ״ו · נעשה ב<span class="heart">♡</span> בארץ הקודש</footer>
+
+</body>
+</html>

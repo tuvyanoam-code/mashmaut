@@ -10,8 +10,13 @@
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
+  'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS,PUT',
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  // Without this, browsers hide Content-Disposition from cross-origin JS,
+  // and the file downloads as `download.bin` (macOS then tries to unzip it
+  // and fails). Exposing the header lets the client read the suggested
+  // filename (`mashmaut-stats-...csv`) and apply it via <a download>.
+  'Access-Control-Expose-Headers': 'Content-Disposition',
   'Access-Control-Max-Age': '86400',
 };
 

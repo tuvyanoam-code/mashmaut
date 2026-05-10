@@ -214,7 +214,14 @@ async function openHistoryModal() {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       try {
-        await adminDownload('/admin/stats/archives/' + encodeURIComponent(btn.dataset.id));
+        // Pre-derive a meaningful filename from the archive id (an ISO
+        // timestamp). Used only if the server's Content-Disposition header
+        // isn't visible to JS — which happens if Access-Control-Expose-
+        // Headers wasn't sent or got cached. This way the user always
+        // gets `mashmaut-stats-<date>.csv`, never `download.bin`.
+        const id = btn.dataset.id;
+        const fallbackName = `mashmaut-stats-${(id || '').slice(0, 10)}.csv`;
+        await adminDownload('/admin/stats/archives/' + encodeURIComponent(id), fallbackName);
       } catch (e) {
         alert(e.message || 'שגיאה');
       } finally {

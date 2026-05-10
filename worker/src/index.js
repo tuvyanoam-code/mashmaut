@@ -1757,8 +1757,13 @@ export default {
         }
 
         if (p.startsWith('/admin/stats/archives/') && request.method === 'GET') {
-          const id = p.slice('/admin/stats/archives/'.length);
-          if (!id) return err('id required');
+          // Archive IDs are ISO timestamps containing colons. The client
+          // url-encodes them (T22%3A05%3A30...), so the server must decode
+          // before looking the key up in KV — otherwise we 404 ourselves.
+          const rawId = p.slice('/admin/stats/archives/'.length);
+          if (!rawId) return err('id required');
+          let id;
+          try { id = decodeURIComponent(rawId); } catch { id = rawId; }
           const v = await env.EVENTS.get('archive:' + id, 'json');
           if (!v) return err('archive not found', 404);
           const filename = `mashmaut-stats-${(v.periodStart || 'start').slice(0, 10)}_to_${(v.periodEnd || 'end').slice(0, 10)}.csv`;
@@ -1772,8 +1777,10 @@ export default {
         }
 
         if (p.startsWith('/admin/stats/archives/') && request.method === 'DELETE') {
-          const id = p.slice('/admin/stats/archives/'.length);
-          if (!id) return err('id required');
+          const rawId = p.slice('/admin/stats/archives/'.length);
+          if (!rawId) return err('id required');
+          let id;
+          try { id = decodeURIComponent(rawId); } catch { id = rawId; }
           await env.EVENTS.delete('archive:' + id);
           return ok({ deleted: id });
         }

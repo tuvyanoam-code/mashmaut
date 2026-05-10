@@ -39,10 +39,10 @@ export async function createThread({ year, slug, title, body, displayName }) {
   });
 }
 
-export async function postReply({ year, slug, threadId, body, displayName }) {
+export async function postReply({ year, slug, threadId, body, displayName, replyToId = null }) {
   return call('/discuss/threads/' + encodeURIComponent(threadId) + '/reply', {
     method: 'POST',
-    body: { year, slug, body, displayName, fp: ensureFp(), honeypot: '' },
+    body: { year, slug, body, displayName, fp: ensureFp(), honeypot: '', replyToId },
   });
 }
 
@@ -82,5 +82,18 @@ export async function reportThread({ year, slug, threadId, reason = '' }) {
 export async function reportReply({ year, slug, threadId, replyId, reason = '' }) {
   return call('/discuss/replies/' + encodeURIComponent(replyId) + '/report', {
     method: 'POST', body: { year, slug, threadId, reason, fp: ensureFp() },
+  });
+}
+
+/** Delete the user's own message (thread or reply). The server validates
+ *  fp ownership; pass threadId only when deleting a reply. */
+export async function deleteOwn({ id, year, slug, threadId = null }) {
+  if (threadId) {
+    return call('/discuss/replies/' + encodeURIComponent(id) + '/delete', {
+      method: 'POST', body: { year, slug, threadId, fp: ensureFp() },
+    });
+  }
+  return call('/discuss/threads/' + encodeURIComponent(id) + '/delete', {
+    method: 'POST', body: { year, slug, fp: ensureFp() },
   });
 }

@@ -1,6 +1,8 @@
 import { icon } from '../icons.js';
 import { loadConfig } from '../lib/store.js';
 import { openSubscribeModal, openContactModal } from './subscribeModal.js';
+import { getLatestFollow } from '../lib/myDiscussions.js';
+import { withBase } from '../router.js';
 
 export async function navHtml() {
   const config = await loadConfig();
@@ -22,6 +24,7 @@ export async function navHtml() {
         <div class="nav-actions" id="navActions">
           <a href="/years">${icon('archive', { size: 18 })} <span>ארכיון</span></a>
           <a href="/search">${icon('search', { size: 18 })} <span>חיפוש</span></a>
+          ${conversationsLinkHtml()}
           <button class="nav-cta" id="navSubscribe" type="button">${icon('email', { size: 18 })} <span>קבל למייל</span></button>
         </div>
       </div>
@@ -66,6 +69,16 @@ export function bindNav() {
   });
 }
 
+/** "שיחות" link in the nav. Renders only when the visitor has at least one
+ *  followed thread, and points straight at the most recently visited one
+ *  so a single click resumes their last conversation. */
+function conversationsLinkHtml() {
+  const last = getLatestFollow();
+  if (!last) return '';
+  const href = `/y/${encodeURIComponent(last.year)}/${encodeURIComponent(last.slug)}/discuss/${encodeURIComponent(last.threadId)}`;
+  return `<a href="${href}" class="nav-conversations-link">${icon('chatSquare', { size: 18 })} <span>שיחות</span></a>`;
+}
+
 export function footerHtml(config) {
   const tagline = config?.footer || 'עלון משמעות · פרשת השבוע';
   const year = new Date().getFullYear();
@@ -73,7 +86,6 @@ export function footerHtml(config) {
     <footer class="footer">
       <div class="footer-inner">
         <div class="footer-brand">
-          <span class="footer-mark" aria-hidden="true">${(config?.siteName || 'משמעות').charAt(0)}</span>
           <span>${tagline}</span>
         </div>
         <nav class="footer-nav" aria-label="קישורים בפוטר">

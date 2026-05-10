@@ -1,18 +1,20 @@
-// Tiny utility: take a UL or TBODY that already contains all rows, hide
-// everything past the first N, and add a "הצג עוד (N)" button after it.
-// Click expands; click again collapses. Pure DOM, zero state tracking — call
-// this once after rendering each list and forget it.
+// Tiny utility: take a UL/TBODY/grid that already contains all items, hide
+// everything past the first N, and add an elegant "הצג עוד (N)" toggle
+// after it. Click expands; click again collapses. Pure DOM, zero state
+// tracking — call this once after each render and forget it.
 //
 // Usage:
-//   applyShowMore(tbody, { initial: 10, label: 'הצג עוד', after: tableElement });
+//   applyShowMore(tbody, { initial: 4, after: tableElement });
+
+const CHEVRON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
 
 export function applyShowMore(container, opts = {}) {
   if (!container) return;
-  const initial = opts.initial || 10;
+  const initial = opts.initial != null ? opts.initial : 4;
   const labelMore = opts.label || 'הצג עוד';
   const labelLess = opts.labelLess || 'הצג פחות';
-  // Insert the toggle button after the table/list, not inside it (would break
-  // table structure for tbody case).
+  // The toggle goes after the table/list (not inside, which would break
+  // table semantics).
   const after = opts.after || container.parentElement || container;
   const items = Array.from(container.children);
   if (items.length <= initial) return;
@@ -23,21 +25,20 @@ export function applyShowMore(container, opts = {}) {
       el.style.display = (expanded || i < initial) ? '' : 'none';
     });
   };
-
   apply();
 
+  const remaining = items.length - initial;
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'show-more-btn';
-  const remaining = items.length - initial;
-  btn.textContent = `${labelMore} (${remaining})`;
+  btn.innerHTML = `<span class="show-more-label">${labelMore} (${remaining})</span><span class="show-more-icon">${CHEVRON_SVG}</span>`;
   btn.addEventListener('click', () => {
     expanded = !expanded;
     apply();
-    btn.textContent = expanded ? labelLess : `${labelMore} (${remaining})`;
+    btn.classList.toggle('expanded', expanded);
+    btn.querySelector('.show-more-label').textContent = expanded ? labelLess : `${labelMore} (${remaining})`;
   });
 
-  // Insert immediately after `after` element.
   if (after.nextSibling) after.parentNode.insertBefore(btn, after.nextSibling);
   else after.parentNode.appendChild(btn);
 }

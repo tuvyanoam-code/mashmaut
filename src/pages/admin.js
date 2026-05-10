@@ -102,6 +102,7 @@ async function refreshNotifBadge() {
         el.textContent = count > 99 ? '99+' : String(count);
         el.hidden = false;
       } else {
+        el.textContent = '';   // also clear text so :empty fallback hides it
         el.hidden = true;
       }
     });
@@ -298,10 +299,30 @@ function bindSidebar() {
   });
 }
 
+function quickAction({ icon: iconName, title, desc, href, tint = 'mint' }) {
+  return `
+    <a class="admin-quick admin-quick--${tint}" href="${href}">
+      <span class="admin-quick-icon">${icon(iconName, { size: 20 })}</span>
+      <div class="admin-quick-text">
+        <div class="admin-quick-title">${title}</div>
+        <div class="admin-quick-desc">${desc}</div>
+      </div>
+      <span class="admin-quick-arrow" aria-hidden="true">←</span>
+    </a>
+  `;
+}
+
 async function renderDashboard(root) {
   const idx = await loadIndex(true);
   const total = (idx.weeks || []).length;
   const yearsCount = (idx.years || []).length;
+
+  // Latest bulletin metadata for the hero card.
+  const weeks = idx.weeks || [];
+  const withOrder = weeks.filter((w) => typeof w.displayOrder === 'number');
+  const latest = withOrder.length
+    ? [...withOrder].sort((a, b) => a.displayOrder - b.displayOrder)[0]
+    : [...weeks].sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''))[0];
 
   // Pull pending dispatch (if any) so we can show an approval banner on top.
   let pending = null;
@@ -310,8 +331,12 @@ async function renderDashboard(root) {
     pending = data.pending || null;
   } catch { /* not fatal */ }
 
+  // Time-based greeting — cheap warmth.
+  const hour = new Date().getHours();
+  const greeting = hour < 11 ? 'בוקר טוב' : hour < 17 ? 'צהריים טובים' : hour < 20 ? 'ערב טוב' : 'לילה טוב';
+
   root.innerHTML = `
-    <header class="admin-header"><h1>סקירה כללית</h1></header>
+    <header class="admin-header"><h1>ראשי</h1></header>
 
     ${pending ? `
       <div class="admin-card pending-dispatch-banner">
@@ -328,20 +353,33 @@ async function renderDashboard(root) {
       </div>
     ` : ''}
 
-    <div class="admin-card">
-      <h2>${total} עלונים · ${yearsCount} שנים</h2>
-      <p class="muted">העלאה של עלון חדש לוקחת פחות מדקה. כל שמירה נשמרת ישירות לאתר ומתפרסמת תוך כדקה.</p>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top: 18px;">
-        <a class="btn" href="/admin/upload">${icon('upload', { size: 18 })} העלאה חדשה</a>
-        <a class="btn btn-secondary" href="/admin/bulletins">${icon('book', { size: 18 })} ניהול עלונים</a>
+    <div class="admin-hero">
+      <div class="admin-hero-content">
+        <div class="admin-hero-eyebrow">${greeting}</div>
+        <h2 class="admin-hero-title">${total} עלונים פעילים${latest ? ` · נוכחי: פרשת <span>${escapeHtml(latest.parshaName)}</span>` : ''}</h2>
+        <p class="admin-hero-sub">העלאה של עלון חדש לוקחת פחות מדקה. כל שינוי נדחף אוטומטית לאתר ומופיע תוך כדקה.</p>
+      </div>
+      <div class="admin-hero-meta">
+        <div class="admin-hero-stat">
+          <div class="admin-hero-stat-value">${yearsCount}</div>
+          <div class="admin-hero-stat-label">${yearsCount === 1 ? 'שנה' : 'שנים'}</div>
+        </div>
       </div>
     </div>
+
+    <div class="admin-quickgrid">
+      ${quickAction({ icon: 'upload', title: 'העלאת עלון', desc: 'Word + PDF, צבעים, שמור', href: '/admin/upload', tint: 'apricot' })}
+      ${quickAction({ icon: 'book', title: 'עלונים', desc: 'סדר, סמן עלון השבוע, ערוך', href: '/admin/bulletins' })}
+      ${quickAction({ icon: 'eye', title: 'גרף שימוש', desc: 'צפיות, שיתופים, ארכיון', href: '/admin/stats' })}
+      ${quickAction({ icon: 'share', title: 'שיחות', desc: 'מודרציה, משתתפים', href: '/admin/comments' })}
+    </div>
+
     <div class="admin-card">
-      <h3>זרימת עבודה</h3>
-      <ol class="muted" style="line-height: 1.9;">
-        <li>"העלאת עלון" — גרור Word + PDF, ערוך צבעים, שמור.</li>
-        <li>בדוק את העלון באתר (כפתור "צפה").</li>
-        <li>השינוי נדחף אוטומטית לאתר ומופיע תוך כדקה.</li>
+      <h3 style="margin-top:0;">זרימת עבודה</h3>
+      <ol class="admin-workflow">
+        <li><span class="admin-workflow-num">1</span><span><b>העלה עלון</b> — גרור Word ו-PDF, ערוך צבעים, שמור.</span></li>
+        <li><span class="admin-workflow-num">2</span><span><b>בדוק באתר</b> — לחץ "צפה" באחד מהעלונים.</span></li>
+        <li><span class="admin-workflow-num">3</span><span><b>השינוי באוויר</b> — נדחף אוטומטית ומופיע תוך כדקה.</span></li>
       </ol>
     </div>
   `;
@@ -380,6 +418,19 @@ async function renderUpload(root) {
   const parshaOptions = buildParshaOptions();
   root.innerHTML = `
     <header class="admin-header"><h1>העלאת עלון</h1></header>
+
+    <div class="admin-hero">
+      <div class="admin-hero-content">
+        <div class="admin-hero-eyebrow">3 צעדים</div>
+        <h2 class="admin-hero-title">קל ופשוט · פחות מדקה</h2>
+        <ol class="admin-hero-steps">
+          <li><span>1</span>גרור את ה-Word וה-PDF</li>
+          <li><span>2</span>בדוק שהפרשה והשנה נכונות</li>
+          <li><span>3</span>שמור — נדחף אוטומטית לאתר</li>
+        </ol>
+      </div>
+    </div>
+
     <div class="admin-card">
       <form id="uploadForm">
         <div class="form-row">
@@ -569,11 +620,27 @@ async function renderBulletinList(root) {
   });
   const currentKey = weeks[0] ? `${weeks[0].yearId}/${weeks[0].slug}` : null;
 
+  const currentWeek = weeks[0];
   root.innerHTML = `
     <header class="admin-header">
-      <h1>עלונים (${weeks.length})</h1>
+      <h1>עלונים</h1>
       <a class="btn" href="/admin/upload">${icon('plus', { size: 18 })} עלון חדש</a>
     </header>
+
+    <div class="admin-hero">
+      <div class="admin-hero-content">
+        <div class="admin-hero-eyebrow">${currentWeek ? 'עלון השבוע' : 'התוכן'}</div>
+        <h2 class="admin-hero-title">${currentWeek ? `פרשת <span>${escapeHtml(currentWeek.parshaName)}</span>` : 'אין עדיין עלונים'}${currentWeek ? ` · גליון ${escapeHtml(currentWeek.issueNumber || '?')}` : ''}</h2>
+        <p class="admin-hero-sub">${currentWeek ? 'מוצג בדף הבית. גרור עלון אחר לראש הרשימה כדי להחליף.' : 'התחל בהעלאת העלון הראשון.'}</p>
+      </div>
+      <div class="admin-hero-meta">
+        <div class="admin-hero-stat">
+          <div class="admin-hero-stat-value">${weeks.length}</div>
+          <div class="admin-hero-stat-label">${weeks.length === 1 ? 'עלון' : 'עלונים'}</div>
+        </div>
+      </div>
+    </div>
+
     <div class="admin-card">
       <p class="muted" style="margin-top:0;">גרור את הידית כדי לסדר. הכוכב מסמן את "העלון של השבוע" שמוצג בדף הבית. <b>בארכיון</b> הסדר נקבע תמיד לפי סדר הפרשיות הטבעי.</p>
       ${weeks.length === 0 ? '<p class="muted">עוד אין עלונים.</p>' : `
@@ -608,6 +675,9 @@ async function renderBulletinList(root) {
       `}
     </div>
   `;
+  // "הצג עוד" — show first 4 bulletins; expand to drag-sort all.
+  const bulletinsTbody = root.querySelector('#bulletinTable tbody');
+  if (bulletinsTbody) applyShowMore(bulletinsTbody, { initial: 4, after: bulletinsTbody.parentElement });
   root.querySelectorAll('[data-delete]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const [year, slug] = btn.dataset.delete.split('/');
@@ -682,8 +752,17 @@ async function renderYearsAdmin(root) {
   const years = [...(idx.years || [])].sort((a, b) => (b.id || '').localeCompare(a.id || ''));
   root.innerHTML = `
     <header class="admin-header"><h1>שנים</h1></header>
+
+    <div class="admin-hero">
+      <div class="admin-hero-content">
+        <div class="admin-hero-eyebrow">ארכיון</div>
+        <h2 class="admin-hero-title">${years.length} ${years.length === 1 ? 'שנה' : 'שנים'} פעילות</h2>
+        <p class="admin-hero-sub">כל שנה מחזיקה את עלוני פרשת השבוע שלה. הוסף שנה חדשה לפני שמתחילים סבב חדש.</p>
+      </div>
+    </div>
+
     <div class="admin-card">
-      <h3>הוסף שנה</h3>
+      <h3 style="margin-top:0;">הוסף שנה</h3>
       <form id="addYearForm" class="form-row" style="align-items:end;">
         <div class="form-group">
           <label>שם בעברית (למשל תשפ״ז)</label>
@@ -752,9 +831,12 @@ async function renderSubscribers(root) {
 
   function paint() {
     const subs = visible();
+    // Source breakdown for the hero stat.
+    const fromSite = allSubs.filter((s) => s.source === 'public').length;
+    const manual = allSubs.filter((s) => s.source === 'admin').length;
     root.innerHTML = `
       <header class="admin-header">
-        <h1>מנויים <span class="muted" style="font-size:1rem; font-weight:400;">(${allSubs.length})</span></h1>
+        <h1>מנויים</h1>
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
           ${state.selectMode
             ? `<button class="btn" type="button" id="confirmRemove" ${state.selected.size === 0 ? 'disabled' : ''}>${icon('trash', { size: 18 })} הסר נבחרים (${state.selected.size})</button>
@@ -764,9 +846,27 @@ async function renderSubscribers(root) {
         </div>
       </header>
 
+      <div class="admin-hero">
+        <div class="admin-hero-content">
+          <div class="admin-hero-eyebrow">רשימת תפוצה</div>
+          <h2 class="admin-hero-title">${allSubs.length} ${allSubs.length === 1 ? 'מנוי' : 'מנויים'} מקבלים את העלון השבועי</h2>
+          <p class="admin-hero-sub">מנויים נוספים עם הרשמה דרך האתר או הוספה ידנית כאן. ייצוא CSV מתאים לאקסל עם UTF-8 (עברית תקינה).</p>
+        </div>
+        <div class="admin-hero-meta">
+          <div class="admin-hero-stat">
+            <div class="admin-hero-stat-value">${fromSite}</div>
+            <div class="admin-hero-stat-label">מהאתר</div>
+          </div>
+          <div class="admin-hero-stat">
+            <div class="admin-hero-stat-value">${manual}</div>
+            <div class="admin-hero-stat-label">ידני</div>
+          </div>
+        </div>
+      </div>
+
       <div class="admin-card">
-        <h3 style="margin-top:0;">הוספת מנויים</h3>
-        <p class="muted" style="margin-top:0;">הדבק כתובות מייל — מופרדות בפסיק / רווח / שורה / נקודה-פסיק. המערכת תזהה את הכתובות התקינות ותתעלם מכפילויות. בלי הגבלה.</p>
+        <h3 style="margin-top:0;">${icon('plus', { size: 16 })} הוספה בכמות</h3>
+        <p class="muted" style="margin-top:0;">הדבק כתובות מייל — מופרדות בפסיק / רווח / שורה / נקודה-פסיק. המערכת תזהה את הכתובות התקינות ותתעלם מכפילויות.</p>
         <form id="bulkAddForm">
           <div class="form-group">
             <textarea name="emails" rows="4" placeholder="alice@example.com, bob@example.com&#10;carol@example.com" style="font-family:inherit;"></textarea>
@@ -951,7 +1051,7 @@ async function renderSubscribers(root) {
     // bulk-actions cover the entire visible+hidden range from a single screen.
     if (!state.selectMode) {
       const tbody = root.querySelector('#subsTable tbody');
-      if (tbody) applyShowMore(tbody, { initial: 10, after: tbody.parentElement });
+      if (tbody) applyShowMore(tbody, { initial: 4, after: tbody.parentElement });
     }
   }
 
@@ -963,7 +1063,9 @@ async function renderSettings(root) {
   const sched = config.dispatchSchedule || { enabled: true, dayOfWeek: 4, hour: 19, requireApproval: false };
   const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
   root.innerHTML = `
-    <header class="admin-header"><h1>הגדרות אתר</h1></header>
+    <header class="admin-header"><h1>הגדרות</h1></header>
+
+    <h2 class="admin-section-eyebrow">שליחת מייל</h2>
 
     <div class="admin-card">
       <h3 style="margin-top:0;">פעולות מייל</h3>
@@ -1009,6 +1111,8 @@ async function renderSettings(root) {
       </form>
     </div>
 
+    <h2 class="admin-section-eyebrow">נתונים</h2>
+
     <div class="admin-card">
       <h3 style="margin-top:0;">ארכיון נתוני שימוש</h3>
       <p class="muted" style="margin-top:0;">בכל סוף תקופה (ברירת מחדל: שבוע) המערכת שומרת את כל נתוני הצפיות בקובץ CSV ומאפסת את הגרף, כך שתראה תמיד תמונה עדכנית של התקופה הנוכחית. את הקבצים השמורים אפשר להוריד מ"היסטוריה" שבעמוד גרף שימוש.</p>
@@ -1038,6 +1142,8 @@ async function renderSettings(root) {
         <span id="commentsStatus" style="margin-right:14px;"></span>
       </form>
     </div>
+
+    <h2 class="admin-section-eyebrow">מראה האתר</h2>
 
     <div class="admin-card">
       <h3 style="margin-top:0;">לוגו</h3>

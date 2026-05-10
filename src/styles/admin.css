@@ -1,8 +1,37 @@
-/* ===== Admin layout (mobile-first) ===== */
+/* ===== Admin layout (mobile-first) =====
+ *
+ * Aesthetic: "studio loft" — bright cream paper, warm apricot accents in
+ * interactive moments, deep green for primary actions and the active state
+ * indicator. The mood is professional but unpressed — the moderator should
+ * feel like they're working in a well-lit room, not a control bunker.
+ *
+ * Tokens used throughout this file. Public-site tokens (--accent, etc.)
+ * are still inherited from base.css. */
+.admin-shell {
+  --a-paper:        #fdfbf6;
+  --a-paper-warm:   #f7f1e2;
+  --a-paper-cool:   #f4f1ea;
+  --a-edge:         #ece4d0;
+  --a-edge-soft:    #f1ead8;
+  --a-ink:          #28251f;
+  --a-ink-soft:     #6f675b;
+  --a-ink-faint:    #a89f8d;
+  --a-accent:       var(--accent, #2d6a4f);
+  --a-accent-soft:  #e7efe6;
+  --a-apricot:      #f59c66;
+  --a-apricot-soft: #ffe5cf;
+  --a-shadow-xs:    0 1px 0 rgba(60, 40, 10, .04);
+  --a-shadow-sm:    0 1px 2px rgba(60, 40, 10, .04), 0 4px 14px rgba(60, 40, 10, .05);
+  --a-shadow-md:    0 1px 2px rgba(60, 40, 10, .04), 0 8px 28px rgba(60, 40, 10, .07);
+}
 .admin-shell {
   display: block;
   min-height: 100vh;
-  background: #f5f3ee;
+  /* Warmer background with a barely-there gradient — adds atmosphere without
+   * looking textured. */
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--a-apricot-soft) 35%, transparent) 0%, transparent 30%),
+    var(--a-paper-cool);
 }
 .admin-sidebar { display: none; }
 .admin-main {
@@ -22,11 +51,11 @@
   display: flex;
   justify-content: space-around;
   align-items: stretch;
-  background: rgba(255, 255, 255, .96);
-  backdrop-filter: saturate(140%) blur(12px);
-  -webkit-backdrop-filter: saturate(140%) blur(12px);
-  border-top: 1px solid #e8e3d8;
-  padding: 4px 4px calc(4px + var(--safe-bottom));
+  background: rgba(253, 251, 246, .92);
+  backdrop-filter: saturate(150%) blur(14px);
+  -webkit-backdrop-filter: saturate(150%) blur(14px);
+  border-top: 1px solid var(--a-edge, #ece4d0);
+  padding: 6px 6px calc(6px + var(--safe-bottom));
   z-index: 80;
 }
 .admin-tab {
@@ -35,32 +64,40 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 8px 4px 4px;
+  gap: 3px;
+  padding: 8px 4px 6px;
   background: transparent;
   border: none;
-  color: #6b6655;
+  color: var(--a-ink-soft, #6f675b);
   font: inherit;
   font-size: .72rem;
+  font-weight: 500;
   text-decoration: none;
-  border-radius: 10px;
+  border-radius: 12px;
   position: relative;
-  transition: color var(--transition);
+  transition: color .18s ease, background .18s ease, transform .15s ease;
 }
-.admin-tab:hover { color: var(--accent); opacity: 1; }
-.admin-tab.active { color: var(--accent); }
+.admin-tab svg {
+  display: block;
+  transition: transform .25s cubic-bezier(.34, 1.56, .64, 1);
+}
+.admin-tab:hover { color: var(--a-accent, var(--accent)); opacity: 1; }
+.admin-tab:hover svg { transform: scale(1.08); }
+.admin-tab.active {
+  color: var(--a-accent, var(--accent));
+  background: var(--a-accent-soft, var(--accent-soft));
+}
 .admin-tab.active::after {
   content: "";
   position: absolute;
-  bottom: 2px;
+  bottom: 3px;
   left: 50%;
   transform: translateX(-50%);
-  width: 18px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--accent);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--a-apricot, #f59c66);
 }
-.admin-tab svg { display: block; }
 
 /* Desktop: real sidebar layout. */
 @media (min-width: 720px) {
@@ -74,13 +111,31 @@
   .admin-sheet-backdrop { display: none !important; }
   .admin-sidebar {
     display: flex;
-    background: #1a1a1a;
-    color: #f5f3ee;
-    padding: 24px 16px;
+    /* Light sidebar — paper-like, with a subtle vertical gradient and a
+     * thin accent column on the inline-end edge (RTL: left side) that
+     * mirrors the bulletin's color stripe. */
+    background:
+      linear-gradient(180deg, var(--a-paper) 0%, var(--a-paper-warm) 100%);
+    color: var(--a-ink);
+    padding: 24px 14px;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
+    border-inline-end: 1px solid var(--a-edge);
+    position: relative;
   }
-  .admin-main { padding: 32px; padding-bottom: 32px; overflow-y: auto; }
+  .admin-sidebar::before {
+    /* Slim warm accent stripe on the inside edge. */
+    content: "";
+    position: absolute;
+    top: 24px;
+    bottom: 24px;
+    inset-inline-start: 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: linear-gradient(180deg, var(--a-apricot) 0%, var(--a-accent) 100%);
+    opacity: .35;
+  }
+  .admin-main { padding: 36px 32px 32px; overflow-y: auto; }
 }
 
 /* ===== Mobile back-to-dashboard pill ===== */
@@ -169,38 +224,56 @@
 .admin-sheet-item svg { color: var(--accent); flex-shrink: 0; }
 
 .admin-sidebar-brand {
-  font-family: var(--font-heading);
-  font-size: 1.4rem;
+  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-size: 1.35rem;
   font-weight: 700;
-  padding: 8px 12px 24px;
-  border-bottom: 1px solid #333;
-  margin-bottom: 16px;
+  letter-spacing: -.01em;
+  color: var(--a-ink);
+  padding: 6px 12px 22px;
+  border-bottom: 1px dashed var(--a-edge);
+  margin-bottom: 14px;
 }
 .admin-nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border-radius: 10px;
-  color: #d8d3c3;
+  border-radius: 12px;
+  color: var(--a-ink-soft);
   font-size: .95rem;
-  transition: background var(--transition), color var(--transition);
-}
-.admin-nav-item:hover { background: #2a2a2a; color: #fff; opacity: 1; }
-/* Calmer active state — accent text + side indicator, no full background flash. */
-.admin-nav-item.active {
-  background: transparent;
-  color: #fff;
+  font-weight: 500;
+  transition: background .18s ease, color .18s ease, transform .15s ease;
   position: relative;
 }
+.admin-nav-item svg {
+  color: var(--a-ink-faint);
+  transition: color .18s ease, transform .2s cubic-bezier(.34, 1.56, .64, 1);
+}
+.admin-nav-item:hover {
+  background: rgba(255, 255, 255, .65);
+  color: var(--a-ink);
+  opacity: 1;
+}
+.admin-nav-item:hover svg {
+  color: var(--a-accent);
+  transform: rotate(-6deg);
+}
+.admin-nav-item.active {
+  background: #fff;
+  color: var(--a-accent);
+  font-weight: 600;
+  box-shadow: var(--a-shadow-xs);
+}
+.admin-nav-item.active svg { color: var(--a-accent); transform: rotate(0); }
 .admin-nav-item.active::before {
+  /* Thin coral leading edge, RTL: shows on the right side of the pill. */
   content: "";
   position: absolute;
-  inset-block: 6px;
-  inset-inline-end: 0;
+  inset-block: 8px;
+  inset-inline-start: 4px;
   width: 3px;
   border-radius: 2px;
-  background: var(--accent);
+  background: var(--a-apricot);
 }
 
 .admin-header {
@@ -211,14 +284,31 @@
   flex-wrap: wrap;
   margin-bottom: clamp(20px, 4vw, 32px);
 }
-.admin-header h1 { margin: 0; font-size: clamp(1.4rem, 3.5vw, 1.8rem); }
+.admin-header h1 {
+  margin: 0;
+  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-size: clamp(1.5rem, 3.6vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -.012em;
+  color: var(--a-ink);
+}
 
 .admin-card {
   background: #fff;
-  border-radius: 16px;
-  padding: clamp(16px, 4vw, 28px);
-  border: 1px solid #e8e3d8;
+  border-radius: 18px;
+  padding: clamp(18px, 4vw, 28px);
+  border: 1px solid var(--a-edge);
+  box-shadow: var(--a-shadow-xs);
   margin-bottom: clamp(14px, 3vw, 20px);
+  transition: box-shadow .25s ease, border-color .15s ease;
+}
+.admin-card:hover { box-shadow: var(--a-shadow-sm); }
+.admin-card h3 {
+  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -.005em;
+  color: var(--a-ink);
 }
 
 .form-group { margin-bottom: 20px; }
@@ -296,17 +386,23 @@
 }
 
 .dropzone {
-  border: 2px dashed #d8d3c3;
-  border-radius: 14px;
-  padding: clamp(20px, 5vw, 40px) clamp(16px, 4vw, 24px);
+  border: 2px dashed var(--a-edge, #d8d3c3);
+  border-radius: 16px;
+  padding: clamp(24px, 5vw, 44px) clamp(16px, 4vw, 24px);
   text-align: center;
-  background: #faf9f6;
+  background: var(--a-paper-warm, #faf9f6);
   cursor: pointer;
-  transition: border-color var(--transition), background var(--transition);
+  transition: border-color .2s ease, background .2s ease, transform .2s ease;
 }
-.dropzone:hover, .dropzone.dragging {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+.dropzone:hover {
+  border-color: var(--a-apricot, var(--accent));
+  background: var(--a-apricot-soft, var(--accent-soft));
+  transform: translateY(-1px);
+}
+.dropzone.dragging {
+  border-color: var(--a-accent, var(--accent));
+  background: var(--a-accent-soft, var(--accent-soft));
+  transform: scale(1.005);
 }
 .dropzone-label { font-weight: 500; color: #333; }
 .dropzone-hint { color: var(--text-muted); font-size: .9rem; margin-top: 4px; }
@@ -420,12 +516,25 @@
 }
 .admin-table th,
 .admin-table td {
-  padding: 12px 16px;
+  padding: 14px 16px;
   text-align: right;
-  border-bottom: 1px solid #e8e3d8;
+  border-bottom: 1px solid var(--a-edge-soft);
 }
-.admin-table th { font-weight: 600; color: #333; background: #faf9f6; }
-.admin-table tbody tr:hover { background: #faf9f6; }
+.admin-table th {
+  font-weight: 600;
+  color: var(--a-ink-soft);
+  background: transparent;
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 1px solid var(--a-edge);
+}
+.admin-table tbody tr {
+  transition: background .15s ease;
+}
+.admin-table tbody tr:hover {
+  background: color-mix(in srgb, var(--a-paper-warm) 60%, transparent);
+}
 .admin-table .row-actions {
   display: flex;
   gap: 6px;
@@ -445,12 +554,13 @@
   .admin-table thead { display: none; }
   .admin-table tbody { display: flex; flex-direction: column; gap: 10px; }
   .admin-table tr {
-    background: #faf9f6;
-    border: 1px solid #ece6d8;
-    border-radius: 12px;
-    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid var(--a-edge);
+    border-radius: 14px;
+    padding: 12px 14px;
+    box-shadow: var(--a-shadow-xs);
   }
-  .admin-table tbody tr:hover { background: #faf9f6; }
+  .admin-table tbody tr:hover { background: var(--a-paper-warm); }
   .admin-table td {
     padding: 6px 0;
     border-bottom: 1px dashed #ece6d8;
@@ -517,12 +627,32 @@
 }
 .stat-card {
   background: #fff;
-  border: 1px solid #e8e3d8;
-  border-radius: 14px;
+  border: 1px solid var(--a-edge);
+  border-radius: 16px;
   padding: 18px 20px;
+  position: relative;
+  box-shadow: var(--a-shadow-xs);
+  transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease, border-color .15s ease;
 }
-.stat-card-label { font-size: .85rem; color: var(--text-muted); margin-bottom: 6px; }
-.stat-card-value { font-family: var(--font-display); font-size: 2rem; font-weight: 700; color: #1a1a1a; }
+.stat-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--a-accent) 22%, var(--a-edge));
+  box-shadow: var(--a-shadow-sm);
+}
+.stat-card-label {
+  font-size: .82rem;
+  color: var(--a-ink-soft);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+.stat-card-value {
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--a-ink);
+  line-height: 1.05;
+}
 
 .chart { margin-top: 12px; }
 .chart-bars {
@@ -584,13 +714,338 @@
 
 .admin-status {
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 12px;
   margin-bottom: 16px;
-  font-size: .95rem;
+  font-size: .92rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
-.admin-status.error { background: #fdecec; color: #b91c1c; border: 1px solid #fecaca; }
-.admin-status.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-.admin-status.info { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+.admin-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  opacity: .7;
+}
+.admin-status.error   { background: #fdecec; color: #b91c1c; border: 1px solid color-mix(in srgb, #b91c1c 18%, transparent); }
+.admin-status.success { background: #ecf7ee; color: #166534; border: 1px solid color-mix(in srgb, #166534 18%, transparent); }
+.admin-status.info    { background: var(--a-paper-warm, #fef4e2); color: var(--a-ink-soft, #6f675b); border: 1px solid var(--a-edge, #ece4d0); }
+
+/* ===== Dashboard hero =====
+ *
+ * Wide editorial hero card. Apricot-tinted gradient surface with the day's
+ * greeting up top, the headline ("X bulletins · current: parshat Y"), and
+ * a small year-count chip on the side. Sets the tone for the whole panel:
+ * conversational, human, professional. */
+.admin-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  /* Padding scales: tight on phones, generous on desktop. */
+  padding: clamp(18px, 4vw, 32px);
+  background:
+    radial-gradient(circle at 90% 0%, color-mix(in srgb, var(--a-apricot-soft) 70%, transparent) 0%, transparent 60%),
+    linear-gradient(135deg, #fff 0%, var(--a-paper-warm) 100%);
+  border: 1px solid var(--a-edge);
+  border-radius: 22px;
+  box-shadow: var(--a-shadow-sm);
+  margin-bottom: clamp(14px, 3vw, 20px);
+  position: relative;
+  overflow: hidden;
+  /* Block-level horizontal-overflow guard: nothing inside the hero can push
+   * the page wider than the viewport. */
+  min-width: 0;
+}
+.admin-hero::after {
+  /* Subtle decorative arc in the corner — adds personality without noise. */
+  content: "";
+  position: absolute;
+  inset-inline-end: -40px;
+  bottom: -40px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: var(--a-apricot);
+  opacity: .08;
+  pointer-events: none;
+}
+@media (min-width: 720px) {
+  .admin-hero {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}
+.admin-hero-content { min-width: 0; }
+.admin-hero-eyebrow {
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--a-apricot);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 6px;
+}
+.admin-hero-title {
+  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-size: clamp(1.3rem, 3vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -.012em;
+  color: var(--a-ink);
+  margin: 0 0 8px;
+  line-height: 1.25;
+}
+.admin-hero-title span {
+  color: var(--a-accent);
+  position: relative;
+  white-space: nowrap;
+}
+.admin-hero-sub {
+  margin: 0;
+  font-size: .94rem;
+  color: var(--a-ink-soft);
+  line-height: 1.55;
+  max-width: 56ch;
+}
+.admin-hero-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  /* Multiple stats wrap to a second row on very narrow viewports rather
+   * than overflowing horizontally. */
+  flex-wrap: wrap;
+}
+.admin-hero-stat {
+  background: #fff;
+  border: 1px solid var(--a-edge);
+  border-radius: 16px;
+  padding: 14px 18px;
+  text-align: center;
+  box-shadow: var(--a-shadow-xs);
+  /* Each stat shrinks to fit but stays readable. flex grows them to share
+   * row width when they wrap. */
+  flex: 1 1 92px;
+  min-width: 92px;
+}
+.admin-hero-stat-value {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--a-accent);
+  line-height: 1;
+}
+.admin-hero-stat-label {
+  font-size: .78rem;
+  color: var(--a-ink-soft);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* ===== Section eyebrow — caps label between groups of cards ===== */
+.admin-section-eyebrow {
+  font-family: var(--font-body);
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--a-ink-soft);
+  text-transform: uppercase;
+  margin: 22px 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-section-eyebrow::before {
+  content: "";
+  display: inline-block;
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  opacity: .5;
+}
+
+/* ===== Hero variant: 3-step list (used on /admin/upload) ===== */
+.admin-hero-steps {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.admin-hero-steps li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: .94rem;
+  color: var(--a-ink-soft);
+}
+.admin-hero-steps li span {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--a-accent);
+  border: 1.5px solid color-mix(in srgb, var(--a-accent) 22%, var(--a-edge));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .78rem;
+}
+
+/* ===== Empty state (used on /admin/notifications when there's nothing) ===== */
+.admin-empty {
+  text-align: center;
+  padding: clamp(40px, 8vw, 64px) 20px;
+  background: #fff;
+  border: 1px dashed var(--a-edge);
+  border-radius: 18px;
+  margin-bottom: clamp(14px, 3vw, 20px);
+}
+.admin-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--a-accent-soft);
+  color: var(--a-accent);
+  margin: 0 auto 14px;
+}
+.admin-empty h3 {
+  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--a-ink);
+}
+.admin-empty p {
+  margin: 0;
+  font-size: .92rem;
+  color: var(--a-ink-soft);
+  line-height: 1.55;
+  max-width: 36ch;
+  margin-inline: auto;
+}
+
+/* ===== Quick actions grid =====
+ *
+ * Four colorful but quiet shortcut tiles, each with its own warm accent
+ * color. Hover lifts and reveals the back-arrow. */
+.admin-quickgrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: clamp(14px, 3vw, 20px);
+}
+@media (min-width: 540px) { .admin-quickgrid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1100px) { .admin-quickgrid { grid-template-columns: repeat(4, 1fr); } }
+
+.admin-quick {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--a-edge);
+  border-radius: 16px;
+  text-decoration: none;
+  color: var(--a-ink);
+  box-shadow: var(--a-shadow-xs);
+  transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease, border-color .15s ease;
+  position: relative;
+}
+.admin-quick:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--a-shadow-sm);
+}
+.admin-quick:hover .admin-quick-arrow { opacity: 1; transform: translateX(-2px); }
+.admin-quick-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--a-accent-soft);
+  color: var(--a-accent);
+  transition: transform .25s cubic-bezier(.34, 1.56, .64, 1);
+}
+.admin-quick:hover .admin-quick-icon { transform: rotate(-6deg) scale(1.06); }
+.admin-quick-text { flex: 1; min-width: 0; }
+.admin-quick-title {
+  font-weight: 600;
+  font-size: .95rem;
+  color: var(--a-ink);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-quick-desc {
+  font-size: .78rem;
+  color: var(--a-ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-quick-arrow {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  color: var(--a-ink-faint);
+  opacity: .55;
+  transition: opacity .2s ease, transform .2s ease, color .2s ease;
+}
+.admin-quick:hover .admin-quick-arrow { color: var(--a-accent); }
+
+/* Variant tints — subtle, pastel, restrained. */
+.admin-quick--apricot:hover { border-color: color-mix(in srgb, var(--a-apricot) 35%, var(--a-edge)); }
+.admin-quick--apricot .admin-quick-icon { background: var(--a-apricot-soft); color: var(--a-apricot); }
+.admin-quick--mint:hover { border-color: color-mix(in srgb, var(--a-accent) 35%, var(--a-edge)); }
+
+/* ===== Workflow list ===== */
+.admin-workflow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  counter-reset: workflow;
+}
+.admin-workflow li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--a-paper-warm);
+  border-radius: 12px;
+  font-size: .95rem;
+  color: var(--a-ink);
+  line-height: 1.5;
+}
+.admin-workflow-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--a-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: .9rem;
+  border: 1.5px solid color-mix(in srgb, var(--a-accent) 22%, var(--a-edge));
+}
 
 /* ===== Pending dispatch banner ===== */
 .pending-dispatch-banner {
@@ -614,30 +1069,45 @@
 }
 .pending-dispatch-body { flex: 1; min-width: 0; }
 
-/* ===== Notifications ===== */
+/* ===== Notifications badge =====
+ *
+ * Rendered as a soft red pill carrying the unread count, NOT as a solid red
+ * dot. When all notifications are read, the badge is hidden entirely (no
+ * leftover dot/ball remains). The pill harmonizes with the cream admin
+ * palette while still reading clearly as "needs attention". */
 .notif-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  background: #d83a3a;
-  color: #fff;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 8px;
+  background: #fdecec;
+  color: #b91c1c;
+  border: 1px solid color-mix(in srgb, #b91c1c 22%, transparent);
   font-family: var(--font-display);
-  font-size: .7rem;
+  font-size: .72rem;
   font-weight: 700;
   border-radius: 999px;
   line-height: 1;
   margin-inline-start: 6px;
+  letter-spacing: 0;
 }
+/* Author display:inline-flex above outranks the UA's [hidden]→display:none.
+ * Re-enforce it so an unread-count of 0 doesn't leave a ghost pill. */
+.notif-badge[hidden] { display: none !important; }
+/* Also hide when textContent is empty even if not hidden (defensive — e.g.
+ * if a render path forgets to set the hidden attribute). */
+.notif-badge:empty { display: none; }
 .admin-nav-item .notif-badge { margin-inline-start: auto; }
 .notif-badge--tab {
   position: absolute;
-  top: 4px;
+  top: 6px;
   inset-inline-end: calc(50% - 22px);
   margin: 0;
-  box-shadow: 0 0 0 2px rgba(255,255,255,.96);
+  /* Slightly more contrast against the tabbar's solid background. */
+  background: #fdecec;
+  box-shadow: 0 0 0 2px var(--bg, #fbfaf7);
 }
 
 .notif-list {
@@ -701,4 +1171,283 @@
   max-width: 460px;
   width: 100%;
   text-align: center;
+}
+
+/* ===== Discussion moderation: tabs (שיחות / משתתפים) =====
+ *
+ * Matches the public discuss-menu pill aesthetic so admin & site feel like
+ * one product, with a slightly more grown-up palette (deeper green tint,
+ * slightly larger touch targets). */
+.admin-discuss-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  border-radius: 999px;
+  padding: 4px;
+  margin: 0 0 18px;
+  /* Stay aligned to the page edge on narrow screens; shrink padding so both
+   * tabs fit comfortably side-by-side. */
+  max-width: 100%;
+}
+.admin-discuss-tab span { white-space: nowrap; }
+.admin-discuss-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .2s ease, color .2s ease, transform .15s ease;
+}
+.admin-discuss-tab:hover { color: var(--text); background: rgba(255, 255, 255, .55); }
+.admin-discuss-tab.active {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 1px 0 rgba(20, 20, 20, .04);
+}
+.admin-discuss-tab svg { display: block; }
+
+/* ===== Users directory ===== */
+.admin-users-grid {
+  display: grid;
+  gap: 12px;
+}
+/* Two columns only when there's enough room with the sidebar present.
+ * Below this width (tablet + small laptop) cards stack so the head doesn't
+ * get crushed. */
+@media (min-width: 1100px) {
+  .admin-users-grid { grid-template-columns: 1fr 1fr; }
+}
+.admin-user-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px 20px 16px;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .15s ease;
+  position: relative;
+  min-width: 0;
+}
+.admin-user-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  box-shadow: 0 6px 22px rgba(20, 60, 40, .06);
+  transform: translateY(-1px);
+}
+.admin-user-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* Allow rename button to drop to the next line on very narrow screens. */
+  flex-wrap: wrap;
+}
+.admin-user-avatar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display, sans-serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.admin-user-identity {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.admin-user-name {
+  font-family: var(--font-display, sans-serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--text);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-user-meta {
+  font-size: .82rem;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.admin-user-dot { color: color-mix(in srgb, var(--text-muted) 50%, transparent); }
+.admin-user-aliases {
+  margin-top: 4px;
+  font-size: .75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.admin-user-rename {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--bg, #fbfaf7);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background .15s ease, transform .15s ease;
+}
+.admin-user-rename:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+.admin-user-rename svg { display: block; opacity: .85; }
+/* On narrow phones, drop the text label and keep just the pencil icon —
+ * the action stays accessible without crushing the name. */
+@media (max-width: 480px) {
+  .admin-user-rename { padding: 8px 10px; }
+  .admin-user-rename span { display: none; }
+}
+
+.admin-user-recent {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-user-recent li a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: background .15s ease;
+}
+.admin-user-recent li a:hover { background: var(--accent-soft); }
+.admin-user-recent-title {
+  font-size: .9rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.admin-user-recent-meta {
+  font-size: .72rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ================================================================
+ * Mobile responsive hardening — prevents horizontal overflow and
+ * ensures every tab works well from 320px upward.
+ * ================================================================ */
+
+/* No content in the admin panel may push the page wider than the viewport. */
+.admin-shell, .admin-main { overflow-x: hidden; }
+.admin-main > *, .admin-card, .admin-hero, .admin-empty,
+.admin-quickgrid, .stats-grid, .admin-users-grid {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Long words (URLs, emails, parsha names without spaces) must break instead
+ * of overflowing their container. */
+.admin-card, .admin-hero-content, .admin-hero-title, .admin-hero-sub,
+.admin-user-name, .admin-user-aliases, .admin-quick-text {
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+}
+
+/* Hero title's accent span no longer forces nowrap — long parsha names like
+ * "בהר-בחקתי" can wrap to a second line if there's not enough room. */
+.admin-hero-title span { white-space: normal; }
+
+/* Quick-action arrow takes no space when the card is too narrow for the
+ * description to fit. */
+@media (max-width: 380px) {
+  .admin-quick-arrow { display: none; }
+  .admin-quick-desc { white-space: normal; }
+}
+
+/* Stat-cards grid — at very narrow widths, fall back to fixed 2 columns
+ * (rather than auto-fill with 160px) so labels don't break weirdly. */
+@media (max-width: 420px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-card { padding: 14px 14px; }
+  .stat-card-value { font-size: 1.6rem; }
+}
+
+/* Admin section header buttons (e.g. on /admin/subscribers, /admin/stats):
+ * each button shouldn't overflow the row; allow them to wrap below the title. */
+.admin-header > div {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-header .btn { white-space: nowrap; }
+
+/* Long admin-user-recent meta (e.g. "5786/behar-bechukotai") — allow the
+ * year/slug chip to wrap underneath if the title is long.
+ *
+ * Critical: in column flex, the title still has white-space:nowrap so it
+ * needs an explicit `width: 100%` to know its truncation boundary.
+ * Without this it sizes to its intrinsic content width (= full title) and
+ * blows past the card's right edge. */
+@media (max-width: 480px) {
+  .admin-user-recent li a {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+  .admin-user-recent li {
+    overflow: hidden;
+  }
+  .admin-user-recent-title {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    display: block;
+  }
+  .admin-user-recent-meta { font-size: .7rem; }
+}
+
+/* Stats history modal items — already use flex; ensure they wrap properly. */
+.history-item { flex-wrap: wrap; }
+.history-actions { flex-wrap: wrap; }
+
+/* Form rows shouldn't have their inputs squished too thin. */
+.form-row {
+  min-width: 0;
+}
+.form-group {
+  min-width: 0;
+}
+
+/* The admin tabbar at the bottom (mobile) — prevent labels from wrapping into
+ * extra rows that would clip below the safe area. */
+.admin-tab span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }

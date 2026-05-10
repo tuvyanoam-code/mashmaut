@@ -29,14 +29,17 @@ export async function renderNotifications(root) {
 
   root.innerHTML = `
     <header class="admin-header">
-      <h1>התראות ${items.length ? `<span class="muted" style="font-size:1rem; font-weight: 400;">(${items.length})</span>` : ''}</h1>
+      <h1>התראות</h1>
       ${items.length ? `<button class="btn btn-secondary" type="button" id="markAllRead">${icon('check', { size: 18 })} סמן הכל כנקרא</button>` : ''}
     </header>
     ${items.length === 0 ? `
-      <div class="admin-card">
-        <p class="muted" style="margin:0; text-align:center; padding: 32px 8px;">אין התראות חדשות.</p>
+      <div class="admin-empty">
+        <div class="admin-empty-icon">${icon('check', { size: 28 })}</div>
+        <h3>הכל רגוע</h3>
+        <p class="muted">אין התראות חדשות. כשמשתמש יירשם, יוסר, או שעלון יישלח — תקבל התראה כאן.</p>
       </div>
     ` : `
+      <p class="muted" style="margin: 0 0 14px; font-size: .92rem;">${items.length} ${items.length === 1 ? 'התראה' : 'התראות'} · ${data.unread || 0} ${(data.unread || 0) === 1 ? 'חדשה' : 'חדשות'}</p>
       <div class="admin-card" style="padding:0; overflow:hidden;">
         <ul class="notif-list" id="notifList">
           ${items.map((n) => renderItem(n, readUntil)).join('')}
@@ -46,7 +49,7 @@ export async function renderNotifications(root) {
   `;
 
   const ul = root.querySelector('#notifList');
-  if (ul) applyShowMore(ul, { initial: 10, after: ul.parentElement });
+  if (ul) applyShowMore(ul, { initial: 4, after: ul.parentElement });
 
   const btn = root.querySelector('#markAllRead');
   if (btn) {

@@ -20,9 +20,9 @@ a:hover { opacity: .75; }
 
 /* ===== CSS Variables (default theme — overridden per bulletin) ===== */
 :root {
-  --font-body: 'Assistant', 'Heebo', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Heebo', 'Assistant', sans-serif;
-  --font-display: 'Rubik', 'Heebo', sans-serif;
+  --font-body: 'Assistant', 'Rubik', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Rubik', 'Assistant', sans-serif;
+  --font-display: 'Rubik', 'Rubik', sans-serif;
   --bg: #fbfaf7;
   --bg-elevated: #ffffff;
   --text: #1a1a1a;

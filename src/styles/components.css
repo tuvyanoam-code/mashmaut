@@ -1633,122 +1633,214 @@
 }
 .empty-state h2 { color: var(--text); margin-bottom: 12px; }
 
-/* ===== Thread list (mounted at the bottom of each bulletin) =====
- * Minimalist: just a "התחל שיחה" link + a flat list of titles. Each row is
- * one line — title (with a fade-out mask near its right end so long titles
- * don't visually crash into "הצג") + a small "הצג" link. No colors, no
- * borders, no shadows. */
+/* ===== Discussion :: warm notebook aesthetic ====================
+ *
+ * Aesthetic direction: a sun-warmed notebook open on a wooden desk. Cream
+ * paper, gentle apricot tints in highlights, soft mint-green for the live
+ * cursor + send button (matches the site accent), and rounded pill shapes
+ * everywhere. Optimistic and conversational without being loud — the only
+ * "color" is in tiny hover/focus moments and the warmth of the paper itself.
+ *
+ * Tokens declared once, used throughout this section. */
+.threadlist,
+.discuss-page {
+  --d-paper:        #fffbf3;
+  --d-paper-warm:   #fef4e2;
+  --d-edge:         #efe5cf;
+  --d-edge-soft:    #f5ecd8;
+  --d-ink:          #2a2722;
+  --d-ink-soft:     #6f675b;
+  --d-apricot:      #f59c66;
+  --d-apricot-soft: #ffe5cf;
+  --d-rose:         #f3a8b8;
+  --d-mint:         var(--accent, #2d6a4f);
+  --d-shadow:       0 1px 2px rgba(60, 40, 10, .04), 0 6px 22px rgba(60, 40, 10, .05);
+}
+
+/* === Thread list under the bulletin: a friendly callout panel ===
+ *
+ * Looks like a small handwritten note pinned at the bottom of the page.
+ * The "התחל שיחה" CTA pops gently against a warm wash; existing threads
+ * underneath read as a tidy index. */
 .bulletin-threadlist-mount {
   margin: clamp(28px, 5vw, 44px) auto 0;
   max-width: var(--maxw-content, 720px);
   padding: 0 var(--page-x, 16px);
 }
 .threadlist {
-  border-top: 1px solid var(--border, #ece6d8);
-  padding-top: 18px;
+  position: relative;
+  margin-top: 22px;
+  padding: clamp(20px, 4vw, 28px) clamp(20px, 4vw, 28px) 18px;
+  background:
+    radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--d-apricot-soft) 60%, transparent) 0%, transparent 38%),
+    var(--d-paper);
+  border: 1px solid var(--d-edge);
+  border-radius: 22px;
+  box-shadow: var(--d-shadow);
+  text-align: center;
 }
-.threadlist-new {
-  display: inline-block;
-  font-size: .92rem;
-  color: var(--text-muted, #888);
+/* Soft little speech-bubble decoration in the corner. */
+.threadlist::before {
+  content: "";
+  position: absolute;
+  inset-inline-end: 22px;
+  top: -8px;
+  width: 16px;
+  height: 16px;
+  background: var(--d-paper);
+  border: 1px solid var(--d-edge);
+  border-radius: 4px 4px 0 4px;
+  border-bottom: 0;
+  transform: rotate(45deg);
+  border-left: 0;
+}
+.threadlist-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 22px;
+  border: 1.5px solid var(--d-edge);
+  border-radius: 999px;
+  background: var(--d-paper-warm);
+  color: var(--d-ink);
+  font: inherit;
+  font-size: .98rem;
+  font-weight: 600;
   text-decoration: none;
-  border-bottom: 1px solid currentColor;
-  padding-bottom: 2px;
-  margin-bottom: 14px;
+  transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), border-color .2s ease, background .2s ease, box-shadow .2s ease;
+  box-shadow: 0 1px 0 rgba(60, 40, 10, .03);
 }
-.threadlist-new:hover { color: var(--text, #1a1a1a); }
+.threadlist-cta:hover {
+  border-color: var(--d-apricot);
+  background: #fff;
+  transform: translateY(-2px) rotate(-.4deg);
+  box-shadow: 0 6px 16px rgba(245, 156, 102, .18);
+}
+.threadlist-cta:active {
+  transform: translateY(0) rotate(0);
+}
+.threadlist-cta-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--d-apricot);
+  transition: transform .3s cubic-bezier(.34, 1.56, .64, 1);
+}
+.threadlist-cta:hover .threadlist-cta-icon {
+  transform: rotate(-12deg) scale(1.08);
+}
+.threadlist-cta-label { line-height: 1; }
 .threadlist-items {
   list-style: none;
-  margin: 0;
+  margin: 18px 0 0;
   padding: 0;
+  text-align: right;
 }
 .threadlist-row {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 8px 0;
-  border-top: 1px dotted var(--border, #ece6d8);
+  padding: 10px 4px;
+  border-top: 1px dotted var(--d-edge);
   font-size: .95rem;
+  transition: background .15s ease;
+  border-radius: 8px;
 }
 .threadlist-row:first-child { border-top: 0; }
+.threadlist-row:hover {
+  background: rgba(254, 244, 226, .55);
+}
 .threadlist-title {
   flex: 1;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
-  /* Fade-out mask near the inline-end so long titles don't slam into "הצג". */
-  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 36px);
-          mask-image: linear-gradient(to left, transparent 0, #000 36px);
-  color: var(--text, #1a1a1a);
+  -webkit-mask-image: linear-gradient(to left, var(--d-ink) 0, var(--d-ink) calc(100% - 36px), transparent 100%);
+          mask-image: linear-gradient(to left, var(--d-ink) 0, var(--d-ink) calc(100% - 36px), transparent 100%);
+  color: var(--d-ink);
 }
 .threadlist-show {
   flex-shrink: 0;
-  font-size: .88rem;
-  color: var(--text-muted, #888);
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--d-apricot);
   text-decoration: none;
-  border-bottom: 1px solid transparent;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background .15s ease, color .15s ease;
 }
 .threadlist-show:hover {
-  color: var(--text, #1a1a1a);
-  border-bottom-color: currentColor;
+  background: var(--d-apricot-soft);
+  color: var(--d-ink);
 }
 
-/* ===== Discuss pages (new thread + single thread view) =====
- * Same minimalist palette: cream background (page default), thin dotted
- * dividers, no bubble backgrounds, no badges. */
+/* === Discussion pages (new + thread view) === */
 .discuss-page {
   max-width: var(--maxw-content, 720px);
   margin: 0 auto;
   padding: clamp(20px, 4vw, 32px) var(--page-x, 16px) clamp(40px, 8vw, 80px);
+  color: var(--d-ink);
 }
 .discuss-back {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: .9rem;
-  color: var(--text-muted, #888);
+  color: var(--d-ink-soft);
   text-decoration: none;
-  margin-bottom: 22px;
+  margin-bottom: 26px;
+  transition: color .15s ease, transform .2s ease;
 }
-.discuss-back:hover { color: var(--text, #1a1a1a); }
+.discuss-back:hover {
+  color: var(--d-apricot);
+  transform: translateX(3px);
+}
 .discuss-page-title {
-  font-size: clamp(1.4rem, 3.6vw, 1.8rem);
-  margin: 0 0 24px;
+  font-family: var(--font-display, 'Rubik', system-ui, sans-serif);
+  font-size: clamp(1.4rem, 3.6vw, 1.85rem);
+  margin: 0 0 28px;
   font-weight: 700;
-  color: var(--text, #1a1a1a);
+  letter-spacing: -.01em;
+  color: var(--d-ink);
 }
+
+/* New-thread form ================================================ */
 .discuss-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 .discuss-label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: .9rem;
-  color: var(--text-muted, #888);
+  font-size: .85rem;
+  color: var(--d-ink-soft);
+  font-weight: 500;
 }
 .discuss-label input,
 .discuss-label textarea,
-.discuss-reply-form textarea,
 .discuss-edit input,
 .discuss-edit textarea {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border, #ece6d8);
-  border-radius: 8px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--d-edge);
+  border-radius: 14px;
   font: inherit;
-  background: #fff;
-  color: var(--text, #1a1a1a);
+  background: var(--d-paper);
+  color: var(--d-ink);
   box-sizing: border-box;
   resize: vertical;
+  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
 }
 .discuss-label input:focus,
 .discuss-label textarea:focus,
-.discuss-reply-form textarea:focus,
 .discuss-edit input:focus,
 .discuss-edit textarea:focus {
   outline: none;
-  border-color: var(--text, #1a1a1a);
+  border-color: var(--d-apricot);
+  background: #fff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--d-apricot-soft) 80%, transparent);
 }
 .discuss-form-actions {
   display: flex;
@@ -1758,77 +1850,176 @@
 }
 .discuss-cancel {
   font-size: .9rem;
-  color: var(--text-muted, #888);
+  color: var(--d-ink-soft);
   text-decoration: none;
 }
-.discuss-cancel:hover { color: var(--text, #1a1a1a); }
+.discuss-cancel:hover { color: var(--d-ink); }
 .discuss-submit {
-  background: var(--text, #1a1a1a);
+  background: var(--d-mint);
   color: #fff;
   border: 0;
-  padding: 8px 18px;
+  padding: 9px 22px;
   border-radius: 999px;
   font: inherit;
   font-size: .92rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--d-mint) 30%, transparent);
 }
-.discuss-submit:hover { opacity: .85; }
-.discuss-status { font-size: .85rem; color: var(--text-muted, #888); margin: 0; min-height: 1.2em; }
-.discuss-status.error { color: #b91c1c; }
-.discuss-status.info { color: var(--text-muted, #888); }
+.discuss-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--d-mint) 35%, transparent);
+}
+.discuss-submit:active { transform: translateY(1px); }
 
-/* Single-thread message blocks. */
+.discuss-status { font-size: .85rem; color: var(--d-ink-soft); margin: 0; min-height: 1.2em; }
+.discuss-status.error { color: #b91c1c; }
+.discuss-status.info { color: var(--d-apricot); }
+
+/* Thread page :: messages ======================================== */
 .discuss-msg {
   position: relative;
-  padding: 18px 0 14px;
-  border-top: 1px dotted var(--border, #ece6d8);
+  padding: 20px 22px 16px;
+  margin: 14px 0;
+  background: var(--d-paper);
+  border: 1px solid var(--d-edge);
+  border-radius: 18px;
+  box-shadow: var(--d-shadow);
+  transition: box-shadow .25s ease, border-color .2s ease;
 }
-.discuss-msg:first-of-type { border-top: 0; padding-top: 0; }
-.discuss-msg.deleted { color: var(--text-muted, #888); }
+/* The opening message gets a slight tilt for personality and a brighter
+ * paper, like the cover note of a thread. */
+.discuss-msg:first-of-type {
+  background:
+    linear-gradient(135deg, var(--d-paper) 0%, var(--d-paper-warm) 100%);
+  border-color: var(--d-edge);
+}
+.discuss-msg.is-admin {
+  border-color: color-mix(in srgb, var(--d-mint) 35%, var(--d-edge));
+  background: linear-gradient(135deg, var(--d-paper) 70%, color-mix(in srgb, var(--d-mint) 5%, var(--d-paper)));
+}
+.discuss-msg.deleted {
+  background: var(--d-edge-soft);
+  color: var(--d-ink-soft);
+  border-style: dashed;
+  text-align: center;
+  padding: 14px;
+}
 .discuss-msg-title {
-  font-size: clamp(1.3rem, 3.2vw, 1.6rem);
-  margin: 0 0 12px;
+  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-size: clamp(1.2rem, 2.8vw, 1.45rem);
+  margin: 0 0 14px;
   font-weight: 700;
-  color: var(--text, #1a1a1a);
+  color: var(--d-ink);
   line-height: 1.3;
+  letter-spacing: -.01em;
 }
 .discuss-msg-head {
   display: flex;
   gap: 10px;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
   font-size: .85rem;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
-.discuss-msg-author { color: var(--text, #1a1a1a); font-weight: 600; }
-.discuss-msg-time { font-size: .8rem; }
+.discuss-msg-author {
+  color: var(--d-ink);
+  font-weight: 600;
+}
+.discuss-msg-time { font-size: .78rem; color: var(--d-ink-soft); }
+.discuss-msg-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .discuss-msg-body {
-  line-height: 1.6;
+  line-height: 1.65;
   white-space: pre-wrap;
   word-wrap: break-word;
-  color: var(--text, #1a1a1a);
+  color: var(--d-ink);
+  font-size: 1rem;
 }
+.discuss-msg-replyto {
+  font-size: .8em;
+  font-weight: 500;
+  color: var(--d-apricot);
+  margin-inline-start: 6px;
+  font-style: normal;
+  /* Render the <button> variant identically to the <span> variant, but
+   * make it obvious it's interactive. */
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color .15s ease, background .15s ease;
+}
+button.discuss-msg-replyto:hover {
+  color: #b9551d;
+  background: var(--d-apricot-soft, #ffe5cf);
+}
+
+/* Briefly highlight the target message after a "(בתגובה ל-X)" click.
+ * Subtle apricot ring that fades out — clear but not loud. */
+.discuss-msg.jump-highlight {
+  animation: discuss-jump-pulse 2s ease-out;
+}
+@keyframes discuss-jump-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(245, 156, 102, .55), var(--d-shadow); border-color: var(--d-apricot); }
+  20%  { box-shadow: 0 0 0 6px rgba(245, 156, 102, .25), var(--d-shadow); border-color: var(--d-apricot); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 156, 102, 0),   var(--d-shadow); border-color: var(--d-edge); }
+}
+
 .discuss-msg-chevron {
-  position: absolute;
-  inset-inline-start: 0;
-  bottom: 6px;
   background: transparent;
   border: 0;
   cursor: pointer;
-  color: var(--text-muted, #888);
-  font-size: 1.1rem;
-  line-height: 1;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: color .15s ease, transform .15s ease;
+  color: var(--d-ink-soft);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color .15s ease, background .15s ease, transform .3s cubic-bezier(.34, 1.56, .64, 1);
 }
-.discuss-msg-chevron:hover { color: var(--text, #1a1a1a); }
-.discuss-msg-chevron[aria-expanded="true"] { transform: rotate(180deg); color: var(--text, #1a1a1a); }
+.discuss-msg-chevron:hover {
+  color: var(--d-ink);
+  background: var(--d-apricot-soft);
+}
+.discuss-msg-chevron[aria-expanded="true"] {
+  transform: rotate(180deg);
+  color: var(--d-apricot);
+  background: var(--d-apricot-soft);
+}
+.discuss-msg-chevron svg { display: block; }
+
+/* Actions panel: hidden by default, expands smoothly when the chevron
+ * toggles `.expanded` on the parent .discuss-msg. CSS-only — no full
+ * re-render means no scroll-jump. */
 .discuss-actions {
-  margin-top: 12px;
-  padding-top: 8px;
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows .3s ease, opacity .25s ease, margin-top .3s ease, padding-top .3s ease;
+  margin-top: 0;
+  padding-top: 0;
+}
+.discuss-actions > * {
+  overflow: hidden;
+  min-height: 0;
+}
+.discuss-msg.expanded .discuss-actions {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--d-edge);
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 18px;
+  gap: 12px 18px;
   align-items: center;
 }
 .discuss-actions-reactions {
@@ -1837,19 +2028,42 @@
   flex-wrap: wrap;
 }
 .discuss-reaction {
-  background: transparent;
-  border: 0;
+  background: var(--d-paper-warm);
+  border: 1px solid var(--d-edge);
   cursor: pointer;
   font: inherit;
-  font-size: .95rem;
-  padding: 2px 4px;
-  border-radius: 4px;
-  color: var(--text, #1a1a1a);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 6px 12px;
+  border-radius: 999px;
+  color: var(--d-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), background .15s ease, border-color .15s ease;
 }
-.discuss-reaction:hover { background: rgba(0, 0, 0, .04); }
+.discuss-reaction:hover {
+  background: #fff;
+  border-color: var(--d-apricot);
+  transform: translateY(-1px) scale(1.05);
+}
+.discuss-reaction span {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--d-ink-soft);
+}
+.discuss-reaction.pop {
+  animation: discuss-pop .45s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes discuss-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35) rotate(-8deg); }
+  100% { transform: scale(1); }
+}
 .discuss-actions-links {
   display: inline-flex;
   gap: 14px;
+  margin-inline-start: auto;
 }
 .discuss-link {
   background: transparent;
@@ -1857,16 +2071,26 @@
   cursor: pointer;
   font: inherit;
   font-size: .85rem;
-  color: var(--text-muted, #888);
-  padding: 2px;
+  font-weight: 500;
+  color: var(--d-ink-soft);
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: color .15s ease, background .15s ease;
 }
-.discuss-link:hover { color: var(--text, #1a1a1a); text-decoration: underline; }
-.discuss-link--muted { color: var(--text-muted, #888); }
+.discuss-link:hover {
+  color: var(--d-apricot);
+  background: var(--d-apricot-soft);
+}
+.discuss-link--muted { opacity: .6; }
+.discuss-link--muted:hover { opacity: 1; color: #b91c1c; background: #fdecec; }
+.discuss-link--danger { color: var(--d-ink-soft, #6f675b); }
+.discuss-link--danger:hover { color: #b91c1c; background: #fdecec; }
+
 .discuss-edit {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 6px 0 4px;
+  gap: 10px;
+  margin: 8px 0 6px;
 }
 .discuss-edit-actions {
   display: flex;
@@ -1874,36 +2098,177 @@
   justify-content: flex-end;
   align-items: center;
 }
-.discuss-reply-form {
-  margin-top: 24px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border, #ece6d8);
+
+.discuss-replies-divider {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin: 28px 4px 12px;
+  font-size: .85rem;
+  color: var(--d-ink-soft);
+  font-weight: 500;
+}
+.discuss-replies-divider::before,
+.discuss-replies-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--d-edge) 50%, transparent);
+}
+
+/* Composer: a phone-style flat input pinned at the bottom. The container
+ * has a soft peach floor; on focus, the textarea row lifts via a glowing
+ * underline, like a marker drawing the line. */
+.discuss-composer {
+  margin: 32px 0 0;
+  padding: 14px 16px 16px;
+  background: linear-gradient(to top, var(--d-paper-warm), var(--d-paper));
+  border: 1px solid var(--d-edge);
+  border-radius: 18px;
+  position: relative;
+  box-shadow: var(--d-shadow);
+}
+.discuss-composer.is-hidden { display: none; }
+.discuss-composer-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: .85rem;
+  color: var(--d-ink-soft);
+  padding: 4px 6px 10px;
+  border-bottom: 1px dashed var(--d-edge);
+  margin-bottom: 8px;
+}
+.discuss-composer-context b { color: var(--d-apricot); font-weight: 600; }
+.discuss-composer-cancel {
+  background: transparent;
+  border: 0;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--d-ink-soft);
+  cursor: pointer;
+  padding: 0 8px;
+  border-radius: 999px;
+  transition: color .15s ease, background .15s ease, transform .2s ease;
+}
+.discuss-composer-cancel:hover {
+  color: var(--d-ink);
+  background: var(--d-apricot-soft);
+  transform: rotate(90deg);
+}
+.discuss-composer-form {
+  display: flex;
+  align-items: flex-end;
   gap: 10px;
   position: relative;
 }
-
-/* ===== Show-more list expander ===== */
-.show-more-btn {
-  display: block;
-  margin: 12px auto 4px;
+/* The textarea looks like a flat handwriting line — no chrome at all. */
+.discuss-composer-form textarea {
+  flex: 1;
   background: transparent;
-  border: 1px dashed var(--border, #ece6d8);
+  /* Border-bottom on the textarea itself = a clean baseline directly under
+   * the typed line, with no risk of overlapping the placeholder/text. */
+  border: 0;
+  border-bottom: 1.5px solid var(--d-edge);
+  outline: 0;
+  resize: none;
+  padding: 8px 4px 10px;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--d-ink);
+  overflow-y: auto;
+  max-height: 280px;
+  min-height: 36px;
+  box-sizing: border-box;
+  transition: border-color .25s ease;
+}
+.discuss-composer-form textarea:focus {
+  border-bottom-color: var(--d-apricot);
+}
+.discuss-composer-form textarea::placeholder {
+  color: var(--d-ink-soft);
+  opacity: .65;
+}
+.discuss-composer-send {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--d-mint);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity .2s ease, transform .2s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease;
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--d-mint) 35%, transparent);
+}
+.discuss-composer-send:disabled {
+  opacity: .25;
+  cursor: default;
+  box-shadow: none;
+}
+.discuss-composer-send:not(:disabled):hover {
+  transform: scale(1.1) rotate(-6deg);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--d-mint) 35%, transparent);
+}
+.discuss-composer-send:not(:disabled):active {
+  transform: scale(.95);
+}
+.discuss-composer .discuss-status {
+  margin-top: 6px;
+  padding: 0 6px;
+}
+/* ===== Show-more list expander =====
+ *
+ * Pill button with a soft hover lift and a chevron that rotates 180° on
+ * expand. Centered below the list it controls, with deliberate breathing
+ * room. Subdued by default — present but not loud. */
+.show-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px auto 4px;
+  background: var(--accent-soft, #f0eada);
+  border: 1px solid color-mix(in srgb, var(--accent, #2d6a4f) 15%, var(--border, #ece6d8));
   border-radius: 999px;
-  padding: 6px 16px;
+  padding: 7px 16px;
   font: inherit;
   font-size: .88rem;
-  color: var(--text-muted, #888);
+  font-weight: 600;
+  color: var(--accent, #2d6a4f);
   cursor: pointer;
-  transition: background .15s ease, color .15s ease;
+  transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), background .15s ease, border-color .15s ease, box-shadow .15s ease;
+  /* Center via flex parent context */
+  align-self: center;
+}
+/* When the parent isn't flex (table sibling), this trick centers it. */
+table + .show-more-btn,
+ul + .show-more-btn,
+ol + .show-more-btn,
+.admin-card + .show-more-btn,
+div + .show-more-btn {
+  display: flex;
+  margin-inline: auto;
+  width: max-content;
 }
 .show-more-btn:hover {
-  background: var(--accent-soft, #f0eada);
-  color: var(--accent, #2d6a4f);
+  background: #fff;
   border-color: var(--accent, #2d6a4f);
-  border-style: solid;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent, #2d6a4f) 14%, transparent);
 }
+.show-more-btn:active { transform: translateY(0); }
+.show-more-icon {
+  display: inline-flex;
+  align-items: center;
+  transition: transform .25s cubic-bezier(.34, 1.56, .64, 1);
+}
+.show-more-btn.expanded .show-more-icon { transform: rotate(180deg); }
+.show-more-label { line-height: 1; }
 
 /* ===== Stats archive history modal ===== */
 .history-modal { max-width: 560px; width: 100%; }
@@ -1994,3 +2359,390 @@
   padding-inline-start: 18px;
   border-inline-start: 2px solid var(--border, #ece6d8);
 }
+
+/* ===== Always-visible reaction summary on each message ===== */
+.discuss-msg-reaction-summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 10px;
+}
+.discuss-msg-reaction-summary[hidden] { display: none; }
+.reaction-tally {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--d-paper-warm, #fef4e2);
+  border: 1px solid var(--d-edge, #efe5cf);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: .85rem;
+  line-height: 1;
+  color: var(--d-ink, #2a2722);
+  animation: reaction-tally-in .35s cubic-bezier(.34, 1.56, .64, 1);
+}
+.reaction-tally span {
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--d-ink-soft, #6f675b);
+}
+@keyframes reaction-tally-in {
+  from { transform: scale(.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+/* ===== Discuss page :: tabbed menu (השיחות שלי / הגדרות) =====
+ *
+ * Two pill tabs at the top of every thread page. Click a tab → its panel
+ * slides down beneath the strip. Clicking the same tab again, clicking
+ * outside, or pressing Esc collapses the panel. Default state: closed, so
+ * the menu doesn't eat vertical space when the user is reading. */
+.discuss-menu {
+  position: relative;
+  margin: 14px 0 22px;
+}
+.discuss-menu-tabs {
+  display: inline-flex;
+  gap: 6px;
+  background: var(--d-paper-warm, #fef4e2);
+  border: 1px solid var(--d-edge, #efe5cf);
+  border-radius: 999px;
+  padding: 4px;
+}
+.discuss-menu-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--d-ink-soft, #6f675b);
+  cursor: pointer;
+  transition: background .2s ease, color .2s ease, transform .15s ease;
+  position: relative;
+}
+.discuss-menu-tab:hover {
+  color: var(--d-ink, #2a2722);
+  background: rgba(255, 255, 255, .55);
+}
+.discuss-menu-tab.active {
+  background: #fff;
+  color: var(--accent, #2d6a4f);
+  box-shadow: 0 1px 0 rgba(60, 40, 10, .04);
+}
+.discuss-menu-tab svg { display: block; }
+/* Tiny notification dot, positioned superscript-style on the tab corner.
+ * No number — just a quiet "there's something new" signal. */
+.discuss-menu-tab-badge {
+  position: absolute;
+  top: 4px;
+  inset-inline-end: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--joy-coral, #ff8b5a);
+  /* Hide the text content the JS may write — visual dot only. */
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  box-shadow: 0 0 0 2px var(--d-paper-warm, #fef4e2);
+  animation: dm-badge-in .35s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes dm-badge-in {
+  from { transform: scale(.3); opacity: 0; }
+  to   { transform: scale(1);  opacity: 1; }
+}
+
+.discuss-menu-panel {
+  margin-top: 10px;
+  background: #fff;
+  border: 1px solid var(--d-edge, #efe5cf);
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 28px rgba(60, 40, 10, .08), 0 1px 4px rgba(60, 40, 10, .04);
+  animation: dm-panel-in .25s cubic-bezier(.34, 1.56, .64, 1);
+  max-height: 380px;
+  overflow-y: auto;
+}
+.discuss-menu-panel.opening { animation: none; }
+@keyframes dm-panel-in {
+  from { opacity: 0; transform: translateY(-4px) scale(.99); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.discuss-menu-loading,
+.discuss-menu-empty {
+  margin: 0;
+  font-size: .9rem;
+  color: var(--d-ink-soft, #6f675b);
+  text-align: center;
+  padding: 18px 8px;
+  line-height: 1.55;
+}
+
+/* "השיחות שלי" panel */
+.discuss-menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.discuss-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  transition: background .15s ease;
+  position: relative;
+}
+.discuss-menu-item:hover { background: var(--d-paper-warm, #fef4e2); }
+.discuss-menu-item.is-current {
+  background: color-mix(in srgb, var(--accent-soft, #e0f0e7) 50%, transparent);
+}
+.discuss-menu-item.has-new {
+  background: color-mix(in srgb, var(--d-apricot-soft, #ffe5cf) 70%, transparent);
+}
+.discuss-menu-item.has-new:hover { background: var(--d-apricot-soft, #ffe5cf); }
+.discuss-menu-item-link {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.discuss-menu-item-title {
+  display: block;
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--d-ink, #2a2722);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.discuss-menu-item-sub {
+  display: block;
+  font-size: .78rem;
+  color: var(--d-ink-soft, #6f675b);
+  margin-top: 2px;
+}
+.discuss-menu-item-badge {
+  flex-shrink: 0;
+  background: var(--joy-coral, #ff8b5a);
+  color: #fff;
+  font-size: .7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.discuss-menu-item-remove {
+  flex-shrink: 0;
+  background: transparent;
+  border: 0;
+  color: var(--d-ink-soft, #6f675b);
+  cursor: pointer;
+  font-size: 1.05rem;
+  padding: 0 8px;
+  border-radius: 999px;
+  opacity: 0;
+  transition: opacity .15s ease, color .15s ease, background .15s ease;
+}
+.discuss-menu-item:hover .discuss-menu-item-remove { opacity: 1; }
+.discuss-menu-item-remove:hover { color: #b91c1c; background: #fdecec; }
+
+/* "הגדרות" panel */
+.discuss-menu-settings { padding: 4px 0; }
+.discuss-menu-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+.discuss-menu-setting-label {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--d-ink-soft, #6f675b);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.discuss-menu-setting-value {
+  margin-top: 4px;
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--d-ink, #2a2722);
+}
+.discuss-menu-empty-value {
+  color: var(--d-ink-soft, #6f675b);
+  font-style: italic;
+  font-weight: 400;
+}
+.discuss-menu-setting-btn {
+  background: var(--accent, #2d6a4f);
+  color: #fff;
+  border: 0;
+  padding: 7px 18px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .2s ease, opacity .2s ease;
+}
+.discuss-menu-setting-btn:hover { transform: translateY(-1px); }
+.discuss-menu-setting-hint {
+  margin: 10px 0 0;
+  padding-top: 12px;
+  border-top: 1px dashed var(--d-edge, #efe5cf);
+  font-size: .82rem;
+  color: var(--d-ink-soft, #6f675b);
+  line-height: 1.55;
+}
+
+/* ===== Site-styled dialogs (replace native confirm/prompt) ===== */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 14, 6, .42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  opacity: 0;
+  transition: opacity .18s ease;
+  padding: 20px;
+}
+.dialog-overlay.visible { opacity: 1; }
+.dialog {
+  background: var(--bg, #fbfaf7);
+  border: 1px solid var(--d-edge, #efe5cf);
+  border-radius: 18px;
+  padding: 24px 22px 18px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 18px 56px rgba(20, 14, 6, .22);
+  transform: scale(.96);
+  opacity: 0;
+  transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), opacity .2s ease;
+  text-align: right;
+}
+.dialog-overlay.visible .dialog { transform: scale(1); opacity: 1; }
+.dialog-title {
+  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--d-ink, #2a2722);
+}
+.dialog-message {
+  margin: 0 0 14px;
+  font-size: .92rem;
+  line-height: 1.55;
+  color: var(--d-ink-soft, #6f675b);
+}
+.dialog-form { display: flex; flex-direction: column; gap: 12px; }
+.dialog-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--d-edge, #efe5cf);
+  border-radius: 12px;
+  background: #fff;
+  font: inherit;
+  font-size: .95rem;
+  color: var(--d-ink, #2a2722);
+  resize: vertical;
+  box-sizing: border-box;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.dialog-input:focus {
+  outline: 0;
+  border-color: var(--d-apricot, #f59c66);
+  box-shadow: 0 0 0 3px var(--d-apricot-soft, #ffe5cf);
+}
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.dialog-btn {
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 0;
+  font: inherit;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .2s ease, background .15s ease, opacity .2s ease;
+}
+.dialog-btn--ghost {
+  background: transparent;
+  color: var(--d-ink-soft, #6f675b);
+}
+.dialog-btn--ghost:hover { color: var(--d-ink, #2a2722); background: var(--d-paper-warm, #fef4e2); }
+.dialog-btn--primary {
+  background: var(--accent, #2d6a4f);
+  color: #fff;
+}
+.dialog-btn--primary:hover { transform: translateY(-1px); }
+.dialog-btn--danger {
+  background: #b91c1c;
+  color: #fff;
+}
+.dialog-btn--danger:hover { transform: translateY(-1px); opacity: .92; }
+
+/* ===== Toast variants ===== */
+.toast.toast--success { border-color: color-mix(in srgb, #16a34a 30%, transparent); color: #166534; background: #dcfce7; }
+.toast.toast--error   { border-color: color-mix(in srgb, #b91c1c 30%, transparent); color: #b91c1c; background: #fdecec; }
+
+/* ================================================================
+ * Mobile responsive hardening — public site (discuss pages, thread
+ * list, dialogs). Same intent as the admin block: nothing escapes
+ * the viewport, long content wraps, and touch targets stay usable.
+ * ================================================================ */
+
+/* Discussion messages — long bodies / long single-word titles wrap. */
+.discuss-msg, .discuss-msg-title, .discuss-msg-body, .discuss-msg-author {
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  min-width: 0;
+}
+.discuss-page { overflow-wrap: anywhere; }
+.discuss-page, .discuss-msg, .threadlist { max-width: 100%; }
+
+/* Action links (השב/דווח/ערוך/מחק) wrap to a new row when the message
+ * panel is too narrow rather than overflowing horizontally. */
+.discuss-actions { overflow-wrap: anywhere; }
+.discuss-actions-links { flex-wrap: wrap; gap: 8px 14px; }
+
+/* Composer form — keep the send button glued to its row even when the
+ * draft text is wide; the textarea owns the rest. */
+.discuss-composer-form { min-width: 0; }
+.discuss-composer-form textarea { min-width: 0; }
+
+/* Reply context bar wraps cleanly. */
+.discuss-composer-context { flex-wrap: wrap; }
+
+/* Reactions strip wraps if there's no room. */
+.discuss-actions-reactions { flex-wrap: wrap; }
+
+/* Thread list rows on the bulletin page never overflow. */
+.threadlist-row { min-width: 0; }
+.threadlist-title { min-width: 0; }
+
+/* Discuss menu (השיחות שלי / הגדרות) — narrow phones (<360px) shouldn't
+ * have these tabs spilling off-screen. */
+.discuss-menu-tabs { max-width: 100%; flex-wrap: wrap; }
+.discuss-menu-panel { max-width: 100%; }
+.discuss-menu-item, .discuss-menu-item-title { min-width: 0; }
+
+/* Site-styled dialog — stays inside the viewport with a reasonable margin. */
+.dialog { max-width: min(420px, calc(100vw - 32px)); }
+
+/* Body-level horizontal-overflow guard. */
+html, body { overflow-x: hidden; }

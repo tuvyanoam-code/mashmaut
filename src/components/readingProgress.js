@@ -176,22 +176,13 @@ function celebrate() {
   confettiLayer.className = 'confetti';
   document.body.appendChild(confettiLayer);
 
-  const balloonLayer = document.createElement('div');
-  balloonLayer.className = 'confetti';
-  document.body.appendChild(balloonLayer);
-
-  // Three confetti waves over 3s for a sustained shower
-  const waves = [0, 700, 1400];
-  waves.forEach((delay) => {
-    setTimeout(() => spawnConfetti(confettiLayer, 70), delay);
-  });
-  // Balloons rising in a steady stream
-  spawnBalloons(balloonLayer, 14);
+  // Quiet celebration: confetti only, no balloons. A single soft wave that
+  // marks the moment of completion without dominating the page.
+  spawnConfetti(confettiLayer, 32);
 
   setTimeout(() => {
     confettiLayer.remove();
-    balloonLayer.remove();
-  }, 6500);
+  }, 5000);
 }
 
 function spawnConfetti(layer, count) {

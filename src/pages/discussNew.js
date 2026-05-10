@@ -7,6 +7,7 @@ import { setPageSeo } from '../lib/seo.js';
 import { getDisplayName, setDisplayName, promptForDisplayName } from '../lib/displayName.js';
 import { createThread } from '../lib/threads.js';
 import { withBase, navigate } from '../router.js';
+import { follow as followThread } from '../lib/myDiscussions.js';
 
 export async function renderDiscussNew({ params }) {
   const app = document.getElementById('app');
@@ -76,6 +77,11 @@ export async function renderDiscussNew({ params }) {
     try {
       const r = await createThread({
         year: params.year, slug: params.slug, title, body, displayName: name,
+      });
+      // Track this thread so the user gets notified when others reply.
+      followThread({
+        year: params.year, slug: params.slug, threadId: r.thread.id,
+        title: r.thread.title, parshaName: week.parshaName,
       });
       navigate(`/y/${params.year}/${params.slug}/discuss/${r.thread.id}`);
     } catch (err) {

@@ -7,6 +7,24 @@ import { icon } from '../icons.js';
 
 const STORAGE_KEY = 'mashmaut.displayName';
 
+// Mirror of the server's FORBIDDEN_NAME_PATTERNS — keeps the two in sync so
+// the user gets feedback the moment they try the name, not after they've
+// already saved it locally and are then surprised by a 409 from the server.
+// The server is the source of truth (it re-validates on every POST) — this
+// is purely a UX nicety.
+const FORBIDDEN_NAME_PATTERNS = [
+  /משמעות/i,
+  /גינזבורג/i,
+  /גנזבורג/i,
+  /ginzburg/i,
+  /mashmaut/i,
+];
+
+export function isForbiddenName(s) {
+  const n = String(s || '').trim().toLowerCase();
+  return FORBIDDEN_NAME_PATTERNS.some((re) => re.test(n));
+}
+
 export function getDisplayName() {
   try { return (localStorage.getItem(STORAGE_KEY) || '').trim(); } catch (_) { return ''; }
 }
@@ -30,7 +48,7 @@ export function promptForDisplayName({ initial = '', error = '' } = {}) {
         <button type="button" class="modal-close" aria-label="סגור">${icon('close', { size: 20 })}</button>
         <div class="modal-icon">${icon('email', { size: 28 })}</div>
         <h3 style="margin: 4px 0 6px;">איך אתה רוצה שיציגו אותך?</h3>
-        <p class="muted" style="margin: 0 0 16px;">השם יופיע ליד התגובות שלך. אפשר לכנות את עצמך באיך שתרצה — שם פרטי, ראשי תיבות, או כינוי.</p>
+        <p class="muted" style="margin: 0 0 16px;">השם יופיע ליד התגובות שלך.</p>
         ${error ? `<div class="admin-status error" style="margin-bottom: 12px;">${escapeHtml(error)}</div>` : ''}
         <form class="name-prompt-form">
           <input type="text" name="name" maxlength="40" required autofocus placeholder="לדוגמה: ישראל" value="${escapeAttr(initial)}" style="width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; font: inherit; text-align: right; box-sizing: border-box;" />
@@ -56,10 +74,38 @@ export function promptForDisplayName({ initial = '', error = '' } = {}) {
     });
     overlay.querySelector('.modal-close').addEventListener('click', () => cleanup(null));
     overlay.querySelector('[data-cancel]').addEventListener('click', () => cleanup(null));
-    overlay.querySelector('form').addEventListener('submit', (e) => {
+    const form = overlay.querySelector('form');
+    const input = form.querySelector('input[name="name"]');
+    // Inline error region — appears as soon as the user types a forbidden
+    // name (and again on submit if they tried to dismiss the warning).
+    const errorEl = document.createElement('div');
+    errorEl.className = 'admin-status error';
+    errorEl.style.cssText = 'margin: 8px 0 0; display: none;';
+    input.insertAdjacentElement('afterend', errorEl);
+
+    function setForbidden(forbidden) {
+      if (forbidden) {
+        errorEl.textContent = 'השם הזה שמור — בחר שם אחר.';
+        errorEl.style.display = '';
+        input.setAttribute('aria-invalid', 'true');
+      } else {
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+        input.removeAttribute('aria-invalid');
+      }
+    }
+
+    input.addEventListener('input', () => setForbidden(isForbiddenName(input.value)));
+
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
       const name = (new FormData(e.target).get('name') || '').toString().trim();
       if (name.length < 2) return;
+      if (isForbiddenName(name)) {
+        setForbidden(true);
+        input.focus();
+        return;
+      }
       cleanup(name);
     });
   });

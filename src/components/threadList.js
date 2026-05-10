@@ -1,32 +1,29 @@
 // Minimalist thread-preview list under each bulletin.
 //
-// Layout: a small "התחל שיחה" link on top, then a flat list of existing
-// threads — one per line, each rendered as
-//
-//     <title text…>            הצג
-//
-// The title fades to the page background as it approaches the "הצג" link
-// (gradient mask). No colors, no badges, no avatars. Returns a cleanup
-// function (no-op currently — no timers — but symmetric with mountDiscussion).
+// A clear, inviting "התחל שיחה" button (chat icon + label, pill style) sits
+// at the top of the section. Below it: a flat list of existing threads, one
+// per line — title (with a fade-out mask near its left edge so long titles
+// don't crash into "הצג") + a small "הצג" link.
 
 import { listThreads } from '../lib/threads.js';
 import { withBase } from '../router.js';
+import { icon } from '../icons.js';
 
-export function mountThreadList(rootEl, { yearId, slug, parshaName }) {
+export function mountThreadList(rootEl, { yearId, slug }) {
   if (!rootEl) return () => {};
   let aborted = false;
 
-  rootEl.innerHTML = renderShell({ yearId, slug, parshaName, threads: null });
+  rootEl.innerHTML = renderShell({ yearId, slug, threads: null });
 
   (async () => {
     try {
       const data = await listThreads({ year: yearId, slug });
       if (aborted) return;
-      rootEl.innerHTML = renderShell({ yearId, slug, parshaName, threads: data.threads || [] });
+      rootEl.innerHTML = renderShell({ yearId, slug, threads: data.threads || [] });
     } catch (_) {
       if (aborted) return;
-      // Quiet failure: still show the "start a conversation" link.
-      rootEl.innerHTML = renderShell({ yearId, slug, parshaName, threads: [] });
+      // Quiet failure: still show the "start a conversation" button.
+      rootEl.innerHTML = renderShell({ yearId, slug, threads: [] });
     }
   })();
 
@@ -38,12 +35,15 @@ function renderShell({ yearId, slug, threads }) {
   const items = (threads || []).filter((t) => !t.deleted);
   return `
     <section class="threadlist" aria-label="שיחות על העלון">
-      <a class="threadlist-new" href="${newHref}">התחל שיחה</a>
-      ${threads === null ? '' : (items.length === 0 ? '' : `
+      <a class="threadlist-cta" href="${newHref}">
+        <span class="threadlist-cta-icon">${icon('chatSquare', { size: 18 })}</span>
+        <span class="threadlist-cta-label">התחל שיחה על העלון</span>
+      </a>
+      ${threads === null || items.length === 0 ? '' : `
         <ul class="threadlist-items">
           ${items.map((t) => renderRow(yearId, slug, t)).join('')}
         </ul>
-      `)}
+      `}
     </section>
   `;
 }

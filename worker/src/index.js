@@ -558,6 +558,21 @@ function isValidDisplayName(s) {
   return true;
 }
 
+// Names that public posters can't claim — protects against impersonation of
+// the site itself or the rabbi whose teachings are being summarized. Admins
+// can override these via the rename endpoint when legitimately needed.
+const FORBIDDEN_NAME_PATTERNS = [
+  /משמעות/i,
+  /גינזבורג/i,
+  /גנזבורג/i,
+  /ginzburg/i,
+  /mashmaut/i,
+];
+function isForbiddenPublicName(s) {
+  const n = normalizeName(s);
+  return FORBIDDEN_NAME_PATTERNS.some((re) => re.test(n));
+}
+
 async function checkRateLimit(env, fp) {
   if (!fp) return { ok: true };
   const minute = Math.floor(Date.now() / 60000);
@@ -712,6 +727,103 @@ async function createThread(env, year, slug, payload) {
   return full;
 }
 
+async function deleteByPrefix(env, prefix) {
+  let cursor;
+  let count = 0;
+  do {
+    const res = await env.EVENTS.list({ prefix, cursor });
+    for (const k of res.keys) {
+      await env.EVENTS.delete(k.name);
+      count++;
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+  return count;
+}
+
+/** Hard-delete a thread and EVERYTHING attached to it: the thread record,
+ *  all replies inside it, all reactions (per-fp + aggregates), all reports
+ *  (per-fp + counts) on the thread and on each reply. Then call name cleanup
+ *  for every unique participant so users left with no remaining messages
+ *  vanish from the moderator's "משתתפים" view too. */
+async function hardDeleteThread(env, year, slug, threadId) {
+  const fps = new Set();
+  let removed = 0;
+  // 1. Thread record + its reactions/reports.
+  const t = await findThread(env, year, slug, threadId);
+  if (t) {
+    if (t.value.fp) fps.add(t.value.fp);
+    await env.EVENTS.delete(t.key); removed++;
+    removed += await deleteByPrefix(env, `reaction:t:${threadId}:`);
+    await env.EVENTS.delete(`reactionAgg:t:${threadId}`);
+    removed += await deleteByPrefix(env, `report:t:${threadId}:`);
+    await env.EVENTS.delete(`report-count:t:${threadId}`);
+  }
+  // 2. All replies — also wipe their reactions/reports.
+  const replies = await listRepliesInThread(env, year, slug, threadId);
+  for (const r of replies) {
+    if (r.fp) fps.add(r.fp);
+    await env.EVENTS.delete(replyKey(year, slug, threadId, r.id)); removed++;
+    removed += await deleteByPrefix(env, `reaction:r:${r.id}:`);
+    await env.EVENTS.delete(`reactionAgg:r:${r.id}`);
+    removed += await deleteByPrefix(env, `report:r:${r.id}:`);
+    await env.EVENTS.delete(`report-count:r:${r.id}`);
+  }
+  // 3. Free every participant's name reservation if they have no other
+  //    remaining content anywhere on the site.
+  for (const fp of fps) {
+    await cleanupNameIfUnused(env, fp);
+  }
+  return { removed, participants: fps.size };
+}
+
+/** After any deletion, see whether `fp` still owns any non-deleted message.
+ *  If not, free the `name:` reservation so the now-unused name becomes
+ *  available for someone else. Cheap: single pass per prefix, early-exit on
+ *  first hit. */
+async function cleanupNameIfUnused(env, fp) {
+  if (!fp) return false;
+  // Look for ANY non-deleted thread or reply by this fp.
+  let cursor;
+  do {
+    const res = await env.EVENTS.list({ prefix: 'thread:', cursor });
+    const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+    for (const v of values) {
+      if (v && v.fp === fp && !v.deleted) return false;
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+  cursor = undefined;
+  do {
+    const res = await env.EVENTS.list({ prefix: 'reply:', cursor });
+    const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+    for (const v of values) {
+      if (v && v.fp === fp && !v.deleted) return false;
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+  // No remaining content — find and delete the user's name reservation(s).
+  cursor = undefined;
+  let removedNames = 0;
+  do {
+    const res = await env.EVENTS.list({ prefix: 'name:', cursor });
+    const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+    for (let i = 0; i < res.keys.length; i++) {
+      const v = values[i];
+      if (v && v.fp === fp) {
+        await env.EVENTS.delete(res.keys[i].name);
+        removedNames++;
+      }
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+  return removedNames > 0;
+}
+
 async function appendReply(env, year, slug, threadId, payload) {
   const id = commentSortableId();
   const now = new Date().toISOString();
@@ -722,6 +834,9 @@ async function appendReply(env, year, slug, threadId, payload) {
     author: payload.author,
     fp: payload.fp,
     createdAt: now,
+    // Optional: when the user clicked "השב" on a specific reply, replyToId
+    // points at that reply's id. UI uses it to show "(בתגובה לשלמה)".
+    ...(payload.replyToId ? { replyToId: payload.replyToId, replyToAuthor: payload.replyToAuthor || null } : {}),
     ...(payload.isAdmin ? { isAdmin: true } : {}),
   };
   await env.EVENTS.put(replyKey(year, slug, threadId, id), JSON.stringify(full));
@@ -1122,6 +1237,7 @@ export default {
         if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
         if (!FP_RE.test(fp)) return err('fp invalid');
         if (!isValidDisplayName(author)) return err('שם תצוגה לא תקין (2–40 תווים)');
+        if (isForbiddenPublicName(author)) return err('השם הזה שמור. בחר שם אחר.', 409);
         if (!title || title.length > COMMENT_TITLE_MAX) return err(`כותרת חסרה או ארוכה (עד ${COMMENT_TITLE_MAX})`);
         if (!text || text.length > COMMENT_BODY_MAX) return err(`תוכן חסר או ארוך מדי (עד ${COMMENT_BODY_MAX})`);
         const rl = await checkRateLimit(env, fp);
@@ -1160,19 +1276,32 @@ export default {
         const fp = String(body.fp || '');
         const author = String(body.displayName || '').trim();
         const text = String(body.body || '').trim();
+        const replyToId = body.replyToId ? String(body.replyToId) : null;
         if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
         if (!FP_RE.test(fp)) return err('fp invalid');
         if (!COMMENT_ID_RE.test(threadId)) return err('threadId invalid');
         if (!isValidDisplayName(author)) return err('שם תצוגה לא תקין (2–40 תווים)');
+        if (isForbiddenPublicName(author)) return err('השם הזה שמור. בחר שם אחר.', 409);
         if (!text || text.length > COMMENT_BODY_MAX) return err(`תוכן חסר או ארוך מדי (עד ${COMMENT_BODY_MAX})`);
         const t = await findThread(env, year, slug, threadId);
         if (!t || t.value.deleted) return err('thread not found', 404);
+        // If replying to a specific reply, validate it exists in this thread,
+        // and resolve its author to display "(בתגובה ל-X)".
+        let replyToAuthor = null;
+        if (replyToId) {
+          if (!COMMENT_ID_RE.test(replyToId)) return err('replyToId invalid');
+          const target = await findReply(env, year, slug, threadId, replyToId);
+          if (!target || target.value.deleted) return err('הודעה שאליה משיבים לא נמצאה', 404);
+          replyToAuthor = target.value.author || null;
+        }
         const rl = await checkRateLimit(env, fp);
         if (!rl.ok) return err('יותר מדי הודעות. נסה שוב בעוד דקה.', 429);
         const reserved = await reserveDisplayName(env, author, fp);
         if (!reserved.ok) return err(reserved.error, 409);
         const cleanBody = stripHtml(text).slice(0, COMMENT_BODY_MAX);
-        const saved = await appendReply(env, year, slug, threadId, { body: cleanBody, author, fp });
+        const saved = await appendReply(env, year, slug, threadId, {
+          body: cleanBody, author, fp, replyToId, replyToAuthor,
+        });
         return ok({ reply: saved });
       }
 
@@ -1265,6 +1394,46 @@ export default {
         if (!r || r.value.deleted) return err('not found', 404);
         const result = await applyReaction(env, reactionRef('r', replyId), fp, emoji);
         return result.ok ? ok(result) : err(result.error || 'שגיאה');
+      }
+
+      // Delete own thread (soft-delete).
+      if (p.startsWith('/discuss/threads/') && p.endsWith('/delete') && request.method === 'POST') {
+        const threadId = p.slice('/discuss/threads/'.length, -'/delete'.length);
+        const body = await request.json().catch(() => ({}));
+        const slug = String(body.slug || '');
+        const year = String(body.year || '');
+        const fp = String(body.fp || '');
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
+        if (!FP_RE.test(fp)) return err('fp invalid');
+        if (!COMMENT_ID_RE.test(threadId)) return err('threadId invalid');
+        const t = await findThread(env, year, slug, threadId);
+        if (!t) return err('not found', 404);
+        if (t.value.deleted) return ok({ deleted: true });
+        if (t.value.fp !== fp) return err('אין הרשאה למחיקה', 403);
+        await env.EVENTS.put(t.key, JSON.stringify({ ...t.value, deleted: true, deletedAt: new Date().toISOString() }));
+        // If the user no longer has any remaining messages, free their name.
+        await cleanupNameIfUnused(env, fp);
+        return ok({ deleted: true });
+      }
+
+      // Delete own reply (soft-delete).
+      if (p.startsWith('/discuss/replies/') && p.endsWith('/delete') && request.method === 'POST') {
+        const replyId = p.slice('/discuss/replies/'.length, -'/delete'.length);
+        const body = await request.json().catch(() => ({}));
+        const slug = String(body.slug || '');
+        const year = String(body.year || '');
+        const threadId = String(body.threadId || '');
+        const fp = String(body.fp || '');
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
+        if (!FP_RE.test(fp)) return err('fp invalid');
+        if (!COMMENT_ID_RE.test(threadId) || !COMMENT_ID_RE.test(replyId)) return err('id invalid');
+        const r = await findReply(env, year, slug, threadId, replyId);
+        if (!r) return err('not found', 404);
+        if (r.value.deleted) return ok({ deleted: true });
+        if (r.value.fp !== fp) return err('אין הרשאה למחיקה', 403);
+        await env.EVENTS.put(r.key, JSON.stringify({ ...r.value, deleted: true, deletedAt: new Date().toISOString() }));
+        await cleanupNameIfUnused(env, fp);
+        return ok({ deleted: true });
       }
 
       // Reports — works on either threads or replies.
@@ -1678,18 +1847,22 @@ export default {
           if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('year+slug required');
           if (!COMMENT_ID_RE.test(threadId)) return err('threadId invalid');
           if (replyId) {
+            // Reply admin-delete remains a soft-delete so the surrounding
+            // thread keeps its flow ("[ההודעה נמחקה]" placeholder).
             if (!COMMENT_ID_RE.test(replyId)) return err('replyId invalid');
             const r = await findReply(env, year, slug, threadId, replyId);
             if (!r) return err('not found', 404);
             const next = { ...r.value, deleted: true, deletedAt: new Date().toISOString() };
             await env.EVENTS.put(r.key, JSON.stringify(next));
+            if (r.value.fp) await cleanupNameIfUnused(env, r.value.fp);
             return ok({ deleted: 'reply', id: replyId });
           }
-          const t = await findThread(env, year, slug, threadId);
-          if (!t) return err('not found', 404);
-          const next = { ...t.value, deleted: true, deletedAt: new Date().toISOString() };
-          await env.EVENTS.put(t.key, JSON.stringify(next));
-          return ok({ deleted: 'thread', id: threadId });
+          // Admin thread-delete is a HARD delete — the thread, its replies,
+          // their reactions and reports all vanish. Participants who have
+          // nothing left elsewhere are removed from the user directory too.
+          const result = await hardDeleteThread(env, year, slug, threadId);
+          if (result.removed === 0) return err('not found', 404);
+          return ok({ deleted: 'thread', id: threadId, ...result });
         }
 
         // Admin replies into a thread.
@@ -1711,6 +1884,131 @@ export default {
             body: cleanBody, author, fp: adminFp, isAdmin: true,
           });
           return ok({ reply: saved });
+        }
+
+        // List unique participants (by fp) across all bulletins. Used by the
+        // moderation "users" tab to support rename/cleanup operations.
+        if (p === '/admin/discuss/users' && request.method === 'GET') {
+          const users = new Map(); // fp → { fp, names: Set, threadCount, replyCount, lastAt, recent: [] }
+          // Walk threads first. Soft-deleted records are skipped — a user
+          // whose only message was soft-deleted shouldn't show up here.
+          let cursor;
+          do {
+            const res = await env.EVENTS.list({ prefix: 'thread:', cursor });
+            const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+            for (let i = 0; i < res.keys.length; i++) {
+              const v = values[i]; if (!v || v.deleted) continue;
+              if (v.fp && v.fp.startsWith('admin-')) continue;
+              const tail = res.keys[i].name.slice('thread:'.length);
+              const slashIdx = tail.indexOf('/');
+              const colonIdx = tail.indexOf(':', slashIdx + 1);
+              if (slashIdx < 0 || colonIdx < 0) continue;
+              const year = tail.slice(0, slashIdx);
+              const slug = tail.slice(slashIdx + 1, colonIdx);
+              const u = users.get(v.fp) || { fp: v.fp, names: new Set(), threadCount: 0, replyCount: 0, lastAt: '', recent: [] };
+              u.names.add(v.author || '');
+              u.threadCount++;
+              const at = v.lastAt || v.createdAt || '';
+              if (at > u.lastAt) u.lastAt = at;
+              u.recent.push({ year, slug, threadId: v.id, title: v.title, at: v.createdAt });
+              users.set(v.fp, u);
+            }
+            cursor = res.cursor;
+            if (res.list_complete) break;
+          } while (cursor);
+          // Walk replies — also skip soft-deleted.
+          cursor = undefined;
+          do {
+            const res = await env.EVENTS.list({ prefix: 'reply:', cursor });
+            const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+            for (let i = 0; i < res.keys.length; i++) {
+              const v = values[i]; if (!v || v.deleted) continue;
+              if (v.fp && v.fp.startsWith('admin-')) continue;
+              const u = users.get(v.fp) || { fp: v.fp, names: new Set(), threadCount: 0, replyCount: 0, lastAt: '', recent: [] };
+              u.names.add(v.author || '');
+              u.replyCount++;
+              if ((v.createdAt || '') > u.lastAt) u.lastAt = v.createdAt || '';
+              users.set(v.fp, u);
+            }
+            cursor = res.cursor;
+            if (res.list_complete) break;
+          } while (cursor);
+          // Serialize: latest activity first, top 3 recent threads each.
+          const out = Array.from(users.values()).map((u) => ({
+            fp: u.fp,
+            names: Array.from(u.names).filter(Boolean),
+            currentName: Array.from(u.names).filter(Boolean).pop() || '',
+            threadCount: u.threadCount,
+            replyCount: u.replyCount,
+            messageCount: u.threadCount + u.replyCount,
+            lastAt: u.lastAt,
+            recent: u.recent.sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 3),
+          }));
+          out.sort((a, b) => (b.lastAt || '').localeCompare(a.lastAt || ''));
+          return ok({ users: out });
+        }
+
+        // Rename every message authored by `fp` (threads + replies + the
+        // replyToAuthor field on replies that point at this user). Admin-
+        // only — bypasses the public forbidden-name blocklist.
+        if (p === '/admin/discuss/rename-user' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const fp = String(body.fp || '');
+          const newName = String(body.newName || '').trim();
+          if (!FP_RE.test(fp)) return err('fp invalid');
+          if (!isValidDisplayName(newName)) return err('שם תצוגה לא תקין (2–40 תווים)');
+          const cleanName = stripHtml(newName);
+          let updated = 0;
+          const messageIds = new Set();
+          // Pass 1: rewrite threads + replies authored by this fp; collect their ids.
+          let cursor;
+          do {
+            const res = await env.EVENTS.list({ prefix: 'thread:', cursor });
+            const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+            for (let i = 0; i < res.keys.length; i++) {
+              const v = values[i]; if (!v || v.fp !== fp) continue;
+              messageIds.add(v.id);
+              await env.EVENTS.put(res.keys[i].name, JSON.stringify({ ...v, author: cleanName }));
+              updated++;
+            }
+            cursor = res.cursor;
+            if (res.list_complete) break;
+          } while (cursor);
+          cursor = undefined;
+          do {
+            const res = await env.EVENTS.list({ prefix: 'reply:', cursor });
+            const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+            for (let i = 0; i < res.keys.length; i++) {
+              const v = values[i]; if (!v) continue;
+              if (v.fp === fp) {
+                messageIds.add(v.id);
+                await env.EVENTS.put(res.keys[i].name, JSON.stringify({ ...v, author: cleanName }));
+                updated++;
+              }
+            }
+            cursor = res.cursor;
+            if (res.list_complete) break;
+          } while (cursor);
+          // Pass 2: update replyToAuthor on any reply whose replyToId points
+          // at one of this user's messages — so "(בתגובה ל-X)" labels stay
+          // accurate after the rename.
+          cursor = undefined;
+          do {
+            const res = await env.EVENTS.list({ prefix: 'reply:', cursor });
+            const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+            for (let i = 0; i < res.keys.length; i++) {
+              const v = values[i]; if (!v) continue;
+              if (v.replyToId && messageIds.has(v.replyToId) && v.replyToAuthor !== cleanName) {
+                await env.EVENTS.put(res.keys[i].name, JSON.stringify({ ...v, replyToAuthor: cleanName }));
+                updated++;
+              }
+            }
+            cursor = res.cursor;
+            if (res.list_complete) break;
+          } while (cursor);
+          // Reserve the new name for this fp so future posts keep it.
+          await reserveDisplayName(env, cleanName, fp);
+          return ok({ updated, fp, newName: cleanName });
         }
 
         // Admin starts a NEW thread directly (e.g. announcement).

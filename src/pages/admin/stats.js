@@ -29,6 +29,14 @@ export async function renderStats(root) {
   const cities = Object.entries(stats.byCity || {}).sort((a, b) => b[1] - a[1]);
   const slugs = Object.entries(stats.bySlug || {}).sort((a, b) => (b[1].view || 0) - (a[1].view || 0));
 
+  // Hero summary: this-week activity at a glance.
+  const last7 = days.slice(-7);
+  const last7Total = last7.reduce((s, d) => {
+    const r = stats.byDay[d] || {};
+    return s + (r.view || 0) + (r.pdf || 0);
+  }, 0);
+  const last7Finishes = last7.reduce((s, d) => s + ((stats.byDay[d] || {}).finish || 0), 0);
+
   root.innerHTML = `
     <header class="admin-header">
       <h1>גרף שימוש</h1>
@@ -37,6 +45,22 @@ export async function renderStats(root) {
         <button type="button" class="btn btn-secondary" id="refreshStats">${icon('settings', { size: 18 })} רענן</button>
       </div>
     </header>
+
+    <div class="admin-hero">
+      <div class="admin-hero-content">
+        <div class="admin-hero-eyebrow">השבוע האחרון</div>
+        <h2 class="admin-hero-title">${last7Total.toLocaleString('he-IL')} ${last7Total === 1 ? 'צפייה' : 'צפיות'} ב-7 הימים האחרונים${last7Finishes ? ` · ${last7Finishes} השלימו קריאה` : ''}</h2>
+        <p class="admin-hero-sub">סה״כ ${(stats.unique || 0).toLocaleString('he-IL')} דפדפנים ייחודיים מאז האיפוס האחרון. לפירוט מלא ראה למטה.</p>
+      </div>
+      <div class="admin-hero-meta">
+        <div class="admin-hero-stat">
+          <div class="admin-hero-stat-value">${(stats.returning || 0).toLocaleString('he-IL')}</div>
+          <div class="admin-hero-stat-label">חוזרים</div>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="admin-section-eyebrow">פירוט</h2>
 
     <div class="stats-grid">
       ${statCard('סה״כ צפיות', totals.view || 0, 'view')}
@@ -106,10 +130,10 @@ export async function renderStats(root) {
     </div>
   `;
 
-  // Apply "הצג עוד" — first 10, button to expand.
+  // Apply "הצג עוד" — first 4, button to expand.
   for (const sel of ['slugs', 'countries', 'cities']) {
     const tbody = root.querySelector(`[data-show-more-target="${sel}"]`);
-    if (tbody) applyShowMore(tbody, { initial: 10, after: tbody.parentElement });
+    if (tbody) applyShowMore(tbody, { initial: 4, after: tbody.parentElement });
   }
 
   document.getElementById('refreshStats').addEventListener('click', () => renderStats(root));
@@ -169,7 +193,7 @@ async function openHistoryModal() {
     return;
   }
   content.innerHTML = `
-    <ul class="history-list">
+    <ul class="history-list" id="historyList">
       ${archives.map((a) => `
         <li class="history-item">
           <div class="history-meta">
@@ -184,6 +208,8 @@ async function openHistoryModal() {
       `).join('')}
     </ul>
   `;
+  const historyList = content.querySelector('#historyList');
+  if (historyList) applyShowMore(historyList, { initial: 4, after: historyList });
   content.querySelectorAll('[data-download]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       btn.disabled = true;

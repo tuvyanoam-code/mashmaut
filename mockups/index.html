@@ -128,7 +128,137 @@
     z-index: 2; position: relative;
   }
 
-  /* unique preview backgrounds per direction */
+  /* ─── New round (G/H/I) — based on the printed bulletin's DNA ─── */
+  .preview-g {
+    background:
+      linear-gradient(180deg, rgba(244,236,216,0) 50%, rgba(244,236,216,.6) 100%),
+      url("photos/wheat.jpg") center/cover no-repeat,
+      #f4ecd8;
+    color: #f4ecd8;
+    text-shadow: 0 2px 12px rgba(0,0,0,.45);
+  }
+  .preview-g .strip-mini {
+    background: linear-gradient(90deg, #d8a039, #f0d59a, #d8a039);
+    color: #2a1d08;
+    padding: 6px 12px;
+    font-family: "Heebo", sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 3px;
+    letter-spacing: .02em;
+    text-shadow: none;
+    margin-bottom: 12px;
+    display: inline-block;
+  }
+  .preview-g .label-g {
+    font-family: "Frank Ruhl Libre", serif;
+    font-weight: 900;
+    color: #5b3a8a;
+    font-size: clamp(40px, 7vw, 64px);
+    line-height: 1;
+    letter-spacing: -.02em;
+    text-shadow: 0 2px 14px rgba(244,236,216,.7), 0 1px 0 rgba(0,0,0,.25);
+    margin-bottom: 8px;
+  }
+  .preview-g .sub-g {
+    font-family: "Heebo", sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    color: #f4ecd8;
+    background: rgba(139,31,31,.85);
+    padding: 4px 12px;
+    border-radius: 2px;
+    display: inline-block;
+    text-shadow: none;
+  }
+
+  .preview-h {
+    background: #f4ecd8;
+    color: #2a2722;
+    background-image:
+      radial-gradient(ellipse 60% 40% at 90% 10%, rgba(216,160,57,.15), transparent 60%),
+      radial-gradient(ellipse 55% 40% at 8% 90%, rgba(91,58,138,.10), transparent 60%);
+  }
+  .preview-h .strip-mini {
+    background: linear-gradient(90deg, #d8a039, #f0d59a, #d8a039);
+    color: #2a1d08;
+    padding: 5px 12px;
+    font-family: "Heebo", sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 3px;
+    margin-bottom: 14px;
+    display: inline-block;
+  }
+  .preview-h .ornament-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .preview-h .rule {
+    width: 38px; height: 1px;
+    background: linear-gradient(90deg, transparent, #d8a039 50%, transparent);
+  }
+  .preview-h .diamond {
+    width: 5px; height: 5px;
+    background: #d8a039;
+    transform: rotate(45deg);
+  }
+  .preview-h .logo-h {
+    font-family: "Frank Ruhl Libre", serif;
+    font-weight: 900;
+    font-size: clamp(36px, 6vw, 56px);
+    color: #5b3a8a;
+    letter-spacing: -.025em;
+    line-height: 1;
+  }
+  .preview-h .sub-h {
+    font-family: "Heebo", sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    color: #8b1f1f;
+  }
+
+  .preview-i {
+    color: #2a2722;
+    background:
+      radial-gradient(ellipse 60% 50% at 95% 15%, rgba(91,58,138,.18), transparent 65%),
+      radial-gradient(ellipse 50% 40% at 5% 85%, rgba(216,160,57,.22), transparent 65%),
+      linear-gradient(180deg, rgba(244,236,216,.6), rgba(244,236,216,.85)),
+      url("photos/hills.jpg") center/cover no-repeat;
+    position: relative;
+  }
+  .preview-i .strip-mini {
+    background: linear-gradient(90deg, #d8a039, #f0d59a, #d8a039);
+    color: #2a1d08;
+    padding: 5px 12px;
+    font-family: "Heebo", sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 3px;
+    margin-bottom: 12px;
+    display: inline-block;
+  }
+  .preview-i .label-i {
+    font-family: "Frank Ruhl Libre", serif;
+    font-weight: 900;
+    font-size: clamp(38px, 7vw, 60px);
+    color: #5b3a8a;
+    letter-spacing: -.022em;
+    line-height: 1;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 2px 12px rgba(244,236,216,.7));
+  }
+  .preview-i .sub-i {
+    font-family: "Heebo", sans-serif;
+    font-weight: 600;
+    font-size: 11.5px;
+    color: #6f675b;
+  }
+
+  /* ─── Existing directions ─── */
   .preview-a {
     background: #f4ecd8;
     background-image:
@@ -243,26 +373,113 @@
     כל מוקאפ מציג את אותו תוכן (מסך הבית — Splash + Cover של פרשת אמור) בשפה עיצובית שונה.
     כולם מתאימים לאופי הקליגרפי של הלוגו, מרוסנים יותר מהעיצוב הנוכחי,
     ושומרים על חום ישראלי שמח — אבל בדרכים שונות.
-    <strong>E</strong> הוא הכיוון ההיברידי החדש לפי הבקשה — מציג את כל התוכן והכפתורים של האתר 1:1.
+    <br><br>
+    <strong>סיבוב חדש (G/H/I)</strong> אחרי ביקורת עיצובית:
+    מבוסס על שפת העלון המודפס — תצלום־טבע ישראלי + לוגו קליגרפי סגול + תת־כותרת אדומה
+    + רצועת חרדל עליונה + פרגמנט קרם חם. <strong>זהות קבועה</strong> בכל גליון
+    (לא משתנה לפי פלטה דינמית), המהדהדת חוויה של מוצר־מודפס.
   </p>
 </header>
 
 <div class="grid-featured">
-  <a class="card featured" href="f-shemesh.html">
-    <div class="card-preview preview-f">
+  <a class="card featured" href="g-shdot.html">
+    <div class="card-preview preview-g">
       <div>
-        <div class="label">כן, גם אתה<br>יכול <span class="accent">להבין</span>.</div>
-        <div class="sub">שמש · v2 משופר</div>
+        <div class="strip-mini">בס״ד · יום שישי · פרשת אמור · גליון 50</div>
+        <div class="label-g">משמעות</div>
+        <div class="sub-g">רעיונות לפרשת השבוע · יצחק גינזבורג שליט״א</div>
       </div>
     </div>
     <div class="card-body">
-      <span class="featured-tag">הכיוון העדכני</span>
+      <span class="featured-tag">הכיוון המומלץ</span>
+      <div class="card-eyebrow">G · שדות</div>
+      <div class="card-title">תצלום־טבע masthead — נאמן לעלון</div>
+      <p class="card-desc">
+        תרגום ישיר של עמוד 1 בעלון: רצועת חרדל עליונה + תצלום־טבע מלא־רוחב +
+        לוגו קליגרפי סגול בתוך התמונה + תת־כותרת אדומה. הזהות קבועה בכל גליון;
+        ה־splash מתקצר ל־hook + scroll cue. הקוראים החוזרים מקבלים מיד את העלון.
+      </p>
+      <div class="card-tags">
+        <span>פרגמנט קרם · סגול קליגרפי · אדום · חרדל</span>
+        <span>Frank Ruhl Libre + Heebo</span>
+        <span>תצלום + Photo masthead</span>
+      </div>
+      <div class="card-cta">צפה במוקאפ</div>
+    </div>
+  </a>
+</div>
+
+<div class="grid">
+
+  <a class="card" href="h-rezua.html">
+    <div class="card-preview preview-h">
+      <div>
+        <div class="strip-mini">בס״ד · יום שישי · פרשת אמור</div>
+        <div class="ornament-row">
+          <span class="rule"></span>
+          <span class="diamond"></span>
+          <span class="logo-h">משמעות</span>
+          <span class="diamond"></span>
+          <span class="rule"></span>
+        </div>
+        <div class="sub-h">יצחק גינזבורג שליט״א</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-eyebrow">H · רצועה</div>
+      <div class="card-title">Editorial Strip — בלי תצלום</div>
+      <p class="card-desc">
+        טהור־טיפוגרפיה: רצועת חרדל עליונה + לוגו סגול במרכז עם קווי קישוט עדינים +
+        תת־כותרת אדומה. ה־cover עולה מיד למסך הראשי, בלי splash חוסם.
+        ה־hook משולב ב־cover. Quote בקופסה עם פס אדום בצד.
+      </p>
+      <div class="card-tags">
+        <span>פרגמנט · סגול · אדום · חרדל</span>
+        <span>Editorial typographic</span>
+        <span>בלי תצלום · בלי splash מלא</span>
+      </div>
+      <div class="card-cta">צפה במוקאפ</div>
+    </div>
+  </a>
+
+  <a class="card" href="i-akvarel.html">
+    <div class="card-preview preview-i">
+      <div>
+        <div class="strip-mini">בס״ד · יום שישי · פרשת אמור</div>
+        <div class="label-i">משמעות</div>
+        <div class="sub-i">תצלום מטושטש כרקע אווירה</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-eyebrow">I · אקווארל</div>
+      <div class="card-title">תצלום במשטח רך — אווירי</div>
+      <p class="card-desc">
+        תצלום־טבע מטושטש (28px blur) כרקע אמביינטי + שכבת cream wash שמרככת אותו +
+        כתמי דיו דקורטיביים בסגול וחרדל. הלוגו והכל ה־hero על המשטח הרך הזה.
+        פחות דרמטי מ־G, הרבה יותר אטמוספרי.
+      </p>
+      <div class="card-tags">
+        <span>פרגמנט · סגול · אדום · רחיצות</span>
+        <span>Frank Ruhl Libre + Heebo</span>
+        <span>תצלום מטושטש · Wash אקווארל</span>
+      </div>
+      <div class="card-cta">צפה במוקאפ</div>
+    </div>
+  </a>
+
+  <a class="card" href="f-shemesh.html">
+    <div class="card-preview preview-f">
+      <div>
+        <div class="label">כן, גם אתה<br>יכול <span class="accent">להבין</span>.</div>
+        <div class="sub">שמש · v2 (קודם)</div>
+      </div>
+    </div>
+    <div class="card-body">
       <div class="card-eyebrow">F · שמש</div>
       <div class="card-title">פתיחה מפוצלת עם חמימות אופטימית</div>
       <p class="card-desc">
-        Layout מפוצל מ-B (לוגו מימין, כותרת משמאל) עם שמש קטנה ועיטור chip של פרשת השבוע.
-        רחיצות אקווארל מובהקות יותר. Assistant בלבד עם ניגוד משקלים — נקי, מודרני,
-        משאיר את הקליגרפיה ללוגו. צבעים חמים יותר ואופטימיים. כל התוכן 1:1 מהאתר.
+        הסיבוב הקודם — Layout מפוצל (לוגו מימין, כותרת משמאל) עם שמש קטנה.
+        רחיצות אקווארל, Assistant בלבד עם ניגוד משקלים. צבעים חמים אופטימיים.
       </p>
       <div class="card-tags">
         <span>קרם חם · כתום שקיעה · טורקיז · דבש</span>
@@ -272,9 +489,6 @@
       <div class="card-cta">צפה במוקאפ</div>
     </div>
   </a>
-</div>
-
-<div class="grid">
 
   <a class="card" href="a-pergament.html">
     <div class="card-preview preview-a">

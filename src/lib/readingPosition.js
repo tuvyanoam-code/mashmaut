@@ -84,6 +84,9 @@ export function markVisited(meta) {
   if (!meta || !meta.yearId || !meta.slug) return;
   const all = read();
   const k = key(meta.yearId, meta.slug);
+  // If this bulletin was already finished, don't resurrect its lastVisitedKey
+  // — the home pill is for unfinished reads only.
+  if (all._finished && all._finished[k]) return;
   const existing = all[k];
   const now = new Date().toISOString();
   if (existing) {
@@ -112,6 +115,9 @@ export function getLastVisited() {
   const all = read();
   const k = all._lastVisitedKey;
   if (!k) return null;
+  // Belt-and-suspenders: never surface a finished bulletin here, even if
+  // legacy localStorage has _lastVisitedKey pointing at one.
+  if (all._finished && all._finished[k]) return null;
   const entry = all[k];
   if (!entry || !fresh(entry)) return null;
   return entry;

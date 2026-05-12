@@ -1,7 +1,7 @@
 /* ===== Splash — full-viewport landing for newcomers ===== */
 .splash {
   position: relative;
-  min-height: calc(100svh - 70px);
+  min-height: 100svh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,7 +165,10 @@
   text-align: center;
   padding: clamp(32px, 6vw, 56px) var(--page-x) clamp(40px, 8vw, 72px);
   background: var(--bg);
-  scroll-margin-top: 80px;
+  /* Match the fixed nav height (70px) — scrolling-to-cover positions it
+     just below the nav, with the last sliver of splash sitting behind the
+     nav's blur (invisible to the reader). */
+  scroll-margin-top: 70px;
 }
 
 /* "העלון האחרון" / "פרשת אמור" — two stacked lines, the publication's changing head. */
@@ -241,20 +244,28 @@
   gap: 12px 16px;
   margin-bottom: clamp(20px, 4vw, 28px);
 }
+/* Primary hero CTA — filled in the bulletin color but quiet about it: a
+   modest shadow, smaller padding, and a soft hover lift. No heavy drop. */
 .cover-cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 48px;
-  padding: 0 28px;
-  font-size: 1rem;
+  min-height: 44px;
+  padding: 0 26px;
+  font-size: .96rem;
+  font-weight: 600;
   background: var(--bulletin-primary);
-  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--bulletin-primary) 50%, transparent);
+  border: 1px solid var(--bulletin-primary);
+  box-shadow: 0 2px 8px -3px color-mix(in srgb, var(--bulletin-primary) 30%, transparent);
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
 }
 .cover-cta:hover {
-  box-shadow: 0 12px 30px -8px color-mix(in srgb, var(--bulletin-primary) 60%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--bulletin-primary) 45%, transparent);
 }
+/* Secondary text-style action. The "underline on hover" comes back as a
+   border-bottom so it doesn't disturb baseline rhythm. */
 .btn-text {
   display: inline-flex;
   align-items: center;
@@ -265,16 +276,19 @@
   text-decoration: none;
   font: inherit;
   font-size: .95rem;
+  font-weight: 500;
   padding: 8px 6px;
   cursor: pointer;
   border-bottom: 1px solid transparent;
   transition: color var(--transition), border-color var(--transition);
 }
+.btn-text svg { opacity: .75; transition: opacity .15s; }
 .btn-text:hover { color: var(--bulletin-primary); border-color: currentColor; opacity: 1; }
+.btn-text:hover svg { opacity: 1; }
 /* Match the primary CTA height so the row is visually balanced. */
 .cover-pdf {
-  min-height: 48px;
-  padding: 0 18px;
+  min-height: 44px;
+  padding: 0 12px;
   font-size: .95rem;
 }
 
@@ -654,7 +668,9 @@
 
 /* ===== Resume reading affordances ===== */
 
-/* Floating banner on the bulletin page itself: "you stopped at 42%, continue?" */
+/* Floating banner on the bulletin page itself: "you stopped at 42%, continue?".
+   Intentionally quiet — neutral border, soft shadow, modest weights — so it
+   asks rather than demands. */
 .resume-banner {
   position: fixed;
   z-index: 70;
@@ -663,38 +679,43 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 14px 18px;
+  gap: 10px 14px;
+  padding: 12px 16px;
   background: var(--bg-elevated);
-  border: 1px solid color-mix(in srgb, var(--bulletin-primary) 25%, var(--border));
-  border-radius: 16px;
-  box-shadow: 0 14px 40px -12px color-mix(in srgb, var(--bulletin-primary) 35%, rgba(20,20,20,.18));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px -10px rgba(20,20,20,.12);
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(16px);
   transition: opacity .25s ease, transform .25s ease;
   max-width: 720px;
   margin: 0 auto;
 }
 .resume-banner.visible { opacity: 1; transform: translateY(0); }
-.resume-banner-text { flex: 1; min-width: 200px; line-height: 1.5; font-size: .95rem; }
-.resume-banner-text b { display: block; }
-.resume-banner-actions { display: inline-flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.resume-banner .btn { padding: 10px 20px; }
-.resume-banner-close {
-  position: absolute;
-  top: 6px;
-  inset-inline-start: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
+.resume-banner-text {
+  flex: 1;
+  min-width: 180px;
+  line-height: 1.5;
+  font-size: .9rem;
   color: var(--text-muted);
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
 }
-.resume-banner-close:hover { background: var(--accent-soft); color: var(--text); }
+.resume-banner-text b {
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+  font-size: .94rem;
+  margin-bottom: 1px;
+}
+.resume-banner-actions { display: inline-flex; gap: 4px 10px; align-items: center; flex-wrap: wrap; }
+.resume-banner .btn {
+  padding: 8px 18px;
+  font-size: .9rem;
+  min-height: 36px;
+}
+.resume-banner .btn-text {
+  font-size: .88rem;
+  color: var(--text-muted);
+}
 @media (min-width: 720px) {
   .resume-banner {
     inset-inline-end: 24px;
@@ -705,13 +726,17 @@
   }
 }
 
-/* Slim pill above the home splash: "continue פרשת אמור" */
+/* Slim pill floating over the home splash: "continue פרשת אמור".
+   Fixed positioning so its appearance/disappearance never shifts the page. */
 .resume-pill {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 12px auto 0;
-  width: fit-content;
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
   max-width: calc(100% - 32px);
   padding: 8px 16px;
   background: var(--bg-elevated);
@@ -721,17 +746,17 @@
   font-size: .9rem;
   text-decoration: none;
   box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--bulletin-primary) 35%, transparent);
-  transition: transform var(--transition), box-shadow var(--transition);
+  transition: transform var(--transition), box-shadow var(--transition), opacity .3s ease;
+  z-index: 40;
 }
 .resume-pill:hover {
-  transform: translateY(-1px);
+  transform: translateX(-50%) translateY(-1px);
   box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--bulletin-primary) 45%, transparent);
   opacity: 1;
 }
 .resume-pill--fading {
   opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity .3s ease, transform .3s ease;
+  transform: translateX(-50%) translateY(-4px);
   pointer-events: none;
 }
 .resume-pill svg { color: var(--bulletin-primary); flex-shrink: 0; }
@@ -896,7 +921,10 @@
     color-mix(in srgb, var(--bulletin-primary) 10%, var(--bg)) 0%,
     var(--bg) 22%);
   min-height: calc(100vh - 70px);
-  overflow: hidden;
+  /* `overflow: clip` clips the decorative ::before blob without creating a
+     scroll-container, which would otherwise break `position: sticky` on the
+     nav. (overflow: hidden makes the element a scroll-container.) */
+  overflow: clip;
 }
 .bulletin-page::before {
   content: "";
@@ -916,76 +944,65 @@
   text-align: right;
   z-index: 1;
 }
+/* Quiet eyebrow — plain muted text, no chip, no dot decoration. */
 .bulletin-header-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
   font-family: var(--font-display);
   font-size: .82rem;
-  font-weight: 600;
-  color: var(--bulletin-primary);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  padding: 6px 14px;
-  border-radius: 999px;
-  margin-bottom: 18px;
-  box-shadow: 0 4px 12px rgba(20,20,20,.04);
-}
-.bulletin-header-eyebrow::before {
-  content: "";
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--bulletin-primary);
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+  margin-bottom: 14px;
 }
 .bulletin-header h1 {
   font-size: clamp(2.4rem, 6vw, 4rem);
-  margin-bottom: 12px;
-  line-height: 1.05;
+  margin-bottom: 14px;
+  line-height: 1.1;
   letter-spacing: -.03em;
+  color: var(--text);
 }
 .bulletin-header h1 .parsha-word {
-  color: var(--bulletin-primary);
-  position: relative;
-  display: inline-block;
+  color: var(--text);
+  display: inline;
 }
-.bulletin-header h1 .parsha-word::after {
-  content: "";
-  position: absolute;
-  bottom: 4px;
-  right: 0;
-  width: 100%;
-  height: 5px;
-  background: color-mix(in srgb, var(--joy-yellow) 45%, transparent);
-  z-index: -1;
-  border-radius: 3px;
-}
+/* Inline meta row — date · issue · reading time · likes. All muted text-only. */
 .bulletin-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
   color: var(--text-muted);
-  font-size: 1rem;
-  margin-bottom: 28px;
-  font-weight: 500;
+  font-size: .92rem;
+  font-weight: 400;
+  margin: 0 0 18px;
 }
-/* Likes bubble in the bulletin header. Subtle pill, per-bulletin color. */
+.bulletin-header-meta .meta-dot {
+  color: var(--border);
+  margin: 0 2px;
+}
+/* Likes inline — small heart + count, no pill, no border. */
 .likes-bubble {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  margin-top: 14px;
-  background: color-mix(in srgb, var(--bulletin-primary) 8%, var(--bg-elevated));
-  border: 1px solid color-mix(in srgb, var(--bulletin-primary) 22%, var(--border));
-  border-radius: 999px;
-  font-size: .9rem;
-  color: var(--text);
+  gap: 4px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-size: .92rem;
+  color: var(--text-muted);
+  font-weight: 400;
 }
 .likes-bubble-icon {
   display: inline-flex;
   color: var(--text-muted);
+  opacity: .7;
 }
+.likes-bubble b,
 .likes-bubble-text b {
-  color: var(--bulletin-primary);
-  font-weight: 700;
-  font-family: var(--font-display);
+  color: var(--text);
+  font-weight: 600;
+  font-family: inherit;
 }
 
 /* End-of-article block: like button + share-with-a-friend CTA. */
@@ -1055,6 +1072,7 @@
   font-size: clamp(.95rem, 2vw, 1.05rem);
 }
 
+/* Teaser — restored: right-side colored border + bulletin-primary emphasis. */
 .bulletin-teaser {
   margin: 4px 0 22px;
   padding: 10px 14px 10px 0;
@@ -1066,13 +1084,86 @@
 }
 .bulletin-teaser strong, .bulletin-teaser b { color: var(--bulletin-primary); }
 .bulletin-teaser em, .bulletin-teaser i { font-style: normal; font-weight: 600; color: var(--bulletin-primary); }
+/* Action row — Medium-style split: meta on right, PDF action on left,
+   framed by hairlines top + bottom. */
 .bulletin-actions-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  justify-content: flex-start;
-  margin-bottom: 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 24px;
+  margin: 0 0 4px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
+.bulletin-actions-bar .bh-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  color: var(--text-muted);
+  font-size: .92rem;
+  font-weight: 400;
+}
+.bulletin-actions-bar .bh-meta .meta-dot {
+  color: var(--border);
+  margin: 0 2px;
+}
+.bh-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 0;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-family: var(--font-body);
+  font-size: .92rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color .15s;
+}
+.bh-action:hover { color: var(--text); opacity: 1; }
+.bh-action svg { stroke-width: 1.5; flex-shrink: 0; }
+/* Discussions jump-link — sits inside the meta row, left of the heart in
+   RTL flow. Looks like a meta item (muted text + tiny icon), but interactive. */
+.bh-discuss {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: .92rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color .15s;
+}
+.bh-discuss:hover { color: var(--text); opacity: 1; }
+.bh-discuss svg { opacity: .75; flex-shrink: 0; }
+.bh-discuss b { color: var(--text); font-weight: 600; font-family: inherit; margin-right: 2px; }
+.bh-discuss b:empty { display: none; }
+
+/* PDF badge — tiny bordered wordmark replacing the document icon. */
+.bh-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  padding: 1px 6px 2px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  line-height: 1.2;
+  opacity: .75;
+  transition: opacity .15s;
+}
+.bh-action:hover .bh-badge { opacity: 1; }
 
 .bulletin-body {
   max-width: var(--maxw-content);
@@ -1244,22 +1335,22 @@
 .bulletin-toc-mobile .toc-h2 { padding-right: 22px; }
 .bulletin-toc-mobile .toc-h3 { padding-right: 32px; font-size: .88rem; }
 
-/* Reading time pill */
+/* Reading time — inline text with tiny icon, no pill. */
 .reading-time {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-family: var(--font-display);
-  font-size: .85rem;
-  font-weight: 500;
+  gap: 5px;
+  font-family: inherit;
+  font-size: .92rem;
+  font-weight: 400;
   color: var(--text-muted);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  padding: 6px 12px;
-  border-radius: 999px;
-  margin-right: 8px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  margin: 0;
 }
-.reading-time svg { color: var(--bulletin-primary); }
+.reading-time svg { color: var(--text-muted); opacity: .7; }
 
 /* ===== Share buttons ===== */
 /* Each button is its own circle with a soft beige border and a forest-green
@@ -1479,19 +1570,8 @@
   gap: 6px;
   color: var(--text);
   text-align: center;
-  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+  transition: transform var(--transition), border-color var(--transition), background var(--transition);
   overflow: hidden;
-}
-.year-tile::before {
-  content: "";
-  position: absolute;
-  top: -40px;
-  inset-inline-end: -40px;
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%);
-  pointer-events: none;
 }
 .year-tile-name {
   font-family: var(--font-heading);
@@ -1499,24 +1579,37 @@
   font-weight: 800;
   letter-spacing: -.02em;
   line-height: 1.05;
-  position: relative;
-  z-index: 1;
+  color: var(--text);
+  transition: color var(--transition);
 }
 .year-tile-count {
   color: var(--text-muted);
   font-size: clamp(.78rem, 1.5vw, .9rem);
   font-family: var(--font-display);
   letter-spacing: .04em;
-  position: relative;
-  z-index: 1;
+}
+/* Hover: the year-name shifts to the accent tone and a hairline accent
+   slides along the bottom — quiet, just enough to signal "alive". */
+.year-tile::after {
+  content: "";
+  position: absolute;
+  inset-inline: 22%;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform var(--transition);
 }
 .year-tile:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
   border-color: color-mix(in srgb, var(--accent) 25%, var(--border));
+  background: color-mix(in srgb, var(--accent) 3%, var(--bg-elevated));
   opacity: 1;
 }
-.year-tile:hover::before { background: radial-gradient(circle, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%); }
+.year-tile:hover .year-tile-name { color: var(--accent); }
+.year-tile:hover::after { transform: scaleX(1); }
 
 /* ===== Modal ===== */
 .modal-overlay {
@@ -2163,17 +2256,18 @@ button.discuss-msg-replyto:hover {
   gap: 10px;
   position: relative;
 }
-/* The textarea looks like a flat handwriting line — no chrome at all. */
+/* The textarea looks like a flat handwriting line — a thin baseline under
+ * the typed text. `margin-inline-end` pulls the textarea away from the send
+ * button so the line clearly ends before the button, not running into it. */
 .discuss-composer-form textarea {
   flex: 1;
   background: transparent;
-  /* Border-bottom on the textarea itself = a clean baseline directly under
-   * the typed line, with no risk of overlapping the placeholder/text. */
   border: 0;
-  border-bottom: 1.5px solid var(--d-edge);
+  border-bottom: 1px solid var(--d-edge);
   outline: 0;
   resize: none;
   padding: 8px 4px 10px;
+  margin-inline-end: 8px;
   font: inherit;
   font-size: 1rem;
   line-height: 1.6;
@@ -2182,10 +2276,6 @@ button.discuss-msg-replyto:hover {
   max-height: 280px;
   min-height: 36px;
   box-sizing: border-box;
-  transition: border-color .25s ease;
-}
-.discuss-composer-form textarea:focus {
-  border-bottom-color: var(--d-apricot);
 }
 .discuss-composer-form textarea::placeholder {
   color: var(--d-ink-soft);

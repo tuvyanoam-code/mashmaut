@@ -87,6 +87,25 @@ export async function renderHome() {
 
   bindNav();
 
+  // Mark the body as "home" — drops body padding-top so the splash is
+  // full-bleed (the fixed nav floats above without reserving flow space).
+  document.body.classList.add('is-home');
+
+  // Hide the nav while the visitor is on the splash; reveal it once they've
+  // scrolled past ~40vh so it's available for navigation deeper into the page.
+  // The listener is cleaned up when the router navigates away.
+  const navEl = document.querySelector('.nav');
+  let onScroll = null;
+  if (navEl) {
+    navEl.classList.add('nav--hidden');
+    const showThreshold = () => Math.max(280, window.innerHeight * 0.4);
+    onScroll = () => {
+      if (window.scrollY > showThreshold()) navEl.classList.remove('nav--hidden');
+      else navEl.classList.add('nav--hidden');
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
+
   // SEO: the home page title is intentionally evergreen — it does NOT
   // reference the current parsha. Otherwise Google indexes the homepage as if
   // it were a single-parsha page, and searches for other parshiot don't lead
@@ -100,27 +119,30 @@ export async function renderHome() {
   setPageSeo({ title: homeTitle, description: homeDesc, path: '/' });
 
   track('view', { slug: 'home' });
+
+  // Cleanup: when the router navigates away, remove the scroll listener,
+  // restore the nav, and drop the body's home flag so padding-top kicks in.
+  return () => {
+    if (onScroll) window.removeEventListener('scroll', onScroll);
+    if (navEl) navEl.classList.remove('nav--hidden');
+    document.body.classList.remove('is-home');
+  };
 }
 
 function renderResumePill(r) {
+  // The home pill never shows reading progress — that belongs inside the
+  // bulletin (the resume banner offers the exact-spot jump there). Here the
+  // pill is a simple "back to where you were" affordance. It only appears at
+  // all when the bulletin is unfinished (`markFinished` clears the
+  // last-visited key, so getLastVisited() already returns null in that case).
   const url = `/y/${r.yearId}/${r.slug}`;
-  const hasPosition = Number.isFinite(r.pct) && r.pct >= 0.08;
-  const lead = hasPosition
-    ? '<span class="muted">המשך מאיפה שעצרת —</span>'
-    : '<span class="muted">חזרה ל-</span>';
-  const pctTag = hasPosition
-    ? `<span class="resume-pill-pct">${Math.round(r.pct * 100)}%</span>`
-    : '';
-  const aria = hasPosition
-    ? `המשך לקרוא את פרשת ${r.parshaName}`
-    : `חזרה לפרשת ${r.parshaName}`;
+  const aria = `חזרה לפרשת ${r.parshaName}`;
   return `
     <a class="resume-pill" href="${url}" aria-label="${aria}">
       ${icon('book', { size: 16 })}
       <span class="resume-pill-text">
-        ${lead}
+        <span class="muted">חזרה ל-</span>
         <b>פרשת ${r.parshaName}</b>
-        ${pctTag}
       </span>
       ${icon('arrowLeft', { size: 14 })}
     </a>
@@ -184,7 +206,7 @@ function renderCover(week, config) {
 
       <div class="cover-actions">
         <a class="btn cover-cta" href="${url}">${icon('book', { size: 18 })} <span>קרא את העלון</span></a>
-        <a class="btn-text cover-pdf" href="${pdfPath}">${icon('pdf', { size: 16 })} <span>פתח כ-PDF</span></a>
+        <a class="btn-text cover-pdf" href="${pdfPath}">${icon('fileBlank', { size: 16 })} <span>פתח PDF</span></a>
       </div>
 
       <div class="cover-share">

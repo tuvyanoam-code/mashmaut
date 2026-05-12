@@ -30,7 +30,7 @@ async function renderTopLevel() {
     </header>
     <div class="admin-discuss-tabs" role="tablist">
       <button type="button" class="admin-discuss-tab ${_view === 'threads' ? 'active' : ''}" role="tab" data-view="threads">
-        ${icon('chatSquare', { size: 16 })}
+        ${icon('dialog', { size: 16 })}
         <span>שיחות</span>
       </button>
       <button type="button" class="admin-discuss-tab ${_view === 'users' ? 'active' : ''}" role="tab" data-view="users">

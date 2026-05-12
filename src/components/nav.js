@@ -76,7 +76,7 @@ function conversationsLinkHtml() {
   const last = getLatestFollow();
   if (!last) return '';
   const href = `/y/${encodeURIComponent(last.year)}/${encodeURIComponent(last.slug)}/discuss/${encodeURIComponent(last.threadId)}`;
-  return `<a href="${href}" class="nav-conversations-link">${icon('chatSquare', { size: 18 })} <span>שיחות</span></a>`;
+  return `<a href="${href}" class="nav-conversations-link">${icon('dialog', { size: 18 })} <span>שיחות</span></a>`;
 }
 
 export function footerHtml(config) {

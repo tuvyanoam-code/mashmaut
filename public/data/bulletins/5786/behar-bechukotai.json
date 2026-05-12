@@ -47,11 +47,12 @@
   },
   "styleOverrides": {
     "h1": {
+      "font": "Rubik",
       "size": "15",
       "color": "#5c0700"
     },
     "h2": {
-      "font": "Assistant",
+      "font": "Rubik",
       "color": "#7a4a00"
     }
   },

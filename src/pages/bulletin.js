@@ -390,16 +390,23 @@ function bindTocAndScrollSpy(root, headings) {
   const links = root.querySelectorAll('.toc-link');
   if (!links.length) return;
   // Smooth-scroll on click. Also close the mobile dropdown if open.
+  // Order matters: close the <details> FIRST so its open panel doesn't
+  // distort the document length, then measure and scroll on the next
+  // frame. Otherwise the dropdown's open height shifts every heading
+  // below it down by ~200–300px; we scroll to the pre-close position
+  // and land past the target heading.
   links.forEach((a) => {
     a.addEventListener('click', (e) => {
       const id = a.dataset.target;
       const target = document.getElementById(id);
       if (!target) return;
       e.preventDefault();
-      const top = target.getBoundingClientRect().top + window.scrollY - 90;
-      window.scrollTo({ top, behavior: 'smooth' });
       const details = a.closest('.bulletin-toc-mobile details');
       if (details) details.open = false;
+      requestAnimationFrame(() => {
+        const top = target.getBoundingClientRect().top + window.scrollY - 90;
+        window.scrollTo({ top, behavior: 'smooth' });
+      });
     });
   });
   // Highlight currently-visible heading using IntersectionObserver

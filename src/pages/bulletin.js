@@ -62,8 +62,8 @@ export async function renderBulletin({ params }) {
         <div class="bulletin-actions-bar">
           <div class="bh-meta">
             ${week.dateLabel ? `<span>${week.dateLabel}</span>` : ''}
-            ${week.issueNumber ? `<span class="meta-dot" aria-hidden="true">·</span><span>גליון ${week.issueNumber}</span>` : ''}
-            ${readMinutes ? `<span class="meta-dot" aria-hidden="true">·</span><span class="reading-time">${icon('eye', { size: 13 })} ${readMinutes} דק׳ קריאה</span>` : ''}
+            ${week.issueNumber ? `<span class="meta-dot" aria-hidden="true">·</span><span><span class="meta-md">גליון </span><span class="meta-sm">#</span>${week.issueNumber}</span>` : ''}
+            ${readMinutes ? `<span class="meta-dot" aria-hidden="true">·</span><span class="reading-time">${icon('eye', { size: 13 })} ${readMinutes} דק׳<span class="meta-lg"> קריאה</span></span>` : ''}
             <span class="meta-dot meta-likes-dot" aria-hidden="true" data-likes-dot hidden>·</span>
             <span class="likes-bubble" data-likes-bubble hidden>
               <span class="likes-bubble-icon" aria-hidden="true">${icon('heartFilled', { size: 13 })}</span>
@@ -73,12 +73,12 @@ export async function renderBulletin({ params }) {
               <span class="meta-dot meta-discuss-dot" aria-hidden="true" data-discuss-dot hidden>·</span>
               <a class="bh-discuss" href="#threadList" data-discuss-jump hidden>
                 ${icon('dialog', { size: 14 })}
-                <span>שיחות</span>
+                <span class="meta-md">שיחות</span>
                 <b data-discuss-count></b>
               </a>
             `}
           </div>
-          <a class="bh-action bh-action--pdf" href="${pdfHref}" aria-label="פתח כ-PDF">${icon('fileBlank', { size: 16 })} <span>PDF</span></a>
+          <a class="bh-action bh-action--pdf" href="${pdfHref}" aria-label="פתח כ-PDF">${icon('fileBlank', { size: 16 })} <span class="meta-sm-up">PDF</span></a>
         </div>
       </header>
 

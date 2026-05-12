@@ -48,11 +48,12 @@
   "styleOverrides": {
     "h1": {
       "font": "Rubik",
-      "size": "15",
+      "size": "16",
       "color": "#5c0700"
     },
     "h2": {
       "font": "Rubik",
+      "size": "13",
       "color": "#7a4a00"
     }
   },

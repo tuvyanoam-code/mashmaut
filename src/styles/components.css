@@ -1085,30 +1085,51 @@
 .bulletin-teaser strong, .bulletin-teaser b { color: var(--bulletin-primary); }
 .bulletin-teaser em, .bulletin-teaser i { font-style: normal; font-weight: 600; color: var(--bulletin-primary); }
 /* Action row — Medium-style split: meta on right, PDF action on left,
-   framed by hairlines top + bottom. */
+   framed by hairlines top + bottom. Tries hard to stay one line — progressive
+   labels (.meta-md / .meta-lg / .meta-sm / .meta-sm-up) collapse as the
+   viewport narrows. If after all that meta + PDF still don't fit with enough
+   breathing room (the column-gap acts as the minimum spacing — when the
+   space-between gap would be smaller than this, PDF wraps to its own line).
+   `margin-inline-start: auto` on PDF keeps it end-aligned even when wrapped. */
 .bulletin-actions-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 10px 24px;
   margin: 0 0 4px;
   padding: 12px 0;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
+.bulletin-actions-bar .bh-action--pdf { margin-inline-start: auto; }
 .bulletin-actions-bar .bh-meta {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px 8px;
+  min-width: 0;
   color: var(--text-muted);
   font-size: .92rem;
   font-weight: 400;
+  white-space: nowrap;
 }
 .bulletin-actions-bar .bh-meta .meta-dot {
   color: var(--border);
   margin: 0 2px;
+}
+
+/* Progressive labels — defaults (widest screens): show meta-md, meta-lg,
+   meta-sm-up; hide meta-sm. Narrower viewports flip these. */
+.bulletin-actions-bar .meta-sm { display: none; }
+@media (max-width: 720px) {
+  .bulletin-actions-bar .meta-lg { display: none; }   /* drop " קריאה" */
+}
+@media (max-width: 560px) {
+  .bulletin-actions-bar .meta-md { display: none; }   /* drop "גליון " and "שיחות" word */
+  .bulletin-actions-bar .meta-sm { display: inline; } /* show "#" instead */
+}
+@media (max-width: 400px) {
+  .bulletin-actions-bar .meta-sm-up { display: none; } /* drop "PDF" text — icon stays */
 }
 .bh-action {
   display: inline-flex;

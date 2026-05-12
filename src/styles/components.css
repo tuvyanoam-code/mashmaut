@@ -1280,90 +1280,110 @@
   .bulletin-toc { display: none; }
 }
 
-/* Mobile chapters dropdown — replaces the fixed side TOC below 1100px. */
-.bulletin-toc-mobile {
-  position: relative;
-  max-width: var(--maxw-content);
-  margin: 0 auto;
-  padding: 0 var(--page-x);
-  z-index: 5;
-}
-@media (min-width: 1100px) {
-  .bulletin-toc-mobile { display: none; }
-}
-.bulletin-toc-mobile details {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
-.bulletin-toc-mobile summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 12px 16px;
+/* Mobile chapters — Floating Action Button + bottom sheet.
+ * Visually mirrors the reading-progress ring (same size, same surface,
+ * same shadow, same corner), so the two FABs read as a matched pair in
+ * the bottom-right of the viewport. Hidden ≥1100px where the side TOC
+ * sidebar takes over. */
+.bulletin-toc-fab {
+  position: fixed;
+  bottom: calc(76px + var(--safe-bottom, 0px));
+  right: 16px;
+  width: 52px;
+  height: 52px;
+  z-index: 60;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: .95rem;
-  color: var(--text);
-  min-height: 44px;
-}
-.bulletin-toc-mobile summary::-webkit-details-marker { display: none; }
-.bulletin-toc-mobile summary::after {
-  content: "";
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid var(--text-muted);
-  border-bottom: 2px solid var(--text-muted);
-  transform: rotate(45deg);
-  transition: transform var(--transition);
-  margin-bottom: 4px;
-}
-.bulletin-toc-mobile details[open] summary::after { transform: rotate(-135deg); margin-top: 4px; margin-bottom: 0; }
-.bulletin-toc-mobile-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.bulletin-toc-mobile-title::before {
-  content: "";
-  width: 7px; height: 7px;
+  justify-content: center;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   border-radius: 50%;
-  background: var(--bulletin-primary);
+  box-shadow: 0 4px 16px rgba(20,20,20,.10);
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition), transform var(--transition);
 }
-.bulletin-toc-mobile ul {
-  list-style: none;
-  padding: 6px 6px 10px;
-  margin: 0;
-  border-top: 1px solid var(--border);
-  max-height: 50vh;
+.bulletin-toc-fab:hover { color: var(--bulletin-primary); transform: translateY(-1px); }
+.bulletin-toc-fab[aria-expanded="true"] { color: var(--bulletin-primary); }
+.bulletin-toc-fab svg { width: 22px; height: 22px; }
+@media (min-width: 1100px) { .bulletin-toc-fab { display: none; } }
+
+/* Bottom sheet — slides up from the bottom of the viewport. The
+ * overlay swallows taps outside the panel to dismiss the sheet.
+ * Open/close state lives on an `is-open` class on the sheet, not the
+ * `hidden` attribute — toggling `[hidden]` flips display:none and
+ * suppresses the CSS transition from running. JS adds `is-open` after
+ * a frame so the initial translated-down state can paint first. */
+.bulletin-toc-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.bulletin-toc-sheet.is-open { pointer-events: auto; }
+.bulletin-toc-sheet-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(20,20,20,.35);
+  opacity: 0;
+  transition: opacity .22s ease;
+}
+.bulletin-toc-sheet.is-open .bulletin-toc-sheet-overlay { opacity: 1; }
+.bulletin-toc-sheet-panel {
+  position: relative;
+  background: var(--bg-elevated);
+  border-radius: 22px 22px 0 0;
+  padding: 12px 0 calc(24px + var(--safe-bottom, 0px));
+  max-height: 65vh;
   overflow-y: auto;
+  box-shadow: 0 -16px 40px -8px rgba(0,0,0,.2);
+  transform: translateY(100%);
+  transition: transform .28s cubic-bezier(.2,.8,.2,1);
 }
-.bulletin-toc-mobile a {
+.bulletin-toc-sheet.is-open .bulletin-toc-sheet-panel { transform: translateY(0); }
+.bulletin-toc-sheet-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 4px;
+  margin: 0 auto 12px;
+}
+.bulletin-toc-sheet-title {
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: .85rem;
+  letter-spacing: .02em;
+  margin: 0 0 8px;
+}
+.bulletin-toc-sheet ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.bulletin-toc-sheet a {
   display: block;
   color: var(--text);
-  font-size: .92rem;
-  padding: 10px 14px;
-  border-radius: 8px;
-  border-right: 2px solid transparent;
-  line-height: 1.35;
+  font-size: .95rem;
+  padding: 12px 22px;
+  border-inline-end: 3px solid transparent;
+  line-height: 1.4;
 }
-.bulletin-toc-mobile a:hover {
-  background: color-mix(in srgb, var(--bulletin-primary) 8%, transparent);
-  opacity: 1;
-}
-.bulletin-toc-mobile a.active {
+.bulletin-toc-sheet a:hover { background: color-mix(in srgb, var(--bulletin-primary) 6%, transparent); }
+.bulletin-toc-sheet a.active {
   color: var(--bulletin-primary);
-  background: color-mix(in srgb, var(--bulletin-primary) 10%, transparent);
-  border-right-color: var(--bulletin-primary);
+  border-inline-end-color: var(--bulletin-primary);
   font-weight: 600;
+  background: color-mix(in srgb, var(--bulletin-primary) 8%, transparent);
 }
-.bulletin-toc-mobile .toc-h2 { padding-right: 22px; }
-.bulletin-toc-mobile .toc-h3 { padding-right: 32px; font-size: .88rem; }
+.bulletin-toc-sheet .toc-h2 { padding-inline-end: 28px; }
+.bulletin-toc-sheet .toc-h3 { padding-inline-end: 40px; font-size: .9rem; opacity: .9; }
+/* Lock page scroll while the sheet is open (matches native iOS feel). */
+body.toc-sheet-open { overflow: hidden; }
 
 /* Reading time — inline text with tiny icon, no pill. */
 .reading-time {

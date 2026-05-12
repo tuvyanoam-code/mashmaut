@@ -360,10 +360,19 @@ function renderToc(headings) {
 function renderTocMobile(headings) {
   const items = headings.filter((h) => h.level <= 3);
   if (items.length < 2) return '';
+  // Floating action button (FAB) + bottom-sheet. The FAB visually
+  // mirrors the reading-progress ring: same size, same surface, same
+  // corner. Tap opens a sheet from the bottom. Desktop hides this
+  // entirely (≥1100px), where the sidebar TOC takes over.
   return `
-    <nav class="bulletin-toc-mobile" aria-label="תוכן העניינים">
-      <details>
-        <summary><span class="bulletin-toc-mobile-title">פרקים בעלון</span></summary>
+    <button type="button" class="bulletin-toc-fab" data-toc-fab aria-label="פרקים בעלון" aria-expanded="false">
+      ${icon('listUnordered', { size: 22 })}
+    </button>
+    <div class="bulletin-toc-sheet" data-toc-sheet aria-hidden="true">
+      <div class="bulletin-toc-sheet-overlay" data-toc-sheet-close></div>
+      <div class="bulletin-toc-sheet-panel" role="dialog" aria-label="פרקים בעלון">
+        <div class="bulletin-toc-sheet-handle" aria-hidden="true"></div>
+        <div class="bulletin-toc-sheet-title">פרקים בעלון</div>
         <ul>
           ${items.map((h) => `
             <li>
@@ -371,8 +380,8 @@ function renderTocMobile(headings) {
             </li>
           `).join('')}
         </ul>
-      </details>
-    </nav>
+      </div>
+    </div>
   `;
 }
 
@@ -389,20 +398,44 @@ function bindTocAndScrollSpy(root, headings) {
   if (!headings || headings.length < 2) return;
   const links = root.querySelectorAll('.toc-link');
   if (!links.length) return;
-  // Smooth-scroll on click. Also close the mobile dropdown if open.
-  // Order matters: close the <details> FIRST so its open panel doesn't
-  // distort the document length, then measure and scroll on the next
-  // frame. Otherwise the dropdown's open height shifts every heading
-  // below it down by ~200–300px; we scroll to the pre-close position
-  // and land past the target heading.
+  // Mobile FAB + bottom sheet wiring. Tap FAB opens the sheet; tapping
+  // overlay (or a TOC item) closes it. The sheet is `position: fixed`
+  // so opening doesn't shift the document layout — no need to defer the
+  // scroll measurement after close, but we still RAF for consistency.
+  const fab = root.querySelector('[data-toc-fab]');
+  const sheet = root.querySelector('[data-toc-sheet]');
+  const setSheetOpen = (open) => {
+    if (!sheet || !fab) return;
+    fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    sheet.setAttribute('aria-hidden', open ? 'false' : 'true');
+    // Sheet is always in the DOM, always rendered — visibility is purely
+    // a transform + pointer-events story controlled by `.is-open`. This
+    // keeps the slide-up CSS transition reliable across browsers and
+    // tabs (toggling `[hidden]` flips display:none, which would suppress
+    // the transition and require a frame-deferred class flip).
+    sheet.classList.toggle('is-open', open);
+    // Lock page scroll while the sheet is open (matches native sheets).
+    document.body.classList.toggle('toc-sheet-open', open);
+  };
+  if (fab && sheet) {
+    fab.addEventListener('click', () => setSheetOpen(!sheet.classList.contains('is-open')));
+    root.querySelectorAll('[data-toc-sheet-close]').forEach((el) => {
+      el.addEventListener('click', () => setSheetOpen(false));
+    });
+    // Esc closes the sheet
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && sheet.classList.contains('is-open')) setSheetOpen(false);
+    });
+  }
+  // Smooth-scroll on click. Close the sheet first so its overlay doesn't
+  // intercept the scroll, then measure on the next frame.
   links.forEach((a) => {
     a.addEventListener('click', (e) => {
       const id = a.dataset.target;
       const target = document.getElementById(id);
       if (!target) return;
       e.preventDefault();
-      const details = a.closest('.bulletin-toc-mobile details');
-      if (details) details.open = false;
+      setSheetOpen(false);
       requestAnimationFrame(() => {
         const top = target.getBoundingClientRect().top + window.scrollY - 90;
         window.scrollTo({ top, behavior: 'smooth' });

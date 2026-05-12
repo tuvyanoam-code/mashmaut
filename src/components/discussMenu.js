@@ -16,7 +16,7 @@ export function discussMenuHtml({ currentThreadId } = {}) {
     <nav class="discuss-menu" aria-label="התפריט שלי">
       <div class="discuss-menu-tabs" role="tablist">
         <button type="button" class="discuss-menu-tab" data-tab="threads" role="tab" aria-selected="false" aria-expanded="false" aria-controls="discussMenuPanel">
-          ${icon('chatSquare', { size: 16 })}
+          ${icon('dialog', { size: 16 })}
           <span>השיחות שלי</span>
           <span class="discuss-menu-tab-badge" data-threads-badge hidden></span>
         </button>

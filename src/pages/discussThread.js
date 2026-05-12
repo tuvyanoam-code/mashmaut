@@ -77,7 +77,7 @@ export async function renderDiscussThread({ params }) {
               <button type="button" class="discuss-composer-cancel" data-cancel-reply aria-label="בטל">×</button>
             </div>` : ''}
           <form class="discuss-composer-form" id="replyForm">
-            <textarea name="body" maxlength="4000" rows="1" placeholder="${replyTo ? 'תשובה ל-' + escapeAttr(replyTo.author || '') + '…' : 'כתוב הודעה…'}" autofocus></textarea>
+            <textarea name="body" maxlength="4000" rows="1" placeholder="${replyTo ? 'תשובה ל-' + escapeAttr(replyTo.author || '') + '…' : 'כתוב הודעה…'}"></textarea>
             <input type="text" name="honeypot" tabindex="-1" autocomplete="off" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;" aria-hidden="true" />
             <button type="submit" class="discuss-composer-send" aria-label="שלח" disabled>${icon('arrowLeft', { size: 18 })}</button>
           </form>
@@ -94,16 +94,15 @@ export async function renderDiscussThread({ params }) {
     if (!firstPaint && !opts.focusComposer) {
       window.scrollTo({ top: scrollY, behavior: 'instant' });
     }
-    // Composer focus is opt-in. Only on the very first mount or when the
-    // user explicitly clicked "השב" do we focus the textarea.
-    if (firstPaint || opts.focusComposer) {
+    // Composer focus is opt-in. Only when the user explicitly clicks "השב"
+    // do we focus the textarea — opening a thread shouldn't pop the keyboard
+    // on mobile.
+    if (opts.focusComposer) {
       const ta = app.querySelector('#composer textarea');
       if (ta) {
-        ta.focus({ preventScroll: !firstPaint });
+        ta.focus({ preventScroll: true });
         ta.setSelectionRange(ta.value.length, ta.value.length);
-        if (opts.focusComposer) {
-          ta.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }
+        ta.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }
     }
     firstPaint = false;

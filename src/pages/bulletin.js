@@ -56,20 +56,29 @@ export async function renderBulletin({ params }) {
     <div class="bulletin-page fade-in" style="${inlineStyle}" data-week="${week.yearId}-${week.slug}">
       ${nav}
       <header class="bulletin-header">
-        <div class="bulletin-header-eyebrow">פרשת השבוע · ${week.yearDisplay || ''}</div>
+        <div class="bulletin-header-eyebrow">פרשת השבוע${week.yearDisplay ? ' · ' + week.yearDisplay : ''}</div>
         <h1>פרשת <span class="parsha-word">${week.parshaName}</span></h1>
-        <p class="bulletin-header-meta">
-          ${week.dateLabel ? week.dateLabel : ''}${week.issueNumber ? ' · גליון #' + week.issueNumber : ''}
-          ${readMinutes ? `<span class="reading-time">${icon('eye', { size: 14 })} ${readMinutes} דק׳ קריאה</span>` : ''}
-        </p>
         ${week.teaser ? `<p class="bulletin-teaser">${week.teaser}</p>` : ''}
         <div class="bulletin-actions-bar">
-          <a class="btn" href="${pdfHref}">${icon('pdf', { size: 18 })} פתח כ-PDF</a>
-          <a class="btn btn-secondary" href="${pdfUrl(week.yearId, week.slug)}" download>${icon('download', { size: 18 })} הורד PDF</a>
-        </div>
-        <div class="likes-bubble" data-likes-bubble hidden>
-          <span class="likes-bubble-icon" aria-hidden="true">${icon('heartFilled', { size: 16 })}</span>
-          <span class="likes-bubble-text"><b data-likes-count>0</b> אנשים אהבו את המאמר</span>
+          <div class="bh-meta">
+            ${week.dateLabel ? `<span>${week.dateLabel}</span>` : ''}
+            ${week.issueNumber ? `<span class="meta-dot" aria-hidden="true">·</span><span>גליון ${week.issueNumber}</span>` : ''}
+            ${readMinutes ? `<span class="meta-dot" aria-hidden="true">·</span><span class="reading-time">${icon('eye', { size: 13 })} ${readMinutes} דק׳ קריאה</span>` : ''}
+            <span class="meta-dot meta-likes-dot" aria-hidden="true" data-likes-dot hidden>·</span>
+            <span class="likes-bubble" data-likes-bubble hidden>
+              <span class="likes-bubble-icon" aria-hidden="true">${icon('heartFilled', { size: 13 })}</span>
+              <b data-likes-count>0</b>
+            </span>
+            ${config.commentsEnabled === false ? '' : `
+              <span class="meta-dot meta-discuss-dot" aria-hidden="true" data-discuss-dot hidden>·</span>
+              <a class="bh-discuss" href="#threadList" data-discuss-jump hidden>
+                ${icon('dialog', { size: 14 })}
+                <span>שיחות</span>
+                <b data-discuss-count></b>
+              </a>
+            `}
+          </div>
+          <a class="bh-action bh-action--pdf" href="${pdfHref}" aria-label="פתח כ-PDF">${icon('fileBlank', { size: 16 })} <span>PDF</span></a>
         </div>
       </header>
 
@@ -190,12 +199,15 @@ export async function renderBulletin({ params }) {
 
   // Thread list — small, minimalist preview of existing discussions + a
   // "התחל שיחה" link. Full conversation lives on its own page (/discuss/...).
+  // The mount also feeds back the thread count to the action-row "שיחות" item.
   let unmountThreadList = () => {};
   if (config.commentsEnabled !== false) {
+    bindDiscussJump(app);
     const mount = app.querySelector('#threadList');
     if (mount) {
       unmountThreadList = mountThreadList(mount, {
         yearId: week.yearId, slug: week.slug, parshaName: week.parshaName,
+        onCount: (n) => updateDiscussCount(app, n),
       });
     }
   }
@@ -208,6 +220,7 @@ export async function renderBulletin({ params }) {
 
 function bindLikes(app, week) {
   const bubble = app.querySelector('[data-likes-bubble]');
+  const likesDot = app.querySelector('[data-likes-dot]');
   const countTop = app.querySelector('[data-likes-count]');
   const button = app.querySelector('[data-like-btn]');
   const iconHost = app.querySelector('[data-like-icon]');
@@ -221,6 +234,7 @@ function bindLikes(app, week) {
     if (countBottom) countBottom.textContent = count > 0 ? String(count) : '';
     if (countTop) countTop.textContent = String(count);
     if (bubble) bubble.hidden = count === 0;
+    if (likesDot) likesDot.hidden = count === 0;
   };
 
   // Fetch initial state (non-blocking).
@@ -248,6 +262,28 @@ function bindLikes(app, week) {
   });
 }
 
+function bindDiscussJump(app) {
+  const link = app.querySelector('[data-discuss-jump]');
+  if (!link) return;
+  link.addEventListener('click', (e) => {
+    const target = document.getElementById('threadList');
+    if (!target) return;
+    e.preventDefault();
+    const top = target.getBoundingClientRect().top + window.scrollY - 70;
+    window.scrollTo({ top, behavior: 'smooth' });
+  });
+}
+
+function updateDiscussCount(app, n) {
+  const link = app.querySelector('[data-discuss-jump]');
+  const count = app.querySelector('[data-discuss-count]');
+  const dot = app.querySelector('[data-discuss-dot]');
+  if (!link) return;
+  if (count) count.textContent = n > 0 ? String(n) : '';
+  if (dot) dot.hidden = false;
+  link.hidden = false;
+}
+
 function maybeShowResumeBanner(app, week, saved) {
   // Skip if the user is already past the saved position (e.g. they linked
   // straight to a heading anchor and Skipped past).
@@ -259,14 +295,13 @@ function maybeShowResumeBanner(app, week, saved) {
     banner.className = 'resume-banner';
     banner.innerHTML = `
       <div class="resume-banner-text">
-        <b>עצרת באמצע פרשת ${week.parshaName}.</b>
-        <span class="muted">תרצה להמשיך מאיפה שעצרת? (${Math.round(saved.pct * 100)}%)</span>
+        <b>עצרת באמצע פרשת ${week.parshaName}</b>
+        <span class="muted">תרצה להמשיך מ-${Math.round(saved.pct * 100)}%?</span>
       </div>
       <div class="resume-banner-actions">
         <button type="button" class="btn resume-btn-go">המשך</button>
-        <button type="button" class="btn-text resume-btn-restart">לא, מההתחלה</button>
+        <button type="button" class="btn-text resume-btn-restart">מההתחלה</button>
       </div>
-      <button type="button" class="resume-banner-close" aria-label="סגור">×</button>
     `;
     document.body.appendChild(banner);
     requestAnimationFrame(() => banner.classList.add('visible'));
@@ -289,7 +324,6 @@ function maybeShowResumeBanner(app, week, saved) {
       dismiss();
     });
     banner.querySelector('.resume-btn-restart').addEventListener('click', () => dismiss(true));
-    banner.querySelector('.resume-banner-close').addEventListener('click', () => dismiss());
     // Auto-dismiss after 14 seconds if no action.
     setTimeout(() => dismiss(), 14000);
   }, 350);

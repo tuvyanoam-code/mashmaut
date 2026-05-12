@@ -9,7 +9,7 @@ import { listThreads } from '../lib/threads.js';
 import { withBase } from '../router.js';
 import { icon } from '../icons.js';
 
-export function mountThreadList(rootEl, { yearId, slug }) {
+export function mountThreadList(rootEl, { yearId, slug, onCount }) {
   if (!rootEl) return () => {};
   let aborted = false;
 
@@ -19,11 +19,16 @@ export function mountThreadList(rootEl, { yearId, slug }) {
     try {
       const data = await listThreads({ year: yearId, slug });
       if (aborted) return;
-      rootEl.innerHTML = renderShell({ yearId, slug, threads: data.threads || [] });
+      const threads = data.threads || [];
+      rootEl.innerHTML = renderShell({ yearId, slug, threads });
+      if (typeof onCount === 'function') {
+        onCount(threads.filter((t) => !t.deleted).length);
+      }
     } catch (_) {
       if (aborted) return;
       // Quiet failure: still show the "start a conversation" button.
       rootEl.innerHTML = renderShell({ yearId, slug, threads: [] });
+      if (typeof onCount === 'function') onCount(0);
     }
   })();
 
@@ -36,7 +41,7 @@ function renderShell({ yearId, slug, threads }) {
   return `
     <section class="threadlist" aria-label="שיחות על העלון">
       <a class="threadlist-cta" href="${newHref}">
-        <span class="threadlist-cta-icon">${icon('chatSquare', { size: 18 })}</span>
+        <span class="threadlist-cta-icon">${icon('dialog', { size: 18 })}</span>
         <span class="threadlist-cta-label">התחל שיחה על העלון</span>
       </a>
       ${threads === null || items.length === 0 ? '' : `

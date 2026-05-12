@@ -163,6 +163,12 @@ p { margin: 0 0 1em; }
   opacity: 0;
   pointer-events: none;
 }
+/* On the home page, drop the nav's bottom hairline. As the splash
+   gradient meets the cover (both ending in pure --bg), the nav's border
+   becomes the only visible horizontal line in the transition — a hard
+   edge over what should feel like a continuous fade. The nav's backdrop
+   blur + translucency still separate it from scrolling content beneath. */
+body.is-home .nav { border-bottom: 0; }
 /* The nav is `fixed` so it doesn't take flow space. Every page reserves
    70px at the top via body padding so content sits below the nav. Home is
    an exception — its splash flows full-bleed under the (hidden) nav. */

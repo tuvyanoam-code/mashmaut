@@ -6,10 +6,16 @@
   align-items: center;
   justify-content: center;
   padding: clamp(40px, 8vw, 80px) var(--page-x) clamp(28px, 5vw, 44px);
+  /* Gradient fades to pure --bg by 70%, then fades alpha to fully
+     transparent by 100%. The transparent tail lets the body bg show
+     through, so the splash→cover seam is whatever the body is — which
+     is the same --bg the cover paints. No color-stop mismatch, no
+     interpolation artifact, no visible line. */
   background: linear-gradient(180deg,
     color-mix(in srgb, var(--bulletin-primary) 13%, var(--bg)) 0%,
-    color-mix(in srgb, var(--bulletin-primary) 5%, var(--bg)) 50%,
-    var(--bg) 100%);
+    color-mix(in srgb, var(--bulletin-primary) 5%, var(--bg)) 40%,
+    var(--bg) 70%,
+    color-mix(in srgb, var(--bg), transparent) 100%);
   overflow: hidden;
   text-align: center;
 }
@@ -29,8 +35,11 @@
   background: radial-gradient(circle, color-mix(in srgb, var(--joy-yellow) 32%, transparent), transparent 65%);
 }
 .splash-decor-b {
-  bottom: -120px;
-  inset-inline-start: -10%;
+  /* Sit comfortably above the splash bottom so the blur fades inside the
+     splash, not at the overflow:hidden seam where it would clip into a
+     hard colored edge against the (transparent-tailed) gradient below. */
+  bottom: 18%;
+  inset-inline-start: -8%;
   width: 40vw;
   max-width: 360px;
   aspect-ratio: 1;

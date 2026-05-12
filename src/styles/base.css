@@ -183,9 +183,16 @@ body.is-home {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px var(--page-x);
-  max-width: var(--maxw-wide);
+  padding: 12px 28px;
   margin: 0 auto;
+}
+/* Pull the logo and action buttons close to the screen edges at all
+   widths. No max-width here — on wide displays the previous centered
+   "nav-inner" left ~300px of whitespace on each side, which read as
+   unmoored brand + floating actions. Internal button padding handles
+   tap targets. */
+@media (max-width: 720px) {
+  .nav-inner { padding: 12px 16px; }
 }
 .nav-brand {
   display: inline-flex;
@@ -273,9 +280,12 @@ body.is-home {
 .footer {
   border-top: 1px solid var(--border);
   margin-top: clamp(48px, 10vw, 80px);
-  padding: clamp(28px, 5vw, 40px) var(--page-x) clamp(24px, 4vw, 32px);
+  padding: clamp(28px, 5vw, 40px) 16px clamp(24px, 4vw, 32px);
   color: var(--text-muted);
   font-size: .9rem;
+}
+@media (max-width: 720px) {
+  .footer { padding-inline: 8px; }
 }
 .footer-inner {
   max-width: var(--maxw-wide);

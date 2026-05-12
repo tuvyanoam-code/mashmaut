@@ -285,6 +285,31 @@ async function recordEvent(env, body, request) {
   }
 }
 
+// In-memory cache for the admin stats dashboard. buildStats() does a full
+// scan of `cnt:*` + `fp:*` (50–200+ KV reads per call); the admin clicks
+// the dashboard often, so without a cache this dominates daily KV usage.
+// Module-scoped: cleared on every cold start, which is fine — we just want
+// to coalesce bursts of admin clicks within a 5-minute window down to a
+// single KV scan. Invalidated on `/admin/stats/reset`. `?fresh=1` bypasses.
+let _statsCache = null;
+let _statsCacheAt = 0;
+const STATS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function buildStatsCached(env, { bypass = false } = {}) {
+  const now = Date.now();
+  if (!bypass && _statsCache && (now - _statsCacheAt) < STATS_CACHE_TTL_MS) {
+    return _statsCache;
+  }
+  _statsCache = await buildStats(env);
+  _statsCacheAt = now;
+  return _statsCache;
+}
+
+function invalidateStatsCache() {
+  _statsCache = null;
+  _statsCacheAt = 0;
+}
+
 async function buildStats(env) {
   const byDay = {};
   const byType = {};
@@ -1479,7 +1504,10 @@ export default {
       if (p.startsWith('/admin/')) {
         if (!authed(request, env)) return err('unauthorized', 401);
         if (p === '/admin/auth' && request.method === 'POST') return ok({ valid: true });
-        if (p === '/admin/stats') return ok(await buildStats(env));
+        if (p === '/admin/stats') {
+          const bypass = url.searchParams.get('fresh') === '1';
+          return ok(await buildStatsCached(env, { bypass }));
+        }
 
         if (p === '/admin/resend-recent' && request.method === 'GET') {
           const limit = url.searchParams.get('limit') || '100';
@@ -1508,6 +1536,7 @@ export default {
               if (res.list_complete) break;
             } while (cursor);
           }
+          invalidateStatsCache();
           return ok({ deleted });
         }
         if (p === '/admin/subscribers' && request.method === 'GET') return ok({ subscribers: await listSubscribers(env) });

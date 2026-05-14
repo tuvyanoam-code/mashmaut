@@ -930,6 +930,25 @@
         "text": "#1a1a1a"
       },
       "displayOrder": 0
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "bamidbar",
+      "parshaName": "במדבר",
+      "issueNumber": 52,
+      "dateLabel": "כ\"ח אייר",
+      "teaser": "<strong>אין שתי נשמות דומות.</strong> איך על ידי שימוש בחוש שלנו, נכיר את הבורא <mark>בצורה חדשה?</mark>",
+      "publishedAt": "2026-05-14T19:43:18.790Z",
+      "colors": {
+        "primary": "#4a3d81",
+        "secondary": "#a89887",
+        "accent": "#a8a49a",
+        "background": "#f1eff5",
+        "bgEnd": "#e4e2ec",
+        "text": "#1a1a1a"
+      },
+      "displayOrder": 0
     }
   ]
 }

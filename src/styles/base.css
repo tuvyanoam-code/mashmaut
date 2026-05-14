@@ -178,6 +178,13 @@ body {
 body.is-home {
   padding-top: 0;
 }
+/* PDF view: full-bleed iframe, no nav padding, no top nav. The PDF
+   viewer's own UI (zoom / page / download pill) handles every action. */
+body.is-pdf {
+  padding-top: 0;
+  overflow: hidden;
+}
+body.is-pdf .nav { display: none; }
 .nav-inner {
   display: flex;
   align-items: center;

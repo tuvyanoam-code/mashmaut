@@ -1,6 +1,5 @@
 import { loadBulletin, pdfUrl } from '../lib/store.js';
 import { track } from '../lib/analytics.js';
-import { icon } from '../icons.js';
 import { setPageSeo } from '../lib/seo.js';
 import { markVisited } from '../lib/readingPosition.js';
 
@@ -47,42 +46,26 @@ export async function renderPdf({ params }) {
   track('pdf', { slug: week.slug, year: week.yearId });
 
   if (isIosLike()) {
-    // Render a thin landing screen with two clear actions so the user controls
-    // navigation instead of being thrown straight into the PDF viewer.
-    app.innerHTML = `
-      <div class="pdf-page-ios fade-in">
-        <header class="pdf-toolbar">
-          <a class="btn-icon" href="/y/${week.yearId}/${week.slug}" aria-label="חזרה לטקסט">${icon('chevronRight', { size: 20 })}</a>
-          <h1>פרשת ${week.parshaName}${week.yearDisplay ? ' · ' + week.yearDisplay : ''}</h1>
-          <span class="btn-icon" aria-hidden="true" style="visibility:hidden"></span>
-        </header>
-        <div class="pdf-ios-body">
-          <div class="pdf-ios-card">
-            <div class="pdf-ios-icon">${icon('pdf', { size: 36 })}</div>
-            <h2>עלון פרשת ${week.parshaName}</h2>
-            <p class="muted">תצוגת ה-PDF באייפון/אייפד עובדת הכי טוב בכרטיסיה חדשה של Safari, עם זום מתאים אוטומטי.</p>
-            <div class="pdf-ios-actions">
-              <a class="btn" href="${src}" target="_blank" rel="noopener">${icon('pdf', { size: 18 })} <span>פתח את ה-PDF</span></a>
-              <a class="btn btn-secondary" href="${src}" download>${icon('download', { size: 18 })} <span>הורד למכשיר</span></a>
-            </div>
-            <p class="muted" style="margin-top:16px;">מעדיף לקרוא בטקסט מעוצב? <a href="/y/${week.yearId}/${week.slug}">לחץ כאן</a>.</p>
-          </div>
-        </div>
-      </div>
-    `;
+    // iOS/iPadOS Safari can't render PDFs inline in <iframe> at the right
+    // scale, so hand off to the native PDF viewer by replacing the current
+    // history entry with the PDF URL. `replace` instead of `assign` keeps
+    // the back button pointing at the bulletin, not at this transition page.
+    location.replace(src);
     return;
   }
 
+  // Fullscreen PDF — no custom toolbar, no top nav, no body padding.
+  // The browser's native PDF UI (zoom / page / download pill) already
+  // covers every action we'd put in a custom toolbar, so adding one only
+  // ate viewport height and pushed the native controls below the screen.
+  // To leave the bulletin page, the user hits the browser back button.
   app.innerHTML = `
     <div class="pdf-page fade-in">
-      <header class="pdf-toolbar">
-        <a class="btn-icon" href="/y/${week.yearId}/${week.slug}" aria-label="חזרה לטקסט">${icon('chevronRight', { size: 20 })}</a>
-        <h1>פרשת ${week.parshaName} · ${week.yearDisplay || ''}</h1>
-        <a class="btn-icon" href="${src}" download aria-label="הורד">${icon('download', { size: 20 })}</a>
-      </header>
-      <div class="pdf-frame-wrap">
-        <iframe class="pdf-frame" src="${src}#view=FitH" title="עלון פרשת ${week.parshaName}"></iframe>
-      </div>
+      <iframe class="pdf-frame" src="${src}#view=FitH" title="עלון פרשת ${week.parshaName}"></iframe>
     </div>
   `;
+  document.body.classList.add('is-pdf');
+  return () => {
+    document.body.classList.remove('is-pdf');
+  };
 }

@@ -1865,21 +1865,6 @@ body.toc-sheet-open { overflow: hidden; }
   box-shadow: var(--d-shadow);
   text-align: center;
 }
-/* Soft little speech-bubble decoration in the corner. */
-.threadlist::before {
-  content: "";
-  position: absolute;
-  inset-inline-end: 22px;
-  top: -8px;
-  width: 16px;
-  height: 16px;
-  background: var(--d-paper);
-  border: 1px solid var(--d-edge);
-  border-radius: 4px 4px 0 4px;
-  border-bottom: 0;
-  transform: rotate(45deg);
-  border-left: 0;
-}
 .threadlist-cta {
   display: inline-flex;
   align-items: center;

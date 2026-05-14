@@ -225,8 +225,15 @@ export async function renderBulletin({ params }) {
             requestAnimationFrame(() => {
               const top = mount.getBoundingClientRect().top + window.scrollY - 70;
               window.scrollTo({ top, behavior: 'smooth' });
-              mount.classList.add('jump-highlight');
-              setTimeout(() => mount.classList.remove('jump-highlight'), 2200);
+              // Flash the inner .threadlist (not the mount wrapper) — the
+              // apricot pulse keyframes reference --d-apricot / --d-shadow
+              // CSS vars that live on .threadlist's scope, so animating
+              // the wrapper would run silently with no visible colors.
+              const inner = mount.querySelector('.threadlist');
+              if (inner) {
+                inner.classList.add('jump-highlight');
+                setTimeout(() => inner.classList.remove('jump-highlight'), 2200);
+              }
             });
           }
         },

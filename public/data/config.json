@@ -12,7 +12,7 @@
   "adminEmail": "alonmashmaut@gmail.com",
   "apiBase": "https://api.alonmashmaut.org",
   "dispatchSchedule": {
-    "enabled": true,
+    "enabled": false,
     "dayOfWeek": 4,
     "hour": 19,
     "requireApproval": true

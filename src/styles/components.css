@@ -1443,10 +1443,11 @@ body.toc-sheet-open { overflow: hidden; }
 
 /* ===== PDF view ===== */
 .pdf-page {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
+  /* Fullscreen iframe — no toolbar, no nav, no body padding. The page
+     occupies the whole viewport so the PDF viewer's native controls
+     (zoom pill, page nav) sit inside the visible area, not below it. */
+  position: fixed;
+  inset: 0;
   background: #2d2d2d;
 }
 .pdf-toolbar {
@@ -1491,6 +1492,7 @@ body.toc-sheet-open { overflow: hidden; }
   display: block;
   background: #2d2d2d;
 }
+.pdf-page > .pdf-frame { width: 100%; height: 100%; }
 
 /* iOS PDF landing — Safari can't render PDFs in <iframe> at the right scale,
    so we hand control back to the user with two clear buttons. */

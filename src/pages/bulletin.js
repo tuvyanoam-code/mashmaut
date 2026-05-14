@@ -376,9 +376,12 @@ function renderToc(headings) {
   const items = headings.filter((h) => h.level <= 3);
   if (items.length < 2) return '';
   return `
-    <aside class="bulletin-toc" aria-label="תוכן העניינים">
-      <div class="bulletin-toc-title">בעלון הזה</div>
-      <ul>
+    <aside class="bulletin-toc" data-bulletin-toc aria-label="תוכן העניינים">
+      <button type="button" class="bulletin-toc-toggle" data-bulletin-toc-toggle aria-expanded="false">
+        <span>פרקים</span>
+        ${icon('chevronDown', { size: 16 })}
+      </button>
+      <ul class="bulletin-toc-list">
         ${items.map((h) => `
           <li>
             <a class="toc-link toc-h${h.level}" data-target="${h.id}" href="#${h.id}">${h.text}</a>
@@ -430,6 +433,20 @@ function bindTocAndScrollSpy(root, headings) {
   if (!headings || headings.length < 2) return;
   const links = root.querySelectorAll('.toc-link');
   if (!links.length) return;
+  // Desktop TOC sidebar — collapsed by default to a thin "פרקים ↓"
+  // pill so it never crowds the text on the 1100–1200px viewports
+  // where the body and the sidebar would otherwise overlap. Click the
+  // header to open; click again to close. Scroll doesn't change the
+  // open/closed state.
+  const tocAside = root.querySelector('[data-bulletin-toc]');
+  const tocToggle = root.querySelector('[data-bulletin-toc-toggle]');
+  if (tocAside && tocToggle) {
+    tocToggle.addEventListener('click', () => {
+      const open = !tocAside.classList.contains('is-open');
+      tocAside.classList.toggle('is-open', open);
+      tocToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
   // Mobile FAB + bottom sheet wiring. Tap FAB opens the sheet; tapping
   // overlay (or a TOC item) closes it. The sheet is `position: fixed`
   // so opening doesn't shift the document layout — no need to defer the

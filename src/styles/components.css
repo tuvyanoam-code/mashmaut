@@ -840,7 +840,13 @@
   height: 100%;
 }
 .reading-progress .ring-check svg { display: block; }
-@media (min-width: 1024px) {
+/* Match the desktop-TOC breakpoint so the reading-progress ring and the
+   chapters FAB stay together: both at bottom-right while the FAB is
+   visible (≤1279px), both promoted to their desktop positions once the
+   sticky sidebar TOC appears (≥1280px). Without this, the V flipped to
+   top-left at 1024px while the FAB stayed bottom-right at 1100–1279px,
+   leaving the two indicators at opposite corners. */
+@media (min-width: 1280px) {
   .reading-progress {
     bottom: auto;
     right: auto;
@@ -1258,39 +1264,66 @@
 .bulletin-body em, .bulletin-body i { font-style: normal; font-weight: 600; color: var(--bulletin-primary); }
 .bulletin-body img { margin: 1.5em auto; border-radius: var(--radius); }
 
-/* TOC sidebar */
+/* TOC sidebar — collapsed by default to a thin "פרקים ↓" pill that
+   doesn't overlap the body text at narrow desktop widths (1100–1200px,
+   where the body's max-width and the sidebar's fixed right edge
+   collide). Click the header to expand the list. Open state stays until
+   the user clicks the header again — scroll doesn't change it. */
 .bulletin-toc {
   position: fixed;
   top: 110px;
   right: 24px;
-  width: 230px;
+  width: 168px;
   font-family: var(--font-body);
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 18px 16px;
-  box-shadow: 0 12px 36px -12px rgba(20,20,20,.10);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px -10px rgba(20,20,20,.08);
+  overflow: hidden;
   max-height: calc(100vh - 150px);
-  overflow-y: auto;
+  transition: width var(--transition), box-shadow var(--transition);
 }
-.bulletin-toc-title {
+.bulletin-toc.is-open {
+  width: 240px;
+  box-shadow: 0 12px 36px -12px rgba(20,20,20,.14);
+}
+.bulletin-toc-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 12px 16px;
+  font: inherit;
   font-family: var(--font-display);
   font-weight: 600;
+  font-size: .88rem;
   color: var(--text);
-  font-size: .82rem;
-  margin-bottom: 12px;
-  padding-right: 4px;
+  cursor: pointer;
+  text-align: right;
 }
-.bulletin-toc-title::before {
-  content: "";
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--bulletin-primary);
+.bulletin-toc-toggle svg {
+  transition: transform var(--transition);
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
-.bulletin-toc ul { list-style: none; padding: 0; margin: 0; }
+.bulletin-toc.is-open .bulletin-toc-toggle svg { transform: rotate(180deg); color: var(--bulletin-primary); }
+.bulletin-toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 0;
+  overflow-y: auto;
+  opacity: 0;
+  transition: max-height var(--transition), opacity var(--transition), padding var(--transition);
+}
+.bulletin-toc.is-open .bulletin-toc-list {
+  max-height: calc(100vh - 220px);
+  opacity: 1;
+  padding: 4px 8px 10px;
+  border-top: 1px solid var(--border);
+}
 .bulletin-toc li { margin: 2px 0; position: relative; }
 .bulletin-toc a {
   color: var(--text-muted);
@@ -1317,7 +1350,7 @@
 .bulletin-toc .toc-h2 { padding-right: 22px; font-size: .85rem; }
 .bulletin-toc .toc-h3 { padding-right: 32px; font-size: .82rem; }
 
-@media (max-width: 1100px) {
+@media (max-width: 1279px) {
   .bulletin-toc { display: none; }
 }
 
@@ -1348,7 +1381,7 @@
 .bulletin-toc-fab:hover { color: var(--bulletin-primary); transform: translateY(-1px); }
 .bulletin-toc-fab[aria-expanded="true"] { color: var(--bulletin-primary); }
 .bulletin-toc-fab svg { width: 22px; height: 22px; }
-@media (min-width: 1100px) { .bulletin-toc-fab { display: none; } }
+@media (min-width: 1280px) { .bulletin-toc-fab { display: none; } }
 
 /* Bottom sheet — slides up from the bottom of the viewport. The
  * overlay swallows taps outside the panel to dismiss the sheet.
@@ -1423,8 +1456,21 @@
 }
 .bulletin-toc-sheet .toc-h2 { padding-inline-end: 28px; }
 .bulletin-toc-sheet .toc-h3 { padding-inline-end: 40px; font-size: .9rem; opacity: .9; }
-/* Lock page scroll while the sheet is open (matches native iOS feel). */
+/* Lock page scroll while the sheet is open (matches native iOS feel).
+   Also hide the reading-progress V and the chapters FAB — both share
+   the bottom-right area the sheet occupies, and would otherwise peek
+   through over the list items (their bulletin-page stacking context
+   isolates them from the sheet's z-index). */
 body.toc-sheet-open { overflow: hidden; }
+body.toc-sheet-open .reading-progress,
+body.toc-sheet-open .bulletin-toc-fab {
+  /* !important needed for .reading-progress because its JS sets
+     inline `style.opacity = 1` every scroll frame; without it the
+     inline style wins and the V keeps peeking through the sheet. */
+  opacity: 0 !important;
+  pointer-events: none;
+  transition: opacity .15s ease;
+}
 
 /* Reading time — inline text with tiny icon, no pill. */
 .reading-time {

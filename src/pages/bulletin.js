@@ -205,9 +205,31 @@ export async function renderBulletin({ params }) {
     bindDiscussJump(app);
     const mount = app.querySelector('#threadList');
     if (mount) {
+      // Did the visitor arrive with `#threadList` (e.g. from the home
+      // "לשיחה בין הקוראים" CTA)? If so, after the list finishes its
+      // async fetch and renders, scroll the section into view and flash
+      // it with the same apricot pulse used for in-thread message jumps.
+      // The router resets scroll to 0 right after this render returns,
+      // and the threadlist mount keeps growing as data loads — both
+      // would make a synchronous scroll land in the wrong place, so we
+      // defer to the onCount callback that fires after fetch.
+      const shouldJump = window.location.hash === '#threadList';
+      let jumped = false;
       unmountThreadList = mountThreadList(mount, {
         yearId: week.yearId, slug: week.slug, parshaName: week.parshaName,
-        onCount: (n) => updateDiscussCount(app, n),
+        onCount: (n) => {
+          updateDiscussCount(app, n);
+          if (shouldJump && !jumped) {
+            jumped = true;
+            // Wait a frame so the freshly-rendered rows are laid out.
+            requestAnimationFrame(() => {
+              const top = mount.getBoundingClientRect().top + window.scrollY - 70;
+              window.scrollTo({ top, behavior: 'smooth' });
+              mount.classList.add('jump-highlight');
+              setTimeout(() => mount.classList.remove('jump-highlight'), 2200);
+            });
+          }
+        },
       });
     }
   }

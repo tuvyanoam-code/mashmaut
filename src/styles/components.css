@@ -319,6 +319,47 @@
   font-weight: 500;
 }
 
+/* Discussion invite — sits under the share row. Prompt is quiet
+   (muted text), button "stands out a bit" — tinted background with
+   the bulletin's accent + slight lift on hover. */
+.cover-discuss {
+  margin-top: clamp(28px, 5vw, 40px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.cover-discuss-prompt {
+  margin: 0;
+  max-width: 460px;
+  color: var(--text-muted);
+  font-size: .95rem;
+  line-height: 1.5;
+}
+.cover-discuss-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bulletin-primary) 12%, var(--bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--bulletin-primary) 35%, var(--border));
+  color: var(--bulletin-primary);
+  font-family: var(--font-body);
+  font-size: .95rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--bulletin-primary) 20%, transparent);
+}
+.cover-discuss-btn:hover {
+  background: color-mix(in srgb, var(--bulletin-primary) 18%, var(--bg-elevated));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--bulletin-primary) 40%, transparent);
+}
+.cover-discuss-btn svg { stroke-width: 1.6; flex-shrink: 0; }
+
 /* About strip + archive CTA layout. */
 .about-strip {
   padding: clamp(24px, 5vw, 36px) var(--page-x) 0;
@@ -2107,9 +2148,13 @@ button.discuss-msg-replyto:hover {
 }
 
 /* Briefly highlight the target message after a "(בתגובה ל-X)" click.
- * Subtle apricot ring that fades out — clear but not loud. */
-.discuss-msg.jump-highlight {
+ * Subtle apricot ring that fades out — clear but not loud. Same effect
+ * is reused on the thread-list mount when the visitor lands there from
+ * the home "לשיחה בין הקוראים" CTA. */
+.discuss-msg.jump-highlight,
+#threadList.jump-highlight {
   animation: discuss-jump-pulse 2s ease-out;
+  border-radius: 14px;
 }
 @keyframes discuss-jump-pulse {
   0%   { box-shadow: 0 0 0 0 rgba(245, 156, 102, .55), var(--d-shadow); border-color: var(--d-apricot); }

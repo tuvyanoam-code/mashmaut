@@ -213,6 +213,17 @@ function renderCover(week, config) {
         <span class="cover-share-label">שתף עם חבר</span>
         ${shareButtonsHtml({ url: fullUrl, parshaName: week.parshaName, year: week.yearDisplay })}
       </div>
+
+      <!-- Discussion invite. Sits below the share row, deliberately
+           a touch louder than the share icons (filled tint + icon +
+           label) so it reads as a destination, not a passive option. -->
+      <div class="cover-discuss">
+        <p class="cover-discuss-prompt">המאמר הותיר אצלך מחשבה? שאלה? נקודה שדורשת בירור?</p>
+        <a class="cover-discuss-btn" href="${url}#threadList">
+          ${icon('dialog', { size: 18 })}
+          <span>לשיחה בין הקוראים</span>
+        </a>
+      </div>
     </main>
   `;
 }

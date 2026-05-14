@@ -232,7 +232,10 @@ export async function renderBulletin({ params }) {
               const inner = mount.querySelector('.threadlist');
               if (inner) {
                 inner.classList.add('jump-highlight');
-                setTimeout(() => inner.classList.remove('jump-highlight'), 2200);
+                // Match the longer pulse on .threadlist.jump-highlight
+                // (3.5s) — leave the class on for the full duration so
+                // the animation completes its full fade.
+                setTimeout(() => inner.classList.remove('jump-highlight'), 3700);
               }
             });
           }

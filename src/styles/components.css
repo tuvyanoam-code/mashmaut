@@ -2133,12 +2133,17 @@ button.discuss-msg-replyto:hover {
 }
 
 /* Briefly highlight the target message after a "(בתגובה ל-X)" click.
- * Subtle apricot ring that fades out — clear but not loud. Same effect
- * is reused on the threadlist section when the visitor lands there from
- * the home "לשיחה בין הקוראים" CTA. */
-.discuss-msg.jump-highlight,
-.threadlist.jump-highlight {
+ * Subtle apricot ring that fades out — clear but not loud. */
+.discuss-msg.jump-highlight {
   animation: discuss-jump-pulse 2s ease-out;
+}
+/* The threadlist version of the same pulse, used when the visitor lands
+ * here from the home "לשיחה בין הקוראים" CTA. Longer than the inline
+ * message jump because the smooth-scroll to the threadlist takes ~2s,
+ * and the highlight should still be visible after the visitor arrives —
+ * not vanish mid-scroll. */
+.threadlist.jump-highlight {
+  animation: discuss-jump-pulse 3.5s ease-out;
 }
 @keyframes discuss-jump-pulse {
   0%   { box-shadow: 0 0 0 0 rgba(245, 156, 102, .55), var(--d-shadow); border-color: var(--d-apricot); }

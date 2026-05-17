@@ -14,12 +14,17 @@ import { ensureFp } from '../lib/fp.js';
 import { getDisplayName, setDisplayName, promptForDisplayName } from '../lib/displayName.js';
 import {
   getThread, postReply, editThread, editReply, reactThread, reactReply, reportThread, reportReply, deleteOwn,
+  markSeenOnServer,
 } from '../lib/threads.js';
 import { withBase } from '../router.js';
 import { icon } from '../icons.js';
 import { follow as followThread, markSeen } from '../lib/myDiscussions.js';
 import { discussMenuHtml, bindDiscussMenu } from '../components/discussMenu.js';
 import { openConfirm, openPrompt, showToast } from '../lib/dialog.js';
+import {
+  findMentionTrigger, insertMention, collectParticipants,
+  filterParticipants, extractMentions, highlightMentions, getCaretXY,
+} from '../lib/mentions.js';
 
 const REACTIONS = ['❤', '🙏', '👍', '🤔', '😮'];
 
@@ -172,7 +177,12 @@ export async function renderDiscussThread({ params }) {
   }
 
   function renderBody(body) {
-    return escapeHtml(body || '').replace(/\n/g, '<br>');
+    // Escape first so injected HTML in user input is neutralised, then
+    // wrap known `@Name` mentions in a styled span. The participant list
+    // is recomputed from the current thread+replies on every render.
+    const escaped = escapeHtml(body || '').replace(/\n/g, '<br>');
+    const participants = collectParticipants(thread, replies);
+    return highlightMentions(escaped, participants);
   }
 
   function bindHandlers(draftValue = '') {
@@ -280,15 +290,78 @@ export async function renderDiscussThread({ params }) {
       };
       autosize();
 
+      // Mention autocomplete — a dropdown of thread participants that
+      // appears when the user types `@`. Arrow keys + Enter navigate;
+      // clicking inserts. Escape dismisses.
+      const mentionDropdown = createMentionDropdown();
+      let activeTrigger = null;
+      let activeIndex = 0;
+      const ownName = (getDisplayName() || '').trim();
+      const refreshMentionDropdown = () => {
+        const trigger = findMentionTrigger(ta);
+        activeTrigger = trigger;
+        if (!trigger) {
+          mentionDropdown.hide();
+          return;
+        }
+        const all = collectParticipants(thread, replies, { self: ownName });
+        const matches = filterParticipants(all, trigger.query);
+        if (!matches.length) {
+          mentionDropdown.hide();
+          return;
+        }
+        activeIndex = 0;
+        mentionDropdown.show(matches, activeIndex, (idx) => commitMention(matches[idx]));
+        positionDropdown(mentionDropdown.el, ta, trigger);
+      };
+      const commitMention = (p) => {
+        if (!p || !activeTrigger) return;
+        insertMention(ta, p.name, activeTrigger);
+        mentionDropdown.hide();
+        activeTrigger = null;
+      };
+
       ta.addEventListener('input', () => {
         draftText = ta.value;
         autosize();
+        refreshMentionDropdown();
       });
+      ta.addEventListener('click', refreshMentionDropdown);
       ta.addEventListener('keydown', (e) => {
+        // While the dropdown is visible, hijack arrows + Enter + Esc.
+        if (mentionDropdown.isVisible()) {
+          const itemCount = mentionDropdown.itemCount();
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIndex = (activeIndex + 1) % itemCount;
+            mentionDropdown.setActive(activeIndex);
+            return;
+          }
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = (activeIndex - 1 + itemCount) % itemCount;
+            mentionDropdown.setActive(activeIndex);
+            return;
+          }
+          if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            mentionDropdown.pickActive();
+            return;
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            mentionDropdown.hide();
+            return;
+          }
+        }
         if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
           e.preventDefault();
           if (!send.disabled) composerForm.requestSubmit();
         }
+      });
+      ta.addEventListener('blur', () => {
+        // Delay so a click on a dropdown item still registers.
+        setTimeout(() => mentionDropdown.hide(), 120);
       });
 
       composerForm.addEventListener('submit', (e) => {
@@ -299,6 +372,83 @@ export async function renderDiscussThread({ params }) {
       });
 
     }
+  }
+
+  // Helper: dropdown UI for mention autocomplete.
+  // Mounted on document.body so `position: fixed` near the caret isn't
+  // clipped by composer overflow. Visible state lives in a class, not
+  // the `[hidden]` attribute, so the CSS layout vs visibility stays
+  // separate.
+  function createMentionDropdown() {
+    let el = document.querySelector('.discuss-mention-dropdown');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'discuss-mention-dropdown';
+      document.body.appendChild(el);
+    }
+    el.style.display = 'none';
+    let onPick = () => {};
+    return {
+      el,
+      isVisible: () => el.style.display !== 'none',
+      itemCount: () => el.querySelectorAll('.discuss-mention-item').length,
+      show(items, activeIdx, pickHandler) {
+        onPick = pickHandler;
+        el.innerHTML = items.map((p, i) => `
+          <button type="button" class="discuss-mention-item ${i === activeIdx ? 'is-active' : ''}" data-idx="${i}">
+            <span class="discuss-mention-item-avatar" aria-hidden="true">${escapeHtml((p.name || '').slice(0, 1))}</span>
+            <span class="discuss-mention-item-name">${escapeHtml(p.name)}</span>
+            ${p.isAdmin ? '<span class="discuss-mention-item-badge">מנהל</span>' : ''}
+          </button>
+        `).join('');
+        el.style.display = 'block';
+        el.querySelectorAll('.discuss-mention-item').forEach((btn) => {
+          btn.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // keep textarea focus
+            onPick(parseInt(btn.dataset.idx, 10));
+          });
+        });
+      },
+      setActive(idx) {
+        el.querySelectorAll('.discuss-mention-item').forEach((b, i) => {
+          b.classList.toggle('is-active', i === idx);
+        });
+      },
+      pickActive() {
+        const active = el.querySelector('.discuss-mention-item.is-active');
+        if (active) onPick(parseInt(active.dataset.idx, 10));
+      },
+      hide() { el.style.display = 'none'; },
+    };
+  }
+
+  // Anchor the dropdown to the caret (Slack/Claude-style). The mention
+  // trigger's `start` index is the `@` character — we measure that so
+  // the dropdown sits right at the `@`, not somewhere else on the line.
+  function positionDropdown(dropdown, ta, trigger) {
+    const caret = getCaretXY(ta, trigger.start);
+    // Measure dropdown to decide above-or-below placement.
+    dropdown.style.visibility = 'hidden';
+    dropdown.style.display = 'block';
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = '0';
+    dropdown.style.left = '0';
+    const ddRect = dropdown.getBoundingClientRect();
+    dropdown.style.visibility = '';
+    // Default: above the caret. Flip below if too close to viewport top.
+    const lineH = caret.lineHeight || 20;
+    let top = caret.top - ddRect.height - 6;
+    if (top < 8) top = caret.top + lineH + 6;
+    // In RTL we want the dropdown's right edge anchored to the caret;
+    // in LTR the left edge. Default to right (page is dir=rtl).
+    let left = caret.left - ddRect.width;
+    if (left < 8) left = 8;
+    // Cap to viewport right edge.
+    if (left + ddRect.width > window.innerWidth - 8) {
+      left = window.innerWidth - ddRect.width - 8;
+    }
+    dropdown.style.top = `${Math.round(top)}px`;
+    dropdown.style.left = `${Math.round(left)}px`;
   }
 
   async function onReact(id, emoji, btn) {
@@ -471,9 +621,21 @@ export async function renderDiscussThread({ params }) {
     status.className = 'discuss-status info';
     sendBtn.disabled = true;
     try {
+      // Collect mentions from the body so the worker knows who to notify.
+      // We exclude the author themselves from the mentionable list so a
+      // self-mention isn't sent — the server still validates.
+      const participants = collectParticipants(thread, replies, { self: name });
+      const mentions = extractMentions(body, participants);
+      // Piggy-back the poster's email prefs so the server can update its
+      // store at the same time — covers the case where the user opted in
+      // through the popup and we want their first reply to also seed the
+      // server-side prefs.
+      const localPrefs = (await import('../lib/emailPrefs.js')).getEmailPrefs();
       const r = await postReply({
         year: params.year, slug: params.slug, threadId: thread.id, body, displayName: name,
         replyToId: replyTo ? replyTo.id : null,
+        mentions,
+        emailPrefs: localPrefs.email ? { email: localPrefs.email, mode: localPrefs.mode, opted: true } : null,
       });
       replies.push(r.reply);
       thread.replyCount = (thread.replyCount || 0) + 1;
@@ -512,6 +674,11 @@ export async function renderDiscussThread({ params }) {
 
   // Visiting a thread you follow counts as "seen" — clear its unread badge.
   markSeen(thread.id);
+  // Tell the server too, so the cron-queued notification emails are
+  // suppressed for any replies the user has already seen on-page. Silent
+  // on failure: the email might still go out if the network blip eats
+  // the call — minor inconvenience, not a data-loss bug.
+  markSeenOnServer({ year: params.year, slug: params.slug, threadId: thread.id }).catch(() => {});
 
   paint();
 

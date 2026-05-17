@@ -120,6 +120,26 @@ export async function renderHome() {
 
   track('view', { slug: 'home' });
 
+  // Discussion count badge on the CTA. Shows how many active threads
+  // exist on the latest bulletin so the reader knows there's activity
+  // to join. Hidden entirely when there are zero threads, so the CTA
+  // stays clean for new bulletins with no conversation yet.
+  const badge = app.querySelector('[data-mentions-badge]');
+  if (badge && latest) {
+    import('../lib/threads.js').then(({ listThreads }) =>
+      listThreads({ year: latest.yearId, slug: latest.slug })
+    ).then((res) => {
+      const threads = (res && res.threads) || [];
+      const active = threads.filter((t) => !t.deleted);
+      const n = active.length;
+      if (n > 0) {
+        badge.textContent = n > 99 ? '99+' : String(n);
+        badge.setAttribute('aria-label', `${n} שיחות פעילות`);
+        badge.hidden = false;
+      }
+    }).catch(() => { /* worker may be down — fall through silently */ });
+  }
+
   // Cleanup: when the router navigates away, remove the scroll listener,
   // restore the nav, and drop the body's home flag so padding-top kicks in.
   return () => {
@@ -216,12 +236,15 @@ function renderCover(week, config) {
 
       <!-- Discussion invite. Sits below the share row, deliberately
            a touch louder than the share icons (filled tint + icon +
-           label) so it reads as a destination, not a passive option. -->
+           label) so it reads as a destination, not a passive option.
+           A small mentions badge appears beside the label when the
+           reader has unread @mentions waiting for them. -->
       <div class="cover-discuss">
         <p class="cover-discuss-prompt">המאמר הותיר אצלך מחשבה? שאלה? נקודה שדורשת בירור?</p>
         <a class="cover-discuss-btn" href="${url}#threadList">
           ${icon('dialog', { size: 18 })}
           <span>לשיחה בין הקוראים</span>
+          <span class="cover-discuss-badge" data-mentions-badge hidden></span>
         </a>
       </div>
     </main>

@@ -8,6 +8,8 @@
 import { icon } from '../icons.js';
 import { withBase } from '../router.js';
 import { getDisplayName, setDisplayName, promptForDisplayName } from '../lib/displayName.js';
+import { getEmailPrefs, setEmailPrefs, MODES, isValidEmail } from '../lib/emailPrefs.js';
+import { saveServerPrefs } from '../lib/threads.js';
 import { getFollows, unfollow, checkUpdates } from '../lib/myDiscussions.js';
 import { showToast } from '../lib/dialog.js';
 
@@ -69,7 +71,7 @@ export function bindDiscussMenu(rootEl, { currentThreadId } = {}) {
           panel.innerHTML = '<p class="discuss-menu-empty">לא הצלחנו לטעון את השיחות. נסה שוב.</p>';
         }
       } else {
-        panel.innerHTML = renderSettingsPanel(getDisplayName());
+        panel.innerHTML = renderSettingsPanel(getDisplayName(), getEmailPrefs());
         bindSettingsPanel(panel);
       }
     });
@@ -150,7 +152,14 @@ function bindThreadsPanel(panel, rootEl) {
   });
 }
 
-function renderSettingsPanel(name) {
+function renderSettingsPanel(name, prefs) {
+  const email = prefs.email || '';
+  const mode = prefs.mode || 'mention';
+  // The four notification modes are mutually exclusive — render as a
+  // toggle group where flipping one off-state to on flips the others off.
+  // When there's no email, all toggles are disabled and the "off" pill
+  // is highlighted to make the state clear.
+  const noEmail = !email;
   return `
     <div class="discuss-menu-settings">
       <div class="discuss-menu-setting-row">
@@ -163,7 +172,41 @@ function renderSettingsPanel(name) {
         <button type="button" class="discuss-menu-setting-btn" data-action="rename">${name ? 'שנה' : 'בחר'}</button>
       </div>
       <p class="discuss-menu-setting-hint">השם נשמר בדפדפן הזה. אם תשנה אותו — הודעות חדשות שתפרסם יופיעו עם השם החדש.</p>
+
+      <div class="discuss-menu-divider"></div>
+
+      <div class="discuss-menu-setting-row">
+        <div>
+          <div class="discuss-menu-setting-label">מייל להתראות</div>
+          <div class="discuss-menu-setting-value">
+            ${email ? escapeHtml(email) : '<span class="discuss-menu-empty-value">לא הוגדר</span>'}
+          </div>
+        </div>
+        <button type="button" class="discuss-menu-setting-btn" data-action="set-email">${email ? 'ערוך' : 'הוסף'}</button>
+      </div>
+
+      <div class="discuss-menu-toggles" data-toggles aria-disabled="${noEmail ? 'true' : 'false'}">
+        ${renderToggleRow('all',     'בכל תגובה לשיחה',        'מקבל הודעה על כל תגובה חדשה בכל שיחה שאתה משתתף בה.',    mode, noEmail)}
+        ${renderToggleRow('admin',   'רק בתגובת מנהל',          'מקבל הודעה כאשר המנהל עונה לשיחה שאתה משתתף בה.',         mode, noEmail)}
+        ${renderToggleRow('mention', 'רק כשעונים לי או מזכירים אותי', 'מקבל הודעה רק כאשר מישהו מגיב ישירות אליך או מזכיר אותך בשם.', mode, noEmail)}
+        ${renderToggleRow('off',     'כבה התראות מייל',         'לא תקבל מייל על תגובות. עדיין תראה אותן באתר.',           mode, noEmail)}
+      </div>
+      ${noEmail ? '<p class="discuss-menu-setting-hint">הוסף כתובת מייל למעלה כדי להפעיל התראות.</p>' : ''}
     </div>
+  `;
+}
+
+function renderToggleRow(value, title, desc, currentMode, disabled) {
+  const on = currentMode === value;
+  return `
+    <label class="discuss-toggle-row ${on ? 'is-on' : ''} ${disabled ? 'is-disabled' : ''}">
+      <span class="discuss-toggle-text">
+        <span class="discuss-toggle-title">${title}</span>
+        <span class="discuss-toggle-desc">${desc}</span>
+      </span>
+      <input type="checkbox" class="discuss-toggle-checkbox" data-mode="${value}" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+      <span class="discuss-toggle-switch" aria-hidden="true"><span class="discuss-toggle-knob"></span></span>
+    </label>
   `;
 }
 
@@ -171,14 +214,49 @@ function bindSettingsPanel(panel) {
   panel.querySelectorAll('[data-action="rename"]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const current = getDisplayName();
-      const chosen = await promptForDisplayName({ initial: current });
+      const chosen = await promptForDisplayName({ initial: current, askEmail: false });
       if (chosen) {
         setDisplayName(chosen);
         showToast('השם עודכן');
-        // Re-render this panel so the new name shows.
-        panel.innerHTML = renderSettingsPanel(chosen);
+        panel.innerHTML = renderSettingsPanel(chosen, getEmailPrefs());
         bindSettingsPanel(panel);
       }
+    });
+  });
+  panel.querySelectorAll('[data-action="set-email"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const current = getEmailPrefs();
+      const next = window.prompt('הכנס כתובת מייל להתראות (השאר ריק כדי להסיר):', current.email || '');
+      if (next === null) return; // user cancelled
+      const trimmed = next.trim();
+      if (trimmed && !isValidEmail(trimmed)) {
+        showToast('כתובת מייל לא תקינה');
+        return;
+      }
+      const updated = setEmailPrefs({
+        email: trimmed,
+        mode: trimmed ? (current.mode === 'off' ? 'mention' : current.mode) : 'off',
+        opted: true,
+      });
+      showToast(trimmed ? 'המייל נשמר' : 'המייל הוסר');
+      panel.innerHTML = renderSettingsPanel(getDisplayName(), updated);
+      bindSettingsPanel(panel);
+      // Push to the worker so it knows where to send notifications.
+      // Silent on failure — the local prefs are the source of truth for
+      // the UI, and the next change will re-sync.
+      saveServerPrefs({ email: updated.email, mode: updated.mode }).catch(() => {});
+    });
+  });
+  panel.querySelectorAll('.discuss-toggle-checkbox').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      // Mutually exclusive group: any change forces the picked mode and
+      // turns the others off. The DOM will be re-rendered to reflect it.
+      const mode = cb.dataset.mode;
+      const updated = setEmailPrefs({ mode });
+      showToast('ההעדפות עודכנו');
+      panel.innerHTML = renderSettingsPanel(getDisplayName(), updated);
+      bindSettingsPanel(panel);
+      saveServerPrefs({ email: updated.email, mode: updated.mode }).catch(() => {});
     });
   });
 }

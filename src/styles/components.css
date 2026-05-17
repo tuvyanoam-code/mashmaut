@@ -359,6 +359,26 @@
   box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--bulletin-primary) 40%, transparent);
 }
 .cover-discuss-btn svg { stroke-width: 1.6; flex-shrink: 0; }
+/* Active threads count on the latest bulletin. Appears only when count > 0.
+ * `:not([hidden])` so the [hidden] attribute genuinely hides the element
+ * — a plain `display: inline-flex` would override the UA `[hidden]` rule
+ * and leave an empty circle when there's nothing to show. */
+.cover-discuss-badge:not([hidden]) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+  font-size: .78rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-inline-start: 6px;
+}
 
 /* About strip + archive CTA layout. */
 .about-strip {
@@ -2178,6 +2198,80 @@ button.discuss-msg-replyto:hover {
   background: var(--d-apricot-soft, #ffe5cf);
 }
 
+/* @mention chip inside a rendered message body. Quiet apricot tint so
+ * it reads as "this name is special" without shouting. Inline so it
+ * wraps naturally with the surrounding text. */
+.discuss-mention {
+  display: inline;
+  font-weight: 600;
+  color: var(--d-apricot, #f59c66);
+  background: color-mix(in srgb, var(--d-apricot, #f59c66) 12%, transparent);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+/* Mention autocomplete — Slack/Claude-style popover anchored to the
+ * caret. Lives directly on document.body (position: fixed) so it can
+ * float above whatever's in the way. Compact list with an avatar
+ * initial + name + optional admin badge. */
+.discuss-mention-dropdown {
+  /* position/top/left set by JS at the caret each open */
+  background: #fff;
+  border: 1px solid var(--d-edge, #efe5cf);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px -8px rgba(20,20,20,.18), 0 2px 6px rgba(20,20,20,.06);
+  max-height: 240px;
+  min-width: 220px;
+  max-width: 320px;
+  overflow-y: auto;
+  z-index: 200;
+  padding: 4px;
+  font-family: var(--font-body, system-ui, sans-serif);
+}
+.discuss-mention-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: right;
+  background: transparent;
+  border: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: .92rem;
+  color: var(--d-ink, #2a2722);
+  cursor: pointer;
+}
+.discuss-mention-item:hover,
+.discuss-mention-item.is-active {
+  background: color-mix(in srgb, var(--d-apricot, #f59c66) 14%, transparent);
+}
+.discuss-mention-item-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--d-apricot, #f59c66) 22%, var(--d-paper, #fffbf3));
+  color: var(--d-apricot, #f59c66);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.discuss-mention-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.discuss-mention-item-badge {
+  font-size: .68rem;
+  font-weight: 600;
+  color: var(--d-mint, #2d6a4f);
+  background: color-mix(in srgb, var(--d-mint, #2d6a4f) 14%, transparent);
+  padding: 2px 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
 /* Briefly highlight the target message after a "(בתגובה ל-X)" click.
  * Subtle apricot ring that fades out — clear but not loud. */
 .discuss-msg.jump-highlight {
@@ -2680,15 +2774,23 @@ div + .show-more-btn {
 }
 
 .discuss-menu-panel {
+  /* Floats above the conversation instead of pushing it down — opening
+     the menu shouldn't shift everything below. The tabs bar still flows
+     in normally; only the panel is detached. Bigger shadow + bg keeps
+     the conversation underneath readable through the gap. */
+  position: absolute;
+  top: 100%;
+  inset-inline: 0;
   margin-top: 10px;
   background: #fff;
   border: 1px solid var(--d-edge, #efe5cf);
   border-radius: 18px;
   padding: 14px 16px;
-  box-shadow: 0 8px 28px rgba(60, 40, 10, .08), 0 1px 4px rgba(60, 40, 10, .04);
+  box-shadow: 0 16px 40px -8px rgba(60, 40, 10, .18), 0 2px 6px rgba(60, 40, 10, .06);
   animation: dm-panel-in .25s cubic-bezier(.34, 1.56, .64, 1);
   max-height: 380px;
   overflow-y: auto;
+  z-index: 20;
 }
 .discuss-menu-panel.opening { animation: none; }
 @keyframes dm-panel-in {
@@ -2824,6 +2926,137 @@ div + .show-more-btn {
   font-size: .82rem;
   color: var(--d-ink-soft, #6f675b);
   line-height: 1.55;
+}
+/* Visual separator between settings sections (name vs email). */
+.discuss-menu-divider {
+  height: 1px;
+  background: var(--d-edge, #efe5cf);
+  margin: 16px 0 8px;
+}
+
+/* iOS-style toggle group for the four mutually-exclusive notification
+ * modes. Each row is a clickable label so the whole row toggles. */
+.discuss-menu-toggles { margin-top: 8px; }
+.discuss-menu-toggles[aria-disabled="true"] .discuss-toggle-row { opacity: .55; }
+.discuss-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--d-edge-soft, #f5ecd8);
+  cursor: pointer;
+}
+.discuss-toggle-row:first-child { border-top: 0; }
+.discuss-toggle-row.is-disabled { cursor: default; }
+.discuss-toggle-text { flex: 1; min-width: 0; }
+.discuss-toggle-title {
+  display: block;
+  font-size: .95rem;
+  font-weight: 500;
+  color: var(--d-ink, #2a2722);
+  line-height: 1.3;
+}
+.discuss-toggle-desc {
+  display: block;
+  margin-top: 3px;
+  font-size: .8rem;
+  color: var(--d-ink-soft, #6f675b);
+  line-height: 1.45;
+}
+/* Hide the real checkbox visually but keep it accessible to AT/keyboard. */
+.discuss-toggle-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.discuss-toggle-switch {
+  flex-shrink: 0;
+  position: relative;
+  width: 44px;
+  height: 26px;
+  background: color-mix(in srgb, var(--d-ink-soft, #6f675b) 25%, transparent);
+  border-radius: 999px;
+  transition: background .22s ease;
+}
+.discuss-toggle-knob {
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,.15);
+  transition: inset-inline-start .22s cubic-bezier(.4, 0, .2, 1);
+}
+.discuss-toggle-row.is-on .discuss-toggle-switch {
+  background: var(--accent, #2d6a4f);
+}
+.discuss-toggle-row.is-on .discuss-toggle-knob {
+  inset-inline-start: 21px;
+}
+.discuss-toggle-checkbox:focus-visible + .discuss-toggle-switch {
+  outline: 2px solid var(--accent, #2d6a4f);
+  outline-offset: 2px;
+}
+
+/* Combined onboarding modal — name + email opt-in stacked. */
+.name-prompt-label {
+  display: block;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin: 0 0 8px;
+}
+.name-prompt-form input[type="text"],
+.name-prompt-form input[type="email"] {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font: inherit;
+  text-align: right;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
+}
+.name-prompt-form input[type="email"] { direction: ltr; text-align: left; }
+.name-prompt-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.name-prompt-hint {
+  font-size: .8rem;
+  color: var(--text-muted);
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+.name-prompt-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0 16px;
+}
+.name-prompt-email-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.name-prompt-email-row input { flex: 1; min-width: 0; }
+.name-prompt-skip {
+  flex-shrink: 0;
+  white-space: nowrap;
+  align-self: stretch;
+}
+.name-prompt-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
 /* ===== Site-styled dialogs (replace native confirm/prompt) ===== */

@@ -2,8 +2,14 @@
 // stored in localStorage so subsequent comments don't re-prompt. The server
 // enforces uniqueness per fp (first browser to claim a normalized name owns
 // it) — so the prompt re-asks if the user picks a name that's already taken.
+//
+// The same prompt also handles first-time email-notification opt-in (only on
+// the very first post — once opted, the email section is skipped). Caller
+// can force the email section back via { askEmail: true } when re-prompting
+// from the settings panel.
 
 import { icon } from '../icons.js';
+import { setEmailPrefs, markOpted, hasOpted, isValidEmail, getEmailPrefs } from './emailPrefs.js';
 
 const STORAGE_KEY = 'mashmaut.displayName';
 
@@ -38,24 +44,48 @@ export function clearDisplayName() {
 }
 
 /** Open a modal and resolve with the chosen name, or null if cancelled.
- *  Caller can pass an `error` to display (e.g. "name taken"). */
-export function promptForDisplayName({ initial = '', error = '' } = {}) {
+ *
+ *  Options:
+ *    initial      — name text to pre-fill
+ *    error        — banner message at top (e.g. "name taken")
+ *    askEmail     — force-show the email opt-in section even if the user
+ *                   has previously opted. Used by the settings panel when
+ *                   the user explicitly chose "change name + email".
+ */
+export function promptForDisplayName({ initial = '', error = '', askEmail = null } = {}) {
   return new Promise((resolve) => {
+    // Email section visible on the very first post (auto), or when the
+    // caller passes askEmail explicitly. After the user opts (either way)
+    // we skip the section on subsequent name re-prompts.
+    const showEmail = askEmail === null ? !hasOpted() : !!askEmail;
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay name-prompt-overlay';
+    const existingPrefs = getEmailPrefs();
     overlay.innerHTML = `
-      <div class="modal name-prompt" role="dialog" aria-modal="true" aria-label="בחירת שם">
+      <div class="modal name-prompt" role="dialog" aria-modal="true" aria-label="הצטרפות לשיחות">
         <button type="button" class="modal-close" aria-label="סגור">${icon('close', { size: 20 })}</button>
-        <div class="modal-icon">${icon('email', { size: 28 })}</div>
-        <h3 style="margin: 4px 0 6px;">איך אתה רוצה שיציגו אותך?</h3>
-        <p class="muted" style="margin: 0 0 16px;">השם יופיע ליד התגובות שלך.</p>
+        <div class="modal-icon">${icon('dialog', { size: 28 })}</div>
+        <h3 style="margin: 4px 0 6px;">כמה רגעים לפני שמתחילים</h3>
+        <p class="muted" style="margin: 0 0 16px;">הפרטים נשמרים בדפדפן הזה. תוכל לשנות בכל זמן ב"הגדרות".</p>
         ${error ? `<div class="admin-status error" style="margin-bottom: 12px;">${escapeHtml(error)}</div>` : ''}
-        <form class="name-prompt-form">
-          <input type="text" name="name" maxlength="40" required autofocus placeholder="לדוגמה: ישראל" value="${escapeAttr(initial)}" style="width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; font: inherit; text-align: right; box-sizing: border-box;" />
-          <p class="muted" style="font-size: .8rem; margin: 8px 0 16px;">2–40 תווים. השם יישמר במחשב שלך — תוכל לשנות בכל זמן.</p>
-          <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <form class="name-prompt-form" novalidate>
+          <label class="name-prompt-label">איך תרצה שיציגו אותך?</label>
+          <input type="text" name="name" maxlength="40" required autofocus placeholder="לדוגמה: ישראל" value="${escapeAttr(initial)}" />
+          <p class="muted name-prompt-hint">השם יופיע ליד ההודעות שלך, 2–40 תווים.</p>
+
+          ${showEmail ? `
+            <div class="name-prompt-divider"></div>
+            <label class="name-prompt-label">לקבל התראה במייל כשעונים לך?</label>
+            <div class="name-prompt-email-row">
+              <input type="email" name="email" placeholder="your@email.com" value="${escapeAttr(existingPrefs.email)}" inputmode="email" autocomplete="email" />
+              <button type="button" class="btn-text name-prompt-skip" data-skip-email>דלג</button>
+            </div>
+            <p class="muted name-prompt-hint">ברירת המחדל: רק כשעונים לך ישירות או מזכירים אותך. את שאר האפשרויות תמצא ב"הגדרות".</p>
+          ` : ''}
+
+          <div class="name-prompt-actions">
             <button type="button" class="btn-text" data-cancel>בטל</button>
-            <button type="submit" class="btn">${icon('check', { size: 18 })} אישור</button>
+            <button type="submit" class="btn">${icon('check', { size: 18 })} <span>אישור</span></button>
           </div>
         </form>
       </div>
@@ -76,6 +106,8 @@ export function promptForDisplayName({ initial = '', error = '' } = {}) {
     overlay.querySelector('[data-cancel]').addEventListener('click', () => cleanup(null));
     const form = overlay.querySelector('form');
     const input = form.querySelector('input[name="name"]');
+    const emailInput = form.querySelector('input[name="email"]');
+    const skipBtn = form.querySelector('[data-skip-email]');
     // Inline error region — appears as soon as the user types a forbidden
     // name (and again on submit if they tried to dismiss the warning).
     const errorEl = document.createElement('div');
@@ -97,6 +129,35 @@ export function promptForDisplayName({ initial = '', error = '' } = {}) {
 
     input.addEventListener('input', () => setForbidden(isForbiddenName(input.value)));
 
+    function commitEmail({ skipped = false } = {}) {
+      if (!showEmail) return;
+      if (skipped) {
+        markOpted();
+        return;
+      }
+      const email = (emailInput?.value || '').trim();
+      if (email && isValidEmail(email)) {
+        setEmailPrefs({ email, mode: 'mention', opted: true });
+      } else {
+        markOpted();
+      }
+    }
+
+    if (skipBtn) {
+      skipBtn.addEventListener('click', () => {
+        if (emailInput) emailInput.value = '';
+        commitEmail({ skipped: true });
+        // Continue submission with just the name
+        const name = (input.value || '').trim();
+        if (name.length < 2) {
+          input.focus();
+          return;
+        }
+        if (isForbiddenName(name)) { setForbidden(true); input.focus(); return; }
+        cleanup(name);
+      });
+    }
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const name = (new FormData(e.target).get('name') || '').toString().trim();
@@ -106,6 +167,7 @@ export function promptForDisplayName({ initial = '', error = '' } = {}) {
         input.focus();
         return;
       }
+      commitEmail();
       cleanup(name);
     });
   });

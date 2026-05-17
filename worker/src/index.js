@@ -881,7 +881,7 @@ async function appendReply(env, year, slug, threadId, payload) {
 
 // --- Email sending (Resend) ----------------------------------------------
 
-async function sendEmail(env, to, subject, html) {
+async function sendEmail(env, to, subject, html, opts = {}) {
   // Staging guard: only ever send mail to the admin's own inbox. Combined with
   // FROM_EMAIL pointed at Resend's sandbox sender, this is double-protection
   // against accidentally emailing real subscribers from a staging tick.
@@ -898,19 +898,26 @@ async function sendEmail(env, to, subject, html) {
   const fromEmail = env.FROM_EMAIL || 'onboarding@resend.dev';
   // Replies go to the admin's real inbox, not the no-reply sender domain.
   const replyTo = env.ADMIN_EMAIL || 'alonmashmaut@gmail.com';
+  const payload = {
+    from: `${fromName} <${fromEmail}>`,
+    to: Array.isArray(to) ? to : [to],
+    reply_to: replyTo,
+    subject,
+    html,
+  };
+  // Resend supports attachments: [{ filename, content }] where content is
+  // a base64 string. Callers pass attachments via opts when they want the
+  // PDF (or any other file) clipped to the email.
+  if (opts.attachments && opts.attachments.length) {
+    payload.attachments = opts.attachments;
+  }
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
     },
-    body: JSON.stringify({
-      from: `${fromName} <${fromEmail}>`,
-      to: Array.isArray(to) ? to : [to],
-      reply_to: replyTo,
-      subject,
-      html,
-    }),
+    body: JSON.stringify(payload),
   });
   if (!r.ok) {
     const errText = await r.text();
@@ -958,6 +965,29 @@ function buildBulletinEmail(env, week) {
 </body>
 </html>`;
   return { subject: title, html };
+}
+
+// Fetch the bulletin PDF and return it as a Uint8Array. Returns null if
+// the file is missing or unreachable — caller decides whether to send
+// the email without an attachment or to abort.
+async function fetchBulletinPdf(env, week) {
+  const url = `${env.SITE_URL.replace(/\/$/, '')}/data/bulletins/${week.yearId}/${week.slug}.pdf`;
+  const r = await fetch(url, { cf: { cacheTtl: 0 } });
+  if (!r.ok) return null;
+  const buf = await r.arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+// btoa() in Workers handles strings only; for binary data we manually
+// chunk the byte array to avoid the "Invalid character" issues that
+// come from spreading large Uint8Arrays into String.fromCharCode.
+function bytesToBase64(bytes) {
+  const CHUNK = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
 }
 
 async function fetchLatestBulletin(env) {
@@ -1031,6 +1061,24 @@ async function sendBulletinToAll(env) {
   const subs = await listSubscribers(env);
   if (!subs.length) return { ok: true, sent: 0 };
   const tpl = buildBulletinEmail(env, week);
+
+  // Fetch the PDF once and reuse for every recipient. We base64-encode it
+  // here (Resend's attachment format) rather than letting each send make
+  // its own copy. If the fetch fails, we still send the email — just
+  // without an attachment — so a broken PDF link doesn't block dispatch.
+  let attachments;
+  try {
+    const pdfBytes = await fetchBulletinPdf(env, week);
+    if (pdfBytes) {
+      attachments = [{
+        filename: `${week.parshaName || week.slug}.pdf`,
+        content: bytesToBase64(pdfBytes),
+      }];
+    }
+  } catch (e) {
+    console.log('PDF attachment fetch failed:', e.message);
+  }
+
   let sent = 0, failed = 0;
   const failures = [];
   // Send sequentially with throttling to respect Resend's rate limit.
@@ -1038,7 +1086,7 @@ async function sendBulletinToAll(env) {
     const s = subs[i];
     try {
       const html = tpl.html.replace('{{EMAIL}}', encodeURIComponent(s.email));
-      await sendEmail(env, s.email, tpl.subject, html);
+      await sendEmail(env, s.email, tpl.subject, html, { attachments });
       sent++;
     } catch (e) {
       failed++;
@@ -1060,6 +1108,251 @@ async function sendBulletinToAll(env) {
     failed,
   });
   return { ok: true, sent, failed, failures };
+}
+
+// --- Reply email notifications ----------------------------------------
+//
+// When a reply is posted, we identify every participant who might want
+// to know about it (by `mode` stored in `prefs:{fp}`) and queue a
+// "pending notification" for each. A cron task pops pending entries
+// older than NOTIF_DELAY_MS and checks whether the user has since
+// "seen" the thread (timestamp stored in `seen:{fp}:{threadId}`). If
+// they've seen the reply already, the email is skipped — no need to
+// nag about something they read on the site.
+//
+// Modes (from emailPrefs.js, mirrored here):
+//   off      — never email
+//   mention  — only when target was @mentioned or replied to directly
+//   admin    — only when the reply is from the admin/moderator
+//   all      — every new reply in any thread the user participated in
+
+const NOTIF_DELAY_MS = 5 * 60 * 1000;   // 5 minutes
+const NOTIF_TTL_S    = 7 * 24 * 60 * 60; // 7 days — drop stale pending entries
+
+// --- Prefs: { email, mode, opted, updatedAt } per fp ---
+async function savePrefs(env, fp, patch) {
+  if (!FP_RE.test(fp)) return null;
+  const existing = (await loadPrefs(env, fp)) || { email: '', mode: 'off', opted: false };
+  const next = {
+    email: typeof patch.email === 'string' ? String(patch.email).trim().toLowerCase() : existing.email,
+    mode: ['off', 'mention', 'admin', 'all'].includes(patch.mode) ? patch.mode : existing.mode,
+    opted: !!(patch.opted ?? existing.opted),
+    updatedAt: new Date().toISOString(),
+  };
+  // Normalize: no email → mode must be 'off' (can't send without an address).
+  if (!next.email) next.mode = 'off';
+  await env.EVENTS.put(`prefs:${fp}`, JSON.stringify(next));
+  return next;
+}
+async function loadPrefs(env, fp) {
+  if (!FP_RE.test(fp)) return null;
+  return env.EVENTS.get(`prefs:${fp}`, 'json');
+}
+
+// --- Seen: ISO timestamp of last view per (fp, threadId) ---
+async function markThreadSeen(env, fp, year, slug, threadId) {
+  if (!FP_RE.test(fp) || !COMMENT_ID_RE.test(threadId)) return;
+  // 90-day TTL — long enough to cover any reasonable "did I see this" window.
+  await env.EVENTS.put(`seen:${fp}:${threadId}`, new Date().toISOString(), {
+    expirationTtl: 90 * 24 * 60 * 60,
+  });
+}
+async function getSeenAt(env, fp, threadId) {
+  return env.EVENTS.get(`seen:${fp}:${threadId}`);
+}
+
+// --- Unread mentions per fp (for the home-page badge) ---
+async function addUnreadMention(env, targetFp, mention) {
+  const key = `mention:unread:${targetFp}`;
+  const arr = (await env.EVENTS.get(key, 'json')) || [];
+  arr.push(mention);
+  // Cap to prevent unbounded growth (worst case: someone never visits).
+  await env.EVENTS.put(key, JSON.stringify(arr.slice(-50)), {
+    expirationTtl: 90 * 24 * 60 * 60,
+  });
+}
+async function clearUnreadMentionsForThread(env, targetFp, threadId) {
+  const key = `mention:unread:${targetFp}`;
+  const arr = (await env.EVENTS.get(key, 'json')) || [];
+  const next = arr.filter((m) => m.threadId !== threadId);
+  if (next.length === arr.length) return; // no-op
+  if (next.length === 0) await env.EVENTS.delete(key);
+  else await env.EVENTS.put(key, JSON.stringify(next), { expirationTtl: 90 * 24 * 60 * 60 });
+}
+
+// --- Pending notifications queue ---
+// Key shape: `notif:pending:{ISO ts}:{noteId}` — the ts prefix makes the
+// list naturally sortable, so the cron processor can stop as soon as it
+// hits a future entry.
+async function enqueueNotification(env, note) {
+  const ts = note.createdAt || new Date().toISOString();
+  const noteId = note.replyId + '-' + note.targetFp;
+  await env.EVENTS.put(
+    `notif:pending:${ts}:${noteId}`,
+    JSON.stringify({ ...note, createdAt: ts }),
+    { expirationTtl: NOTIF_TTL_S },
+  );
+}
+
+// Walk the participants of a thread, figure out who wants a notification
+// for this reply (based on their stored prefs), and enqueue one entry
+// per target. The poster themselves is always skipped.
+//
+//   year, slug, threadId          location of the reply
+//   reply                         the saved reply { id, body, author, fp, isAdmin, replyToId, replyToAuthor }
+//   thread                        the thread { id, title, fp: opener, ... }
+//   replies                       all replies in the thread (already loaded by caller)
+//   mentions                      names the poster @-mentioned (validated against participants)
+async function enqueueRepliesNotifications(env, { year, slug, threadId, parshaName, thread, replies, reply, mentions }) {
+  // Build a unique set of {fp, displayName} for everyone in the thread,
+  // excluding the poster (their own reply, no notification).
+  const seen = new Set();
+  const participants = [];
+  const consider = (m) => {
+    if (!m || !m.fp || m.deleted) return;
+    if (m.fp === reply.fp) return;
+    if (seen.has(m.fp)) return;
+    seen.add(m.fp);
+    participants.push({ fp: m.fp, author: m.author, isAdmin: !!m.isAdmin });
+  };
+  consider(thread);
+  (replies || []).forEach(consider);
+
+  // Did the new reply target a specific reply? If so, that author gets a
+  // "direct reply" notification regardless of their other settings (as
+  // long as they didn't opt all the way off).
+  let directReplyFp = null;
+  if (reply.replyToId) {
+    const target = (replies || []).find((r) => r.id === reply.replyToId)
+      || (thread.id === reply.replyToId ? thread : null);
+    if (target) directReplyFp = target.fp;
+  }
+  const mentionSet = new Set((mentions || []).map((s) => String(s)));
+
+  for (const p of participants) {
+    const prefs = await loadPrefs(env, p.fp);
+    if (!prefs || !prefs.email || prefs.mode === 'off') continue;
+    // Pick the *strongest* applicable notifyType for this user. Order:
+    // direct-reply > mention > admin-reply > thread-update.
+    let notifyType = null;
+    const isDirect = directReplyFp === p.fp;
+    const isMention = mentionSet.has(p.author);
+    const isAdminReply = !!reply.isAdmin;
+    if (isDirect) notifyType = 'direct';
+    else if (isMention) notifyType = 'mention';
+    else if (prefs.mode === 'all') notifyType = 'thread-update';
+    else if (prefs.mode === 'admin' && isAdminReply) notifyType = 'admin';
+    if (!notifyType) continue;
+    // 'mention' mode only sends on direct/mention — skip thread-update + admin
+    if (prefs.mode === 'mention' && !(isDirect || isMention)) continue;
+    // 'admin' mode only sends on admin-reply + direct + mention
+    if (prefs.mode === 'admin' && !(isAdminReply || isDirect || isMention)) continue;
+
+    await enqueueNotification(env, {
+      year, slug, threadId,
+      parshaName,
+      threadTitle: thread.title || '',
+      replyId: reply.id,
+      replyAuthor: reply.author,
+      replyBody: (reply.body || '').slice(0, 600),
+      replyIsAdmin: !!reply.isAdmin,
+      targetFp: p.fp,
+      targetEmail: prefs.email,
+      notifyType,
+      createdAt: new Date().toISOString(),
+    });
+
+    // Track unread mentions separately so the home page can show a badge.
+    if (notifyType === 'mention' || notifyType === 'direct') {
+      await addUnreadMention(env, p.fp, {
+        year, slug, threadId, replyId: reply.id,
+        replyAuthor: reply.author, threadTitle: thread.title || '',
+        parshaName, at: new Date().toISOString(),
+      });
+    }
+  }
+}
+
+// Cron task: pop every pending notification older than NOTIF_DELAY_MS,
+// skip those whose target has since "seen" the thread, send the rest.
+async function processPendingNotifications(env) {
+  const cutoff = new Date(Date.now() - NOTIF_DELAY_MS).toISOString();
+  let sent = 0, skipped = 0, failed = 0;
+  let cursor;
+  do {
+    const res = await env.EVENTS.list({ prefix: 'notif:pending:', cursor, limit: 200 });
+    for (const k of res.keys) {
+      // Key format: notif:pending:{ISO ts}:{noteId} — pull ts out.
+      const ts = k.name.split(':')[2];
+      if (!ts || ts > cutoff) continue; // not yet ready
+      const note = await env.EVENTS.get(k.name, 'json');
+      if (!note) { await env.EVENTS.delete(k.name); continue; }
+      try {
+        // Skip if the target has seen the thread AFTER this reply was posted.
+        const seenAt = await getSeenAt(env, note.targetFp, note.threadId);
+        if (seenAt && seenAt >= note.createdAt) {
+          await env.EVENTS.delete(k.name);
+          skipped++;
+          continue;
+        }
+        const tpl = buildReplyNotificationEmail(env, note);
+        await sendEmail(env, note.targetEmail, tpl.subject, tpl.html);
+        sent++;
+        await env.EVENTS.delete(k.name);
+      } catch (e) {
+        failed++;
+        console.log('notif send failed:', k.name, e.message);
+        // Leave the entry in place — retry next tick. The TTL caps how
+        // many retries we'll do over the entry's lifetime.
+      }
+      // Light throttling between sends.
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+  return { sent, skipped, failed };
+}
+
+function buildReplyNotificationEmail(env, note) {
+  const site = env.SITE_URL.replace(/\/$/, '');
+  const threadUrl = `${site}/y/${note.year}/${note.slug}/discuss/${note.threadId}`;
+  const reasons = {
+    direct: 'מישהו ענה ישירות להודעה שלך',
+    mention: 'מישהו הזכיר אותך בתגובה',
+    admin: 'מנהל האתר השיב בשיחה שאתה משתתף בה',
+    'thread-update': 'יש תגובה חדשה בשיחה שאתה משתתף בה',
+  };
+  const reason = reasons[note.notifyType] || 'יש לך תגובה חדשה';
+  const subject = `${reason}${note.parshaName ? ' · פרשת ' + note.parshaName : ''}`;
+  const escaped = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const bodyPreview = escaped(note.replyBody).slice(0, 400);
+  const html = `<!DOCTYPE html>
+<html lang="he" dir="rtl"><head><meta charset="UTF-8"><title>${escaped(subject)}</title></head>
+<body style="margin:0;padding:24px;background:#fbfaf7;font-family:Assistant,system-ui,sans-serif;color:#1a1a1a;direction:rtl;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" border="0" style="background:#fff;border-radius:18px;border:1px solid #ece6d8;max-width:560px;">
+        <tr><td style="padding:32px 28px 24px;">
+          <div style="font-size:13px;color:#6f675b;font-weight:500;letter-spacing:.04em;">${escaped(reason)}</div>
+          ${note.threadTitle ? `<h2 style="font-size:22px;margin:8px 0 16px;font-weight:700;">${escaped(note.threadTitle)}</h2>` : ''}
+          <div style="background:#fef9f0;border-inline-start:3px solid #f59c66;padding:12px 16px;border-radius:6px;font-size:15px;line-height:1.6;color:#2a2722;">
+            <div style="font-weight:600;font-size:13px;color:#6f675b;margin-bottom:4px;">${escaped(note.replyAuthor || '')}${note.replyIsAdmin ? ' · מנהל' : ''}</div>
+            ${bodyPreview.replace(/\n/g, '<br>')}
+          </div>
+          <div style="margin:24px 0 8px;">
+            <a href="${threadUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;text-decoration:none;padding:11px 22px;border-radius:999px;font-weight:600;font-size:15px;">לפתוח את השיחה</a>
+          </div>
+          <p style="font-size:12px;color:#999;margin:28px 0 0;line-height:1.6;">
+            אתה מקבל את ההודעה הזו כי הצטרפת לשיחה הזו וביקשת התראות במייל.
+            תוכל לשנות את ההעדפות בכל זמן בעמוד ההגדרות שבתוך השיחות.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  return { subject, html };
 }
 
 // Decide what to do when the hourly cron fires. Honors the user's schedule
@@ -1237,6 +1530,44 @@ export default {
 
       // List all threads for a bulletin (lightweight — for the bulletin's
       // preview list. Doesn't include reply bodies).
+      // --- Notification prefs (called by frontend on opt-in / settings change) ---
+      if (p === '/discuss/prefs' && request.method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const fp = String(body.fp || '');
+        if (!FP_RE.test(fp)) return err('fp invalid');
+        // email may be empty (= unsubscribe / off). Mode falls back to off.
+        const saved = await savePrefs(env, fp, {
+          email: body.email,
+          mode: body.mode,
+          opted: true,
+        });
+        return ok({ prefs: saved });
+      }
+
+      // Mark a thread as "seen" by this fp. Called when the user opens
+      // the thread page; the timestamp is compared against pending
+      // notifications by the cron processor.
+      if (p.startsWith('/discuss/seen/') && request.method === 'POST') {
+        const threadId = p.slice('/discuss/seen/'.length);
+        const body = await request.json().catch(() => ({}));
+        const fp = String(body.fp || '');
+        const year = String(body.year || '');
+        const slug = String(body.slug || '');
+        if (!FP_RE.test(fp) || !COMMENT_ID_RE.test(threadId)) return err('invalid');
+        if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('invalid');
+        await markThreadSeen(env, fp, year, slug, threadId);
+        await clearUnreadMentionsForThread(env, fp, threadId);
+        return ok({ at: new Date().toISOString() });
+      }
+
+      // Unread mentions count + list for the home-page badge.
+      if (p === '/discuss/mentions' && request.method === 'GET') {
+        const fp = url.searchParams.get('fp') || '';
+        if (!FP_RE.test(fp)) return err('fp invalid');
+        const list = (await env.EVENTS.get(`mention:unread:${fp}`, 'json')) || [];
+        return ok({ count: list.length, mentions: list });
+      }
+
       if (p === '/discuss/threads' && request.method === 'GET') {
         const slug = url.searchParams.get('slug') || '';
         const year = url.searchParams.get('year') || '';
@@ -1277,6 +1608,14 @@ export default {
         const cleanTitle = stripHtml(title).slice(0, COMMENT_TITLE_MAX);
         const cleanBody = stripHtml(text).slice(0, COMMENT_BODY_MAX);
         const saved = await createThread(env, year, slug, { title: cleanTitle, body: cleanBody, author, fp });
+        // Persist the poster's notification prefs (from the onboarding
+        // popup). No notifications enqueued — they're the only person in
+        // the thread so far. Mark them as seen so they don't get notified
+        // about replies that arrived while they're still on the page.
+        if (body.emailPrefs && typeof body.emailPrefs === 'object') {
+          await savePrefs(env, fp, body.emailPrefs);
+        }
+        await markThreadSeen(env, fp, year, slug, saved.id);
         return ok({ thread: saved });
       }
 
@@ -1332,6 +1671,30 @@ export default {
         const saved = await appendReply(env, year, slug, threadId, {
           body: cleanBody, author, fp, replyToId, replyToAuthor,
         });
+        // Save the poster's notification prefs if they sent any (e.g. they
+        // typed their email in the onboarding modal and we want to remember
+        // it server-side for the cron worker to match against later).
+        if (body.emailPrefs && typeof body.emailPrefs === 'object') {
+          await savePrefs(env, fp, body.emailPrefs);
+        }
+        // Enqueue pending notifications for everyone else who's in the
+        // thread and has prefs allowing this kind of message. The cron
+        // processor handles the 5-minute delay + skip-if-seen logic.
+        const allReplies = await listRepliesInThread(env, year, slug, threadId);
+        const mentions = Array.isArray(body.mentions) ? body.mentions.slice(0, 20).map(String) : [];
+        // Fetch parshaName so the email subject can show it.
+        let parshaName = '';
+        try {
+          const wkRes = await fetch(`${env.SITE_URL.replace(/\/$/, '')}/data/bulletins/${year}/${slug}.json`, { cf: { cacheTtl: 0 } });
+          if (wkRes.ok) parshaName = (await wkRes.json()).parshaName || '';
+        } catch (_) {}
+        await enqueueRepliesNotifications(env, {
+          year, slug, threadId, parshaName,
+          thread: t.value, replies: allReplies, reply: saved, mentions,
+        });
+        // Sender's own view: mark them as seen so they don't get spam'd
+        // about a thread they just posted in.
+        await markThreadSeen(env, fp, year, slug, threadId);
         return ok({ reply: saved });
       }
 
@@ -2082,10 +2445,11 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    // Two independent scheduled jobs share the hourly tick:
+    // Three independent scheduled jobs share the hourly tick:
     //   1) maybeSendOnSchedule — weekly bulletin dispatch.
     //   2) maybeArchiveStats — periodic stats archive + reset.
-    // Both are no-ops on most ticks (they each check their own gating).
+    //   3) processPendingNotifications — drain the reply-notification
+    //      queue, honoring the 5-minute delay + skip-if-seen rules.
     ctx.waitUntil(
       maybeSendOnSchedule(env).then((r) => console.log('cron dispatch:', r))
         .catch((e) => console.log('cron dispatch error:', e.message))
@@ -2093,6 +2457,10 @@ export default {
     ctx.waitUntil(
       maybeArchiveStats(env).then((r) => console.log('cron archive:', r))
         .catch((e) => console.log('cron archive error:', e.message))
+    );
+    ctx.waitUntil(
+      processPendingNotifications(env).then((r) => console.log('cron notifs:', r))
+        .catch((e) => console.log('cron notifs error:', e.message))
     );
   },
 };

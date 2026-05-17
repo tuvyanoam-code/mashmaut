@@ -1324,7 +1324,11 @@ function buildReplyNotificationEmail(env, note) {
     'thread-update': 'יש תגובה חדשה בשיחה שאתה משתתף בה',
   };
   const reason = reasons[note.notifyType] || 'יש לך תגובה חדשה';
-  const subject = `${reason}${note.parshaName ? ' · פרשת ' + note.parshaName : ''}`;
+  // Subject is consistent across notification types — the *body's* eyebrow
+  // shows which reason fired (mention / direct / admin / thread-update).
+  // The subject leads with the thread title so the inbox preview is
+  // immediately useful.
+  const subject = `קיבלת תגובה להודעה שלך: ${note.threadTitle || '(שיחה)'}`;
   const escaped = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const bodyPreview = escaped(note.replyBody).slice(0, 400);
   const html = `<!DOCTYPE html>

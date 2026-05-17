@@ -32,18 +32,45 @@ export async function getThread({ year, slug, threadId }) {
   return call('/discuss/threads/' + encodeURIComponent(threadId) + '?' + q({ year, slug }));
 }
 
-export async function createThread({ year, slug, title, body, displayName }) {
+export async function createThread({ year, slug, title, body, displayName, mentions = [], emailPrefs = null }) {
   return call('/discuss/threads', {
     method: 'POST',
-    body: { year, slug, title, body, displayName, fp: ensureFp(), honeypot: '' },
+    body: { year, slug, title, body, displayName, fp: ensureFp(), honeypot: '', mentions, emailPrefs },
   });
 }
 
-export async function postReply({ year, slug, threadId, body, displayName, replyToId = null }) {
+export async function postReply({ year, slug, threadId, body, displayName, replyToId = null, mentions = [], emailPrefs = null }) {
   return call('/discuss/threads/' + encodeURIComponent(threadId) + '/reply', {
     method: 'POST',
-    body: { year, slug, body, displayName, fp: ensureFp(), honeypot: '', replyToId },
+    body: { year, slug, body, displayName, fp: ensureFp(), honeypot: '', replyToId, mentions, emailPrefs },
   });
+}
+
+// Persist the local emailPrefs blob to the server. Called whenever the
+// user changes their email or toggles a notification mode in the
+// settings panel. Server uses the saved prefs to decide who to email
+// when a reply is posted in a thread.
+export async function saveServerPrefs({ email, mode }) {
+  return call('/discuss/prefs', {
+    method: 'POST',
+    body: { fp: ensureFp(), email, mode },
+  });
+}
+
+// Tell the server we've seen everything up to "now" in this thread.
+// Skips the cron-queued reply notification emails for replies posted
+// before this moment.
+export async function markSeenOnServer({ year, slug, threadId }) {
+  return call('/discuss/seen/' + encodeURIComponent(threadId), {
+    method: 'POST',
+    body: { fp: ensureFp(), year, slug },
+  });
+}
+
+// Fetch unread @mentions for this browser. Used by the home page to
+// render the "X אזכורים" badge near the discussion CTA.
+export async function getUnreadMentions() {
+  return call('/discuss/mentions?fp=' + encodeURIComponent(ensureFp()));
 }
 
 export async function editThread({ year, slug, threadId, title, body }) {

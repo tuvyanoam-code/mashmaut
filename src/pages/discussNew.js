@@ -75,8 +75,14 @@ export async function renderDiscussNew({ params }) {
     status.textContent = 'מפרסם…';
     status.className = 'discuss-status info';
     try {
+      // First post — this is the most likely path for the email-prefs opt-in,
+      // since the popup runs before the modal closes. Pass the prefs along so
+      // the server can record them at the same instant.
+      const { getEmailPrefs } = await import('../lib/emailPrefs.js');
+      const localPrefs = getEmailPrefs();
       const r = await createThread({
         year: params.year, slug: params.slug, title, body, displayName: name,
+        emailPrefs: localPrefs.email ? { email: localPrefs.email, mode: localPrefs.mode, opted: true } : null,
       });
       // Track this thread so the user gets notified when others reply.
       followThread({

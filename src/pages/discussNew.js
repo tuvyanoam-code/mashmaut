@@ -71,6 +71,19 @@ export async function renderDiscussNew({ params }) {
       if (!chosen) return;
       setDisplayName(chosen);
       name = chosen;
+    } else {
+      // Existing user that never went through the email opt-in (signed up
+      // before the popup feature existed). Surface it once so they can
+      // choose to receive notifications.
+      const { hasOpted } = await import('../lib/emailPrefs.js');
+      if (!hasOpted()) {
+        const chosen = await promptForDisplayName({ initial: name, askEmail: true });
+        if (chosen === null) return;
+        if (chosen && chosen !== name) {
+          setDisplayName(chosen);
+          name = chosen;
+        }
+      }
     }
     status.textContent = 'מפרסם…';
     status.className = 'discuss-status info';

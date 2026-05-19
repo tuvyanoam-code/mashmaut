@@ -1232,20 +1232,27 @@ async function enqueueRepliesNotifications(env, { year, slug, threadId, parshaNa
   for (const p of participants) {
     const prefs = await loadPrefs(env, p.fp);
     if (!prefs || !prefs.email || prefs.mode === 'off') continue;
-    // Pick the *strongest* applicable notifyType for this user. Order:
-    // direct-reply > mention > admin-reply > thread-update.
-    let notifyType = null;
-    const isDirect = directReplyFp === p.fp;
+    // The thread opener is always treated as a "direct" target — every
+    // reply in their thread is for them. Otherwise people only get an
+    // email when someone clicks "השב" on their specific reply, which
+    // misses the common case of a top-level reply to the opener's
+    // original post.
+    const isOpener = !!(thread && thread.fp === p.fp);
+    const isDirect = isOpener || directReplyFp === p.fp;
     const isMention = mentionSet.has(p.author);
     const isAdminReply = !!reply.isAdmin;
+    // Pick the *strongest* applicable notifyType for this user. Order:
+    // direct > mention > admin > thread-update.
+    let notifyType = null;
     if (isDirect) notifyType = 'direct';
     else if (isMention) notifyType = 'mention';
     else if (prefs.mode === 'all') notifyType = 'thread-update';
     else if (prefs.mode === 'admin' && isAdminReply) notifyType = 'admin';
     if (!notifyType) continue;
-    // 'mention' mode only sends on direct/mention — skip thread-update + admin
+    // Mode-based filtering: even if there's a matching type, respect the
+    // user's chosen narrowness. `mention` mode only accepts mention/direct;
+    // `admin` mode accepts admin/mention/direct.
     if (prefs.mode === 'mention' && !(isDirect || isMention)) continue;
-    // 'admin' mode only sends on admin-reply + direct + mention
     if (prefs.mode === 'admin' && !(isAdminReply || isDirect || isMention)) continue;
 
     await enqueueNotification(env, {
@@ -1279,11 +1286,18 @@ async function processPendingNotifications(env) {
   const cutoff = new Date(Date.now() - NOTIF_DELAY_MS).toISOString();
   let sent = 0, skipped = 0, failed = 0;
   let cursor;
+  const PREFIX = 'notif:pending:';
   do {
-    const res = await env.EVENTS.list({ prefix: 'notif:pending:', cursor, limit: 200 });
+    const res = await env.EVENTS.list({ prefix: PREFIX, cursor, limit: 200 });
     for (const k of res.keys) {
-      // Key format: notif:pending:{ISO ts}:{noteId} — pull ts out.
-      const ts = k.name.split(':')[2];
+      // Key format: `notif:pending:{ISO ts}:{noteId}`.
+      // The ISO ts itself contains colons (e.g. `2026-05-19T12:10:51.589Z`),
+      // so `split(':')` truncates it. Strip the fixed prefix and take
+      // everything up to the LAST colon as ts; the tail is the noteId.
+      const rest = k.name.slice(PREFIX.length);
+      const lastColon = rest.lastIndexOf(':');
+      if (lastColon === -1) continue;
+      const ts = rest.slice(0, lastColon);
       if (!ts || ts > cutoff) continue; // not yet ready
       const note = await env.EVENTS.get(k.name, 'json');
       if (!note) { await env.EVENTS.delete(k.name); continue; }

@@ -12,9 +12,9 @@
   "adminEmail": "alonmashmaut@gmail.com",
   "apiBase": "https://api.alonmashmaut.org",
   "dispatchSchedule": {
-    "enabled": false,
-    "dayOfWeek": 5,
-    "hour": 6,
+    "enabled": true,
+    "dayOfWeek": 4,
+    "hour": 12,
     "requireApproval": false
   },
   "adminApiKey": "mashmaut-K9p4Qx8nVz2RmL7tBdF3wY",

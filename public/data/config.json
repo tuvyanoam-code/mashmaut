@@ -14,7 +14,7 @@
   "dispatchSchedule": {
     "enabled": true,
     "dayOfWeek": 4,
-    "hour": 12,
+    "hour": 7,
     "requireApproval": false
   },
   "adminApiKey": "mashmaut-K9p4Qx8nVz2RmL7tBdF3wY",

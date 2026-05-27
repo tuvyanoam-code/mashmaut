@@ -2095,8 +2095,25 @@ export default {
             ...(typeof week.displayOrder === 'number' ? { displayOrder: week.displayOrder } : {}),
           };
           const i = cur.weeks.findIndex((w) => w.yearId === week.yearId && w.slug === week.slug);
-          if (i >= 0) cur.weeks[i] = summary;
-          else cur.weeks.push(summary);
+          if (i >= 0) {
+            cur.weeks[i] = summary;
+          } else {
+            // Brand-new bulletin. The admin form sets the new summary's
+            // displayOrder to 0 ("latest"), but every existing ordered
+            // week probably also has its own 0/1/2/… The new one being
+            // pushed to the *end* of the array makes a stable sort
+            // keep the existing 0 first, so the homepage stays on the
+            // previous week until the user drags. Shift every existing
+            // displayOrder up by 1 so the new 0 is unique and wins.
+            if (typeof summary.displayOrder === 'number') {
+              cur.weeks.forEach((w) => {
+                if (typeof w.displayOrder === 'number' && w.displayOrder >= summary.displayOrder) {
+                  w.displayOrder += 1;
+                }
+              });
+            }
+            cur.weeks.push(summary);
+          }
           await ghWriteJson(env, 'public/data/index.json', cur, `index: ${i >= 0 ? 'update' : 'add'} ${week.slug}`);
 
           return ok({ saved: true, slug: week.slug });
@@ -2133,16 +2150,15 @@ export default {
             return map.has(k) ? { ...w, displayOrder: map.get(k) } : w;
           });
           await ghWriteJson(env, 'public/data/index.json', idx, `reorder bulletins`);
-          // Mirror onto each per-bulletin JSON (non-blocking would be nicer, do sequentially)
-          for (const k of order) {
-            const [y, s] = k.split('/');
-            const path = `public/data/bulletins/${y}/${s}.json`;
-            const cur = await ghReadJson(env, path);
-            if (cur.data) {
-              cur.data.displayOrder = map.get(k);
-              await ghWriteJson(env, path, cur.data, `reorder: ${s}`);
-            }
-          }
+          // No mirror to per-bulletin JSONs — `index.json` is the only
+          // place that's actually consumed for ordering (the worker and
+          // every frontend path read it from there). Mirroring used to
+          // burn through Cloudflare's 50-subrequest-per-invocation limit
+          // on big catalogs, which surfaced as a "Too many subrequests"
+          // error halfway through the reorder and a partially-applied
+          // state. The displayOrder field that already exists inside
+          // older per-bulletin JSONs is harmless drift; we just stop
+          // touching it on every drag.
           return ok();
         }
 

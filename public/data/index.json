@@ -968,6 +968,25 @@
         "text": "#1a1a1a"
       },
       "displayOrder": 0
+    },
+    {
+      "yearId": "5786",
+      "yearDisplay": "תשפ\"ו",
+      "slug": "behaalotcha",
+      "parshaName": "בהעלתך",
+      "issueNumber": 54,
+      "dateLabel": "י\"ג אייר תשפ\"ו",
+      "teaser": "אהרן איש האהבה מעורר גם אותנו. איך <strong>אוהבים את הבורא,</strong> ומה עושים <mark>כשנשברים?</mark>",
+      "publishedAt": "2026-05-27T18:57:41.490Z",
+      "colors": {
+        "primary": "#32795b",
+        "secondary": "#a89988",
+        "accent": "#a6a49a",
+        "background": "#eff4f2",
+        "bgEnd": "#e0ebe6",
+        "text": "#1a1a1a"
+      },
+      "displayOrder": 0
     }
   ]
 }

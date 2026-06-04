@@ -994,13 +994,13 @@
       "slug": "shelach",
       "parshaName": "שלח",
       "issueNumber": 55,
-      "dateLabel": "כ' סיוון",
-      "teaser": "אדם. חוה, <strong>הבל והמרגלים.</strong> איך כולם טעו בהסתכלות, ואיך מצוות ציצית <mark>מתקנת את החטא?</mark>",
-      "publishedAt": "2026-06-04T17:32:00.585Z",
+      "dateLabel": "כ' סיוון תשפ\"ו",
+      "teaser": null,
+      "publishedAt": "2026-06-04T18:14:06.231Z",
       "colors": {
         "primary": "#a13839",
-        "secondary": "#a89988",
-        "accent": "#b7a797",
+        "secondary": "#a89888",
+        "accent": "#b8a797",
         "background": "#f7efef",
         "bgEnd": "#f1e1e1",
         "text": "#1a1a1a"

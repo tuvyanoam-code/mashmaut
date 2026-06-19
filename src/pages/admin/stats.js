@@ -23,6 +23,10 @@ export async function renderStats(root) {
   }
   clearTimeout(t);
 
+  // Email-open tracking is non-critical — never let it block the dashboard.
+  let opens = { bulletins: [], totalOpened: 0 };
+  try { opens = await adminCall('/admin/opens'); } catch (_) { /* best-effort */ }
+
   const days = Object.keys(stats.byDay || {}).sort();
   const totals = stats.byType || {};
   const countries = Object.entries(stats.byCountry || {}).sort((a, b) => b[1] - a[1]);
@@ -67,6 +71,7 @@ export async function renderStats(root) {
       ${statCard('צפיות ב-PDF', totals.pdf || 0, 'pdf')}
       ${statCard('סיומי קריאה', totals.finish || 0, 'finish')}
       ${statCard('שיתופים', totals.share || 0, 'share')}
+      ${statCard('פתיחות מייל', opens.totalOpened || 0, 'open')}
       ${statCard('דפדפנים ייחודיים', stats.unique || 0, 'unique')}
       ${statCard('דפדפנים חוזרים', stats.returning || 0, 'returning')}
     </div>
@@ -93,6 +98,17 @@ export async function renderStats(root) {
             `).join('')}
           </tbody>
         </table>` : '<p class="muted">עוד אין נתונים.</p>'}
+    </div>
+
+    <div class="admin-card">
+      <h3>פתיחות מייל — מי קרא את העלון</h3>
+      ${renderOpens(opens.bulletins || [])}
+      <p class="muted" style="font-size:.82rem; margin: 14px 0 0; line-height:1.5;">
+        <b>חשוב לדעת:</b> מעקב פתיחות הוא <b>כיווני, לא מדויק</b> (כך בכל מערכת דיוור).
+        אפל מייל (Mail Privacy Protection) טוען את פיקסל המעקב אוטומטית כשהמייל מגיע — גם בלי פתיחה אמיתית — ולכן <b>מנפח</b> את המספר;
+        ג׳ימייל טוען דרך פרוקסי שמקשש את התמונה, אז פתיחה חוזרת של אותו אדם לרוב לא נספרת;
+        ומי שקורא בלי תמונות לא נספר כלל. קרא את המספרים כ״בערך כמה / אילו כתובות התעניינו״.
+      </p>
     </div>
 
     <p class="muted" style="font-size:.85rem; margin: -6px 0 14px; line-height:1.5;">
@@ -257,6 +273,52 @@ function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function escapeAttr(s) { return escapeHtml(s); }
+
+function fmtDateTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.toLocaleString('he-IL', {
+    day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+// One collapsible row per bulletin: summary shows open count (and open-rate
+// vs. how many were sent), expanding to the list of addresses that opened.
+function renderOpens(bulletins) {
+  if (!bulletins.length) {
+    return '<p class="muted">עדיין אין פתיחות שנרשמו. פתיחות יתחילו להופיע אחרי השליחה הבאה של העלון.</p>';
+  }
+  return bulletins.map((b) => {
+    const title = `פרשת ${escapeHtml(b.parshaName)} · ${escapeHtml(b.yearDisplay || b.year)}`;
+    const rate = b.openRate != null ? ` (${b.openRate}%)` : '';
+    const summary = b.sent
+      ? `נפתח ע״י ${b.opened.toLocaleString('he-IL')} מתוך ${b.sent.toLocaleString('he-IL')} שנשלחו${rate}`
+      : `נפתח ע״י ${b.opened.toLocaleString('he-IL')}`;
+    return `
+      <details class="open-bulletin" style="border:1px solid var(--line,#ece6d8); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
+        <summary style="cursor:pointer; display:flex; justify-content:space-between; gap:12px; align-items:center; font-weight:600;">
+          <span>${title}</span>
+          <span class="muted" style="font-weight:500; font-size:.9rem;">${summary}</span>
+        </summary>
+        <div style="max-height:320px; overflow:auto; margin-top:10px;">
+          <table class="admin-table">
+            <thead><tr><th>כתובת</th><th>פתיחה אחרונה</th><th>פעמים</th></tr></thead>
+            <tbody>
+              ${b.openers.map((o) => `
+                <tr>
+                  <td data-label="כתובת">${escapeHtml(o.email)}</td>
+                  <td data-label="פתיחה אחרונה">${fmtDateTime(o.lastOpen)}</td>
+                  <td data-label="פעמים">${(o.count || 1).toLocaleString('he-IL')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    `;
+  }).join('');
+}
 
 function statCard(label, value, type) {
   return `

@@ -3,7 +3,9 @@
 //   POST   /subscribe        { email }                       public
 //   POST   /unsubscribe      { email, token? }               public (token from email)
 //   POST   /event            { type, slug, year, fp }        public
+//   GET    /open             ?e=<email>&s=<slug>&y=<year>    public (email-open pixel → 1×1 GIF)
 //   GET    /admin/stats      Authorization: Bearer <key>     admin
+//   GET    /admin/opens      Authorization: Bearer <key>     admin (email opens per bulletin)
 //   GET    /admin/subscribers                                admin
 //   POST   /admin/send-now   { yearId, slug }                admin (manual blast)
 // Cron: Thursday 17:00 UTC — sends current week's bulletin to all subscribers.
@@ -283,6 +285,139 @@ async function recordEvent(env, body, request) {
     cur.country = cur.country || country;
     await env.EVENTS.put(k, JSON.stringify(cur), { expirationTtl: 60 * 60 * 24 * 400 });
   }
+}
+
+// --- Email open tracking -------------------------------------------------
+// A 1×1 transparent GIF embedded in the weekly bulletin email. When a mail
+// client loads it we record an "open" for that recipient + bulletin.
+//
+// CAVEAT — open tracking is directional, not exact, and this is inherent to
+// every mail platform, not a bug here:
+//   • Apple Mail Privacy Protection pre-fetches the pixel when the mail is
+//     *received* (regardless of a real open) → over-counts + fakes geo.
+//   • Gmail loads it through Google's image proxy and caches it → the IP is
+//     Google's, and repeat opens by the same reader usually aren't recounted.
+//   • Readers with images disabled are never counted → under-counts.
+// Treat the numbers as "roughly how many / which addresses engaged".
+
+// 43-byte transparent GIF, decoded once at module load.
+const PIXEL_GIF = Uint8Array.from(
+  atob('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'),
+  (c) => c.charCodeAt(0),
+);
+
+function pixelResponse() {
+  return new Response(PIXEL_GIF, {
+    headers: {
+      'Content-Type': 'image/gif',
+      'Content-Length': String(PIXEL_GIF.length),
+      // Discourage caching so genuine re-opens can still reach us where the
+      // mail client allows it.
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      ...CORS,
+    },
+  });
+}
+
+// Record that `email` opened the bulletin `year/slug`. First open per
+// (recipient, bulletin) also bumps the aggregate daily counters so opens
+// flow into the existing dashboard byType/bySlug aggregations.
+async function recordOpen(env, { email, slug, year, request }) {
+  const clean = (email || '').trim().toLowerCase();
+  if (!isEmail(clean) || !slug || !year) return;
+  const ref = `${year}/${slug}`;
+  const key = `open:${ref}:${clean}`;
+  const now = new Date().toISOString();
+  const existing = await env.EVENTS.get(key, 'json');
+  if (existing) {
+    existing.count = (existing.count || 1) + 1;
+    existing.lastOpen = now;
+    await env.EVENTS.put(key, JSON.stringify(existing), { expirationTtl: 60 * 60 * 24 * 400 });
+    return;
+  }
+  const rec = {
+    email: clean, year, slug,
+    firstOpen: now, lastOpen: now, count: 1,
+    country: request?.cf?.country || null,
+  };
+  await env.EVENTS.put(key, JSON.stringify(rec), { expirationTtl: 60 * 60 * 24 * 400 });
+  const date = today();
+  for (const k of [`cnt:${date}:type:open`, `cnt:${date}:slug:${ref}:open`]) {
+    const cur = parseInt(await env.EVENTS.get(k) || '0', 10);
+    await env.EVENTS.put(k, String(cur + 1), { expirationTtl: 60 * 60 * 24 * 400 });
+  }
+}
+
+// Group open:* keys by bulletin, attach per-slug sent counts (from
+// dispatch:*) and parsha display names (from index.json) for the admin panel.
+async function listOpens(env) {
+  const byBulletin = {};
+  let cursor;
+  do {
+    const res = await env.EVENTS.list({ prefix: 'open:', cursor });
+    const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+    for (const v of values) {
+      if (!v) continue;
+      const ref = `${v.year}/${v.slug}`;
+      const b = byBulletin[ref] || (byBulletin[ref] = {
+        ref, year: v.year, slug: v.slug, opened: 0, totalOpens: 0, openers: [],
+      });
+      b.opened++;
+      b.totalOpens += (v.count || 1);
+      b.openers.push({ email: v.email, firstOpen: v.firstOpen, lastOpen: v.lastOpen, count: v.count || 1 });
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+
+  // Sent counts: dispatch:<date>:<slug> → { sent, at }. Keep latest per slug.
+  const sentBySlug = {};
+  cursor = undefined;
+  do {
+    const res = await env.EVENTS.list({ prefix: 'dispatch:', cursor });
+    const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+    for (let i = 0; i < res.keys.length; i++) {
+      const v = values[i];
+      if (!v) continue;
+      const slug = res.keys[i].name.split(':')[2] || '';
+      const prev = sentBySlug[slug];
+      if (!prev || (v.at || '') > (prev.at || '')) sentBySlug[slug] = { sent: v.sent || 0, at: v.at };
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+
+  // Parsha display names (best-effort).
+  const meta = {};
+  try {
+    const r = await fetch(`${env.SITE_URL.replace(/\/$/, '')}/data/index.json`, { cf: { cacheTtl: 0 } });
+    if (r.ok) {
+      const idx = await r.json();
+      for (const w of (idx.weeks || [])) {
+        meta[`${w.yearId}/${w.slug}`] = { parshaName: w.parshaName, yearDisplay: w.yearDisplay, publishedAt: w.publishedAt };
+      }
+    }
+  } catch (_) { /* names are cosmetic */ }
+
+  const bulletins = Object.values(byBulletin).map((b) => {
+    const m = meta[b.ref] || {};
+    const sent = (sentBySlug[b.slug] || {}).sent || 0;
+    b.openers.sort((a, z) => (z.lastOpen || '').localeCompare(a.lastOpen || ''));
+    return {
+      ...b,
+      parshaName: m.parshaName || b.slug,
+      yearDisplay: m.yearDisplay || b.year,
+      publishedAt: m.publishedAt || null,
+      sent,
+      openRate: sent ? Math.round((b.opened / sent) * 100) : null,
+    };
+  });
+  bulletins.sort((a, z) =>
+    (z.publishedAt || '').localeCompare(a.publishedAt || '') || z.ref.localeCompare(a.ref));
+  const totalOpened = bulletins.reduce((s, b) => s + b.opened, 0);
+  return { bulletins, totalOpened };
 }
 
 // In-memory cache for the admin stats dashboard. buildStats() does a full
@@ -962,6 +1097,7 @@ function buildBulletinEmail(env, week) {
       </table>
     </td></tr>
   </table>
+  <img src="${apiUrl}/open?e={{EMAIL}}&amp;s=${week.slug}&amp;y=${week.yearId}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;max-height:1px;overflow:hidden;line-height:1px;border:0;opacity:0;" />
 </body>
 </html>`;
   return { subject: title, html };
@@ -1085,7 +1221,7 @@ async function sendBulletinToAll(env) {
   for (let i = 0; i < subs.length; i++) {
     const s = subs[i];
     try {
-      const html = tpl.html.replace('{{EMAIL}}', encodeURIComponent(s.email));
+      const html = tpl.html.replace(/\{\{EMAIL\}\}/g, encodeURIComponent(s.email));
       await sendEmail(env, s.email, tpl.subject, html, { attachments });
       sent++;
     } catch (e) {
@@ -1503,6 +1639,20 @@ export default {
         return ok();
       }
 
+      // Email open-tracking pixel. Always return the GIF — a tracking failure
+      // must never surface as a broken image in the recipient's mail client.
+      if (p === '/open' && request.method === 'GET') {
+        try {
+          await recordOpen(env, {
+            email: url.searchParams.get('e') || '',
+            slug: url.searchParams.get('s') || '',
+            year: url.searchParams.get('y') || '',
+            request,
+          });
+        } catch (_) { /* best-effort */ }
+        return pixelResponse();
+      }
+
       // --- Likes (public; per-fp dedupe) ---------------------------------
 
       if (p === '/like-state' && request.method === 'GET') {
@@ -1890,6 +2040,10 @@ export default {
           return ok(await buildStatsCached(env, { bypass }));
         }
 
+        if (p === '/admin/opens' && request.method === 'GET') {
+          return ok(await listOpens(env));
+        }
+
         if (p === '/admin/resend-recent' && request.method === 'GET') {
           const limit = url.searchParams.get('limit') || '100';
           const r = await fetch(`https://api.resend.com/emails?limit=${limit}`, {
@@ -2044,7 +2198,7 @@ export default {
             const email = list[i];
             if (!isEmail(email)) { failed++; failures.push({ email, error: 'invalid' }); continue; }
             try {
-              const html = tpl.html.replace('{{EMAIL}}', encodeURIComponent(email));
+              const html = tpl.html.replace(/\{\{EMAIL\}\}/g, encodeURIComponent(email));
               await sendEmail(env, email, tpl.subject, html);
               sent++;
             } catch (e) {

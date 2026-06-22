@@ -300,7 +300,7 @@ async function recordEvent(env, body, request) {
 //   • Readers with images disabled are never counted → under-counts.
 // Treat the numbers as "roughly how many / which addresses engaged".
 
-// 43-byte transparent GIF, decoded once at module load.
+// A 1×1 fully-transparent GIF, decoded once at module load.
 const PIXEL_GIF = Uint8Array.from(
   atob('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'),
   (c) => c.charCodeAt(0),

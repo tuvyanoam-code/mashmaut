@@ -39,10 +39,22 @@ const today = () => new Date().toISOString().slice(0, 10);
 const isEmail = (s) =>
   typeof s === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim());
 
+// Constant-time string compare. Plain `===` short-circuits at the first
+// differing byte, leaking — via response timing — how much of a guessed key
+// is correct, which can enable byte-by-byte recovery. This compares every
+// byte regardless. (Length is allowed to leak; the key is long + random.)
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
+}
+
 function authed(request, env) {
   const h = request.headers.get('Authorization') || '';
   const key = h.replace(/^Bearer\s+/i, '');
-  return env.ADMIN_API_KEY && key === env.ADMIN_API_KEY;
+  return !!env.ADMIN_API_KEY && timingSafeEqual(key, env.ADMIN_API_KEY);
 }
 
 // --- GitHub Contents API helpers ----------------------------------------
@@ -326,7 +338,16 @@ function pixelResponse() {
 // flow into the existing dashboard byType/bySlug aggregations.
 async function recordOpen(env, { email, slug, year, request }) {
   const clean = (email || '').trim().toLowerCase();
-  if (!isEmail(clean) || !slug || !year) return;
+  // Strict, stateless validation first — caps key size and rejects junk so a
+  // flood of /open requests can't explode KV with arbitrary keys.
+  if (!isEmail(clean) || clean.length > 100) return;
+  if (!/^[a-z0-9-]{1,40}$/.test(slug) || !/^\d{3,5}$/.test(String(year))) return;
+  // Only track addresses we actually mailed: real subscribers (or the admin
+  // test address). Blocks attackers forging opens for, or spamming KV with,
+  // addresses that were never sent the bulletin.
+  const isReal = clean === (env.ADMIN_EMAIL || '').toLowerCase()
+    || !!(await env.EMAILS.get('sub:' + clean));
+  if (!isReal) return;
   const ref = `${year}/${slug}`;
   const key = `open:${ref}:${clean}`;
   const now = new Date().toISOString();

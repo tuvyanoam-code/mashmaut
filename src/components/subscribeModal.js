@@ -14,7 +14,8 @@ export function openSubscribeModal() {
       <h2>קבל את העלון למייל</h2>
       <p>בכל יום חמישי בערב נשלח אליך את העלון השבועי, יחד עם קישור נוח לשתף עם חברים.</p>
       <form id="subscribeForm">
-        <input type="email" name="email" placeholder="הכנס כתובת מייל" required autofocus />
+        <input type="text" name="name" placeholder="שם מלא" required autofocus autocomplete="name" />
+        <input type="email" name="email" placeholder="הכנס כתובת מייל" required />
         <button class="btn" type="submit">${icon('check', { size: 18 })} הירשם</button>
       </form>
       <p class="modal-fineprint">בלי ספאם. אפשר להסיר רישום בלחיצה אחת בכל מייל.</p>
@@ -36,6 +37,8 @@ export function openSubscribeModal() {
     const status = overlay.querySelector('#subscribeStatus');
     const fd = new FormData(e.target);
     const email = (fd.get('email') || '').trim();
+    const name = (fd.get('name') || '').trim();
+    if (!name) { status.innerHTML = '<div class="modal-status error">נא להזין שם מלא</div>'; return; }
     status.innerHTML = '<div class="modal-status">שולח…</div>';
     try {
       const base = await apiBase();
@@ -43,7 +46,7 @@ export function openSubscribeModal() {
       const r = await fetch(base + '/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, name }),
       });
       const data = await r.json();
       if (!data.ok) throw new Error(data.error || 'שגיאה');

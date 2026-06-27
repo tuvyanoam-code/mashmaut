@@ -176,12 +176,22 @@ async function listSubscribers(env) {
 
 async function addSubscriber(env, email, request, opts = {}) {
   const cleaned = email.trim().toLowerCase();
+  const name = (opts.name || '').trim().slice(0, 120);
   const key = 'sub:' + cleaned;
   const existing = await env.EMAILS.get(key, 'json');
-  if (existing) return { existing: true, data: existing };
+  if (existing) {
+    // Returning subscriber: backfill a name if they now provided one and we
+    // didn't have it before. Otherwise leave the record untouched.
+    if (name && !existing.name) {
+      existing.name = name;
+      await env.EMAILS.put(key, JSON.stringify(existing));
+    }
+    return { existing: true, data: existing };
+  }
   const token = crypto.randomUUID();
   const data = {
     email: cleaned,
+    name: name || null,
     addedAt: new Date().toISOString(),
     country: request?.cf?.country || null,
     city: request?.cf?.city || null,
@@ -500,10 +510,19 @@ async function listEngagement(env) {
     }
   } catch (_) { /* names are cosmetic */ }
 
+  // Subscriber display names (email -> full name), so the admin sees who each
+  // address belongs to alongside the raw email.
+  const nameByEmail = {};
+  try {
+    for (const s of await listSubscribers(env)) {
+      if (s && s.email && s.name) nameByEmail[s.email.toLowerCase()] = s.name;
+    }
+  } catch (_) { /* names are cosmetic */ }
+
   const bulletins = Object.values(byBulletin).map((b) => {
     const m = meta[b.ref] || {};
     const sent = (sentBySlug[b.slug] || {}).sent || 0;
-    const recipients = [...b.recipients.values()];
+    const recipients = [...b.recipients.values()].map((r) => ({ ...r, name: nameByEmail[r.email] || null }));
     const opened = recipients.filter((r) => r.opens > 0).length;
     const clicked = recipients.filter((r) => r.clicks > 0).length;
     recipients.sort((a, z) =>
@@ -695,11 +714,11 @@ function buildStatsCsv(stats, periodStart, periodEnd, engagement) {
   lines.push('');
 
   lines.push('# emailEngagementByRecipient');
-  lines.push('parsha,year/slug,email,opens,clicks,click_read,click_pdf,click_share,last_open,last_click');
+  lines.push('parsha,year/slug,name,email,opens,clicks,click_read,click_pdf,click_share,last_open,last_click');
   for (const b of eng) {
     for (const r of (b.recipients || [])) {
       const bl = r.byLabel || {};
-      lines.push([b.parshaName, b.ref, r.email, r.opens || 0, r.clicks || 0,
+      lines.push([b.parshaName, b.ref, r.name || '', r.email, r.opens || 0, r.clicks || 0,
         bl.read || 0, bl.pdf || 0, bl.share || 0, r.lastOpen || '', r.lastClick || ''].map(csvEscape).join(','));
     }
   }
@@ -1703,11 +1722,16 @@ export default {
       if (p === '/subscribe' && request.method === 'POST') {
         const body = await request.json().catch(() => ({}));
         if (!isEmail(body.email)) return err('כתובת מייל לא תקינה');
-        const { existing, data } = await addSubscriber(env, body.email, request, { source: 'public' });
+        // Name is required by the signup form, but the server stays lenient so
+        // a cached/old client (SPA tab opened before this change) can still
+        // subscribe rather than erroring out — it just won't have a name.
+        const subName = (body.name || '').trim();
+        const { existing, data } = await addSubscriber(env, body.email, request, { source: 'public', name: subName });
         if (!existing) {
           // Record an admin notification (only for genuine new signups).
           await recordNotification(env, 'subscribe', {
             email: data.email,
+            name: data.name || null,
             country: data.country || null,
             city: data.city || null,
           });
@@ -1715,10 +1739,11 @@ export default {
           try {
             const apiBase = (env.API_URL || 'https://api.alonmashmaut.org').replace(/\/$/, '');
             const link = `${apiBase}/unsubscribe?email=${encodeURIComponent(data.email)}&token=${data.token}`;
+            const greet = data.name ? ` ${escapeHtml(data.name)}` : '';
             await sendEmail(env, data.email,
               `ברוך הבא לעלון משמעות`,
               `<div dir="rtl" style="font-family:Assistant,system-ui,sans-serif;color:#1a1a1a;font-size:16px;line-height:1.6;">
-                <p>תודה שנרשמת לעלון <b>משמעות</b>.</p>
+                <p>תודה${greet} שנרשמת לעלון <b>משמעות</b>.</p>
                 <p>בכל יום חמישי בערב נשלח לך את העלון של השבוע.</p>
                 <p style="font-size:13px;color:#888;">להסרה מרשימת התפוצה: <a href="${link}">לחץ כאן</a></p>
               </div>`);
@@ -2232,10 +2257,23 @@ export default {
         }
         if (p === '/admin/subscribers' && request.method === 'GET') return ok({ subscribers: await listSubscribers(env) });
 
+        if (p === '/admin/subscribers/set-name' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const email = (body.email || '').trim().toLowerCase();
+          const name = (body.name || '').trim().slice(0, 120);
+          if (!isEmail(email)) return err('email required');
+          const key = 'sub:' + email;
+          const existing = await env.EMAILS.get(key, 'json');
+          if (!existing) return err('subscriber not found', 404);
+          existing.name = name || null;
+          await env.EMAILS.put(key, JSON.stringify(existing));
+          return ok({ email, name: existing.name });
+        }
+
         if (p === '/admin/subscribers/export.csv') {
           const subs = await listSubscribers(env);
-          const rows = [['email', 'addedAt', 'country', 'city', 'source']];
-          for (const s of subs) rows.push([s.email, s.addedAt || '', s.country || '', s.city || '', s.source || '']);
+          const rows = [['email', 'name', 'addedAt', 'country', 'city', 'source']];
+          for (const s of subs) rows.push([s.email, s.name || '', s.addedAt || '', s.country || '', s.city || '', s.source || '']);
           const csv = rows.map((r) => r.map((c) => /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c).join(',')).join('\n');
           // Prepend BOM so Excel opens UTF-8 correctly.
           return new Response('﻿' + csv, {

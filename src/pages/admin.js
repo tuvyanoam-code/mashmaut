@@ -826,7 +826,41 @@ async function renderSubscribers(root) {
   function visible() {
     const q = state.query.trim().toLowerCase();
     if (!q) return allSubs;
-    return allSubs.filter((s) => (s.email || '').toLowerCase().includes(q));
+    return allSubs.filter((s) =>
+      (s.email || '').toLowerCase().includes(q) || (s.name || '').toLowerCase().includes(q));
+  }
+
+  // Shared markup for the subscribers table — used by both the full repaint
+  // and the live-search table-only repaint, so the columns never drift.
+  function subsTableMarkup(subs) {
+    if (allSubs.length === 0) return '<p class="muted">עוד אין מנויים.</p>';
+    if (subs.length === 0) return `<p class="muted">לא נמצאו מנויים תואמים ל-"${escapeHtml(state.query)}".</p>`;
+    return `<table class="admin-table" id="subsTable">
+      <thead>
+        <tr>
+          ${state.selectMode ? '<th style="width:36px;"></th>' : ''}
+          <th>שם</th><th>מייל</th><th>נרשם ב-</th><th>מקור</th><th>מיקום</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${subs.map((s) => {
+          const isSel = state.selected.has(s.email);
+          const checkbox = state.selectMode
+            ? `<td data-label=""><input type="checkbox" class="sub-check" data-email="${escapeHtml(s.email)}" ${isSel ? 'checked' : ''} /></td>`
+            : '';
+          const sourceBadge = s.source === 'admin' ? '<span class="muted">ידני</span>' : (s.source === 'public' ? 'אתר' : '—');
+          const nameCell = `${s.name ? escapeHtml(s.name) : '<span class="muted">—</span>'}<button type="button" class="btn-text edit-name" data-email="${escapeHtml(s.email)}" title="ערוך שם" style="margin-inline-start:6px;">✎</button>`;
+          return `<tr ${isSel ? 'class="row-selected"' : ''}>
+            ${checkbox}
+            <td data-label="שם">${nameCell}</td>
+            <td data-label="מייל">${escapeHtml(s.email)}</td>
+            <td data-label="נרשם ב-">${(s.addedAt || '').slice(0, 10)}</td>
+            <td data-label="מקור">${sourceBadge}</td>
+            <td data-label="מיקום">${[s.city, s.country].filter(Boolean).join(' / ') || '—'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
   }
 
   function paint() {
@@ -884,32 +918,7 @@ async function renderSubscribers(root) {
         <div class="form-group" style="margin-bottom: 14px;">
           <input type="text" id="searchInput" placeholder="חפש לפי כתובת מייל" value="${escapeHtml(state.query)}" autocomplete="off" />
         </div>
-        ${allSubs.length === 0 ? '<p class="muted">עוד אין מנויים.</p>' : (subs.length === 0 ? `<p class="muted">לא נמצאו מנויים תואמים ל-"${escapeHtml(state.query)}".</p>` : `
-          <table class="admin-table" id="subsTable">
-            <thead>
-              <tr>
-                ${state.selectMode ? '<th style="width:36px;"></th>' : ''}
-                <th>מייל</th><th>נרשם ב-</th><th>מקור</th><th>מיקום</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${subs.map((s) => {
-                const isSel = state.selected.has(s.email);
-                const checkbox = state.selectMode
-                  ? `<td data-label=""><input type="checkbox" class="sub-check" data-email="${escapeHtml(s.email)}" ${isSel ? 'checked' : ''} /></td>`
-                  : '';
-                const sourceBadge = s.source === 'admin' ? '<span class="muted">ידני</span>' : (s.source === 'public' ? 'אתר' : '—');
-                return `<tr ${isSel ? 'class="row-selected"' : ''}>
-                  ${checkbox}
-                  <td data-label="מייל">${escapeHtml(s.email)}</td>
-                  <td data-label="נרשם ב-">${(s.addedAt || '').slice(0, 10)}</td>
-                  <td data-label="מקור">${sourceBadge}</td>
-                  <td data-label="מיקום">${[s.city, s.country].filter(Boolean).join(' / ') || '—'}</td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        `)}
+        ${subsTableMarkup(subs)}
       </div>
     `;
 
@@ -1007,34 +1016,7 @@ async function renderSubscribers(root) {
     const tableHost = card;
     const beforeInput = tableHost.querySelector('#searchInput');
     const inputValue = beforeInput ? beforeInput.value : state.query;
-    const tableMarkup = allSubs.length === 0
-      ? '<p class="muted">עוד אין מנויים.</p>'
-      : (subs.length === 0
-        ? `<p class="muted">לא נמצאו מנויים תואמים ל-"${escapeHtml(state.query)}".</p>`
-        : `<table class="admin-table" id="subsTable">
-            <thead>
-              <tr>
-                ${state.selectMode ? '<th style="width:36px;"></th>' : ''}
-                <th>מייל</th><th>נרשם ב-</th><th>מקור</th><th>מיקום</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${subs.map((s) => {
-                const isSel = state.selected.has(s.email);
-                const checkbox = state.selectMode
-                  ? `<td data-label=""><input type="checkbox" class="sub-check" data-email="${escapeHtml(s.email)}" ${isSel ? 'checked' : ''} /></td>`
-                  : '';
-                const sourceBadge = s.source === 'admin' ? '<span class="muted">ידני</span>' : (s.source === 'public' ? 'אתר' : '—');
-                return `<tr ${isSel ? 'class="row-selected"' : ''}>
-                  ${checkbox}
-                  <td data-label="מייל">${escapeHtml(s.email)}</td>
-                  <td data-label="נרשם ב-">${(s.addedAt || '').slice(0, 10)}</td>
-                  <td data-label="מקור">${sourceBadge}</td>
-                  <td data-label="מיקום">${[s.city, s.country].filter(Boolean).join(' / ') || '—'}</td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>`);
+    const tableMarkup = subsTableMarkup(subs);
     // Replace just the table region (everything after the search input).
     const fg = tableHost.querySelector('.form-group');
     while (fg && fg.nextElementSibling) fg.nextElementSibling.remove();
@@ -1054,6 +1036,23 @@ async function renderSubscribers(root) {
       if (tbody) applyShowMore(tbody, { initial: 4, after: tbody.parentElement });
     }
   }
+
+  // Edit a subscriber's name. Delegated + bound once, so it keeps working
+  // across repaints (full and table-only).
+  root.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.edit-name');
+    if (!btn) return;
+    const email = btn.dataset.email;
+    const sub = allSubs.find((s) => s.email === email);
+    const name = prompt(`שם מלא עבור ${email}:`, (sub && sub.name) || '');
+    if (name === null) return;
+    try {
+      await adminApi('/admin/subscribers/set-name', { method: 'POST', body: { email, name: name.trim() } });
+      if (sub) sub.name = name.trim() || null;
+      showToast('השם עודכן');
+      paintTableOnly();
+    } catch (err) { alert(err.message); }
+  });
 
   paint();
 }

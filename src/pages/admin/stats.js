@@ -307,15 +307,16 @@ function renderOpens(bulletins) {
     return `
       <details class="open-bulletin" style="border:1px solid var(--line,#ece6d8); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
         <summary style="cursor:pointer; display:flex; justify-content:space-between; gap:12px; align-items:center; font-weight:600;">
-          <span>${title}</span>
+          <span>${title} <span class="muted" style="font-weight:500; font-size:.85rem;">▾ הצג כתובות</span></span>
           <span class="muted" style="font-weight:500; font-size:.9rem;">${summary}</span>
         </summary>
         <div style="max-height:340px; overflow:auto; margin-top:10px;">
           <table class="admin-table">
-            <thead><tr><th>כתובת</th><th>פתיחות</th><th>לחיצות</th><th>קישורים</th><th>פעילות אחרונה</th></tr></thead>
+            <thead><tr><th>שם</th><th>כתובת</th><th>פתיחות</th><th>לחיצות</th><th>קישורים</th><th>פעילות אחרונה</th></tr></thead>
             <tbody>
               ${b.recipients.map((r) => `
                 <tr>
+                  <td data-label="שם">${r.name ? escapeHtml(r.name) : '<span class="muted">—</span>'}</td>
                   <td data-label="כתובת">${escapeHtml(r.email)}</td>
                   <td data-label="פתיחות">${(r.opens || 0).toLocaleString('he-IL')}</td>
                   <td data-label="לחיצות">${(r.clicks || 0).toLocaleString('he-IL')}</td>

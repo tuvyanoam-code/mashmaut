@@ -4,6 +4,7 @@
 //   POST   /unsubscribe      { email, token? }               public (token from email)
 //   POST   /event            { type, slug, year, fp }        public
 //   GET    /open             ?e=<email>&s=<slug>&y=<year>    public (email-open pixel → 1×1 GIF)
+//   GET    /click            ?e=&s=&y=&l=<read|pdf|share>    public (email link-click → 302 redirect)
 //   GET    /admin/stats      Authorization: Bearer <key>     admin
 //   GET    /admin/opens      Authorization: Bearer <key>     admin (email opens per bulletin)
 //   GET    /admin/subscribers                                admin
@@ -371,23 +372,100 @@ async function recordOpen(env, { email, slug, year, request }) {
   }
 }
 
-// Group open:* keys by bulletin, attach per-slug sent counts (from
-// dispatch:*) and parsha display names (from index.json) for the admin panel.
-async function listOpens(env) {
+const CLICK_LABELS = new Set(['read', 'pdf', 'share']);
+
+// Rebuild the click destination from a fixed label — NEVER from a
+// caller-supplied URL — so /click can't be abused as an open redirect. Any
+// unknown label or malformed slug/year falls back to the site home page,
+// which is always a safe, same-site URL.
+function clickDestination(env, { slug, year, label }) {
+  const site = (env.SITE_URL || 'https://alonmashmaut.org').replace(/\/$/, '');
+  const okSlug = /^[a-z0-9-]{1,40}$/.test(slug);
+  const okYear = /^\d{3,5}$/.test(String(year));
+  if (okSlug && okYear) {
+    if (label === 'pdf') return `${site}/data/bulletins/${year}/${slug}.pdf`;
+    if (label === 'read' || label === 'share') return `${site}/y/${year}/${slug}`;
+  }
+  return site;
+}
+
+// Record that `email` clicked a link (`label`) in the bulletin `year/slug`.
+// Same anti-abuse gate as recordOpen: only real recipients, well-formed input.
+// Per-recipient record keeps a per-label breakdown so "every click" detail is
+// preserved; the unique-clicker aggregate (cnt:*) mirrors opens.
+async function recordClick(env, { email, slug, year, label, request }) {
+  const clean = (email || '').trim().toLowerCase();
+  if (!isEmail(clean) || clean.length > 100) return;
+  if (!/^[a-z0-9-]{1,40}$/.test(slug) || !/^\d{3,5}$/.test(String(year))) return;
+  if (!CLICK_LABELS.has(label)) return;
+  const isReal = clean === (env.ADMIN_EMAIL || '').toLowerCase()
+    || !!(await env.EMAILS.get('sub:' + clean));
+  if (!isReal) return;
+  const ref = `${year}/${slug}`;
+  const key = `click:${ref}:${clean}`;
+  const now = new Date().toISOString();
+  const existing = await env.EVENTS.get(key, 'json');
+  if (existing) {
+    existing.count = (existing.count || 1) + 1;
+    existing.lastClick = now;
+    existing.byLabel = existing.byLabel || {};
+    existing.byLabel[label] = (existing.byLabel[label] || 0) + 1;
+    await env.EVENTS.put(key, JSON.stringify(existing), { expirationTtl: 60 * 60 * 24 * 400 });
+    return;
+  }
+  const rec = {
+    email: clean, year, slug,
+    firstClick: now, lastClick: now, count: 1,
+    byLabel: { [label]: 1 },
+    country: request?.cf?.country || null,
+  };
+  await env.EVENTS.put(key, JSON.stringify(rec), { expirationTtl: 60 * 60 * 24 * 400 });
+  const date = today();
+  for (const k of [`cnt:${date}:type:click`, `cnt:${date}:slug:${ref}:click`]) {
+    const cur = parseInt(await env.EVENTS.get(k) || '0', 10);
+    await env.EVENTS.put(k, String(cur + 1), { expirationTtl: 60 * 60 * 24 * 400 });
+  }
+}
+
+// Merge open:* and click:* keys into per-bulletin email engagement: who
+// opened, who clicked (and which links). Attaches sent counts (dispatch:*) and
+// parsha names (index.json). Used by the admin panel AND the CSV archive.
+async function listEngagement(env) {
   const byBulletin = {};
+  const bucket = (year, slug) => {
+    const ref = `${year}/${slug}`;
+    return byBulletin[ref] || (byBulletin[ref] = { ref, year, slug, recipients: new Map() });
+  };
+  const recip = (b, email) => {
+    let r = b.recipients.get(email);
+    if (!r) { r = { email, opens: 0, clicks: 0, byLabel: {}, lastOpen: null, lastClick: null }; b.recipients.set(email, r); }
+    return r;
+  };
+
   let cursor;
   do {
     const res = await env.EVENTS.list({ prefix: 'open:', cursor });
     const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
     for (const v of values) {
       if (!v) continue;
-      const ref = `${v.year}/${v.slug}`;
-      const b = byBulletin[ref] || (byBulletin[ref] = {
-        ref, year: v.year, slug: v.slug, opened: 0, totalOpens: 0, openers: [],
-      });
-      b.opened++;
-      b.totalOpens += (v.count || 1);
-      b.openers.push({ email: v.email, firstOpen: v.firstOpen, lastOpen: v.lastOpen, count: v.count || 1 });
+      const r = recip(bucket(v.year, v.slug), v.email);
+      r.opens = v.count || 1;
+      r.lastOpen = v.lastOpen || v.firstOpen || null;
+    }
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+
+  cursor = undefined;
+  do {
+    const res = await env.EVENTS.list({ prefix: 'click:', cursor });
+    const values = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+    for (const v of values) {
+      if (!v) continue;
+      const r = recip(bucket(v.year, v.slug), v.email);
+      r.clicks = v.count || 1;
+      r.lastClick = v.lastClick || v.firstClick || null;
+      r.byLabel = v.byLabel || {};
     }
     cursor = res.cursor;
     if (res.list_complete) break;
@@ -425,20 +503,31 @@ async function listOpens(env) {
   const bulletins = Object.values(byBulletin).map((b) => {
     const m = meta[b.ref] || {};
     const sent = (sentBySlug[b.slug] || {}).sent || 0;
-    b.openers.sort((a, z) => (z.lastOpen || '').localeCompare(a.lastOpen || ''));
+    const recipients = [...b.recipients.values()];
+    const opened = recipients.filter((r) => r.opens > 0).length;
+    const clicked = recipients.filter((r) => r.clicks > 0).length;
+    recipients.sort((a, z) =>
+      (z.lastClick || z.lastOpen || '').localeCompare(a.lastClick || a.lastOpen || ''));
     return {
-      ...b,
+      ref: b.ref, year: b.year, slug: b.slug,
       parshaName: m.parshaName || b.slug,
       yearDisplay: m.yearDisplay || b.year,
       publishedAt: m.publishedAt || null,
-      sent,
-      openRate: sent ? Math.round((b.opened / sent) * 100) : null,
+      sent, opened, clicked,
+      openRate: sent ? Math.round((opened / sent) * 100) : null,
+      clickRate: sent ? Math.round((clicked / sent) * 100) : null,
+      recipients,
+      // Legacy field for the previously-deployed admin panel (pre-click); lets
+      // the old front-end keep rendering during the worker→site rollout gap.
+      openers: recipients.filter((r) => r.opens > 0)
+        .map((r) => ({ email: r.email, lastOpen: r.lastOpen, count: r.opens })),
     };
   });
   bulletins.sort((a, z) =>
     (z.publishedAt || '').localeCompare(a.publishedAt || '') || z.ref.localeCompare(a.ref));
   const totalOpened = bulletins.reduce((s, b) => s + b.opened, 0);
-  return { bulletins, totalOpened };
+  const totalClicked = bulletins.reduce((s, b) => s + b.clicked, 0);
+  return { bulletins, totalOpened, totalClicked };
 }
 
 // In-memory cache for the admin stats dashboard. buildStats() does a full
@@ -540,7 +629,7 @@ function csvEscape(v) {
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
-function buildStatsCsv(stats, periodStart, periodEnd) {
+function buildStatsCsv(stats, periodStart, periodEnd, engagement) {
   const lines = [];
   lines.push(`# mashmaut stats archive`);
   lines.push(`# period_start,${csvEscape(periodStart)}`);
@@ -593,6 +682,27 @@ function buildStatsCsv(stats, periodStart, periodEnd) {
   lines.push(['returning_browsers', stats.returning || 0].map(csvEscape).join(','));
   lines.push(['finishers', stats.finishers || 0].map(csvEscape).join(','));
   lines.push(['sharers', stats.sharers || 0].map(csvEscape).join(','));
+  lines.push('');
+
+  // Email engagement — per bulletin (opens + clicks) and per recipient.
+  const eng = (engagement && engagement.bulletins) || [];
+  lines.push('# emailEngagementByBulletin');
+  lines.push('parsha,year/slug,sent,opened,clicked,open_rate_pct,click_rate_pct');
+  for (const b of eng) {
+    lines.push([b.parshaName, b.ref, b.sent || 0, b.opened || 0, b.clicked || 0,
+      b.openRate == null ? '' : b.openRate, b.clickRate == null ? '' : b.clickRate].map(csvEscape).join(','));
+  }
+  lines.push('');
+
+  lines.push('# emailEngagementByRecipient');
+  lines.push('parsha,year/slug,email,opens,clicks,click_read,click_pdf,click_share,last_open,last_click');
+  for (const b of eng) {
+    for (const r of (b.recipients || [])) {
+      const bl = r.byLabel || {};
+      lines.push([b.parshaName, b.ref, r.email, r.opens || 0, r.clicks || 0,
+        bl.read || 0, bl.pdf || 0, bl.share || 0, r.lastOpen || '', r.lastClick || ''].map(csvEscape).join(','));
+    }
+  }
 
   // BOM so Excel opens UTF-8 cleanly with Hebrew intact.
   return '﻿' + lines.join('\n');
@@ -652,9 +762,10 @@ async function maybeArchiveStats(env, opts = {}) {
 
   // Build snapshot.
   const stats = await buildStats(env);
+  const engagement = await listEngagement(env);
   const periodStart = last || new Date(now - periodDays * 24 * 60 * 60 * 1000).toISOString();
   const periodEnd = new Date(now).toISOString();
-  const csv = buildStatsCsv(stats, periodStart, periodEnd);
+  const csv = buildStatsCsv(stats, periodStart, periodEnd, engagement);
   const sizeBytes = csv.length;
   const id = periodEnd;
 
@@ -663,9 +774,9 @@ async function maybeArchiveStats(env, opts = {}) {
   const putOpts = ARCHIVE_TTL_DAYS > 0 ? { expirationTtl: ARCHIVE_TTL_DAYS * 24 * 60 * 60 } : undefined;
   await env.EVENTS.put('archive:' + id, JSON.stringify(value), putOpts);
 
-  // 2) Wipe `cnt:*` + `fp:*` + `done:*` (same logic as /admin/stats/reset).
+  // 2) Wipe analytics + email-engagement keys (same set as /admin/stats/reset).
   let deleted = 0;
-  for (const prefix of ['cnt:', 'fp:', 'done:']) {
+  for (const prefix of ['cnt:', 'fp:', 'done:', 'open:', 'click:']) {
     let cursor;
     do {
       const res = await env.EVENTS.list({ prefix, cursor });
@@ -1086,6 +1197,12 @@ function buildBulletinEmail(env, week) {
   const url = `${env.SITE_URL.replace(/\/$/, '')}/y/${week.yearId}/${week.slug}`;
   const pdfUrl = `${env.SITE_URL.replace(/\/$/, '')}/data/bulletins/${week.yearId}/${week.slug}.pdf`;
   const apiUrl = (env.API_URL || 'https://api.alonmashmaut.org').replace(/\/$/, '');
+  // Click-tracked link: routes through /click (records the click, then 302s to
+  // the real destination). The destination is rebuilt server-side from the
+  // `l` label — never passed as a URL param — so it can't be an open redirect.
+  // `&amp;` is the HTML-attribute-correct encoding of `&`; the client decodes
+  // it when fetching. {{EMAIL}} is substituted per-recipient at send time.
+  const clickUrl = (label) => `${apiUrl}/click?e={{EMAIL}}&amp;s=${week.slug}&amp;y=${week.yearId}&amp;l=${label}`;
   const title = `עלון משמעות — פרשת ${week.parshaName}`;
   const teaser = (week.teaser || '').replace(/<[^>]+>/g, '');
   const colors = week.colors || {};
@@ -1103,12 +1220,12 @@ function buildBulletinEmail(env, week) {
           <h1 style="font-size:34px;margin:8px 0 12px;font-weight:800;letter-spacing:-0.02em;">פרשת ${week.parshaName}</h1>
           ${teaser ? `<p style="font-size:17px;line-height:1.6;color:#333;">${teaser}</p>` : ''}
           <div style="margin:28px 0 8px;">
-            <a href="${url}" style="display:inline-block;background:${primary};color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:600;font-size:15px;">קרא באתר</a>
-            <a href="${pdfUrl}" style="display:inline-block;background:#fff;color:#1a1a1a;border:1px solid #ece6d8;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:600;font-size:15px;margin-right:6px;">פתח PDF</a>
+            <a href="${clickUrl('read')}" style="display:inline-block;background:${primary};color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:600;font-size:15px;">קרא באתר</a>
+            <a href="${clickUrl('pdf')}" style="display:inline-block;background:#fff;color:#1a1a1a;border:1px solid #ece6d8;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:600;font-size:15px;margin-right:6px;">פתח PDF</a>
           </div>
           <p style="font-size:14px;color:#888;margin-top:32px;line-height:1.5;">
             רוצה לשתף עם חבר? פשוט העבר את המייל הזה, או שלח להם את הקישור:
-            <br><a href="${url}" style="color:${primary};text-decoration:underline;">${url}</a>
+            <br><a href="${clickUrl('share')}" style="color:${primary};text-decoration:underline;">${url}</a>
           </p>
         </td></tr>
         <tr><td style="padding:18px 32px;border-top:1px solid #ece6d8;font-size:12px;color:#999;">
@@ -1674,6 +1791,23 @@ export default {
         return pixelResponse();
       }
 
+      // Email link-click tracking. Records the click, then 302-redirects to a
+      // destination rebuilt server-side from the `l` label (never a caller URL,
+      // so this is not an open redirect). Redirects even if recording fails.
+      if (p === '/click' && request.method === 'GET') {
+        const slug = url.searchParams.get('s') || '';
+        const year = url.searchParams.get('y') || '';
+        const label = url.searchParams.get('l') || '';
+        const dest = clickDestination(env, { slug, year, label });
+        try {
+          await recordClick(env, {
+            email: url.searchParams.get('e') || '',
+            slug, year, label, request,
+          });
+        } catch (_) { /* best-effort */ }
+        return Response.redirect(dest, 302);
+      }
+
       // --- Likes (public; per-fp dedupe) ---------------------------------
 
       if (p === '/like-state' && request.method === 'GET') {
@@ -2062,7 +2196,7 @@ export default {
         }
 
         if (p === '/admin/opens' && request.method === 'GET') {
-          return ok(await listOpens(env));
+          return ok(await listEngagement(env));
         }
 
         if (p === '/admin/resend-recent' && request.method === 'GET') {
@@ -2077,10 +2211,11 @@ export default {
         }
 
         if (p === '/admin/stats/reset' && request.method === 'POST') {
-          // Wipe analytics counters, fingerprints and dedupe markers. Keeps
-          // operational keys (notif:*, dispatch:*, last-sent, pending-*).
+          // Wipe analytics counters, fingerprints, dedupe markers, and email
+          // open/click engagement. Keeps operational keys (notif:*, dispatch:*,
+          // last-sent, pending-*).
           let deleted = 0;
-          for (const prefix of ['cnt:', 'fp:', 'done:']) {
+          for (const prefix of ['cnt:', 'fp:', 'done:', 'open:', 'click:']) {
             let cursor;
             do {
               const res = await env.EVENTS.list({ prefix, cursor });

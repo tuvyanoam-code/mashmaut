@@ -24,7 +24,7 @@ export async function renderStats(root) {
   clearTimeout(t);
 
   // Email-open tracking is non-critical — never let it block the dashboard.
-  let opens = { bulletins: [], totalOpened: 0 };
+  let opens = { bulletins: [], totalOpened: 0, totalClicked: 0 };
   try { opens = await adminCall('/admin/opens'); } catch (_) { /* best-effort */ }
 
   const days = Object.keys(stats.byDay || {}).sort();
@@ -72,6 +72,7 @@ export async function renderStats(root) {
       ${statCard('סיומי קריאה', totals.finish || 0, 'finish')}
       ${statCard('שיתופים', totals.share || 0, 'share')}
       ${statCard('פתיחות מייל', opens.totalOpened || 0, 'open')}
+      ${statCard('לחיצות מייל', opens.totalClicked || 0, 'click')}
       ${statCard('דפדפנים ייחודיים', stats.unique || 0, 'unique')}
       ${statCard('דפדפנים חוזרים', stats.returning || 0, 'returning')}
     </div>
@@ -101,13 +102,11 @@ export async function renderStats(root) {
     </div>
 
     <div class="admin-card">
-      <h3>פתיחות מייל — מי קרא את העלון</h3>
+      <h3>מעורבות מייל — מי פתח ומי לחץ</h3>
       ${renderOpens(opens.bulletins || [])}
       <p class="muted" style="font-size:.82rem; margin: 14px 0 0; line-height:1.5;">
-        <b>חשוב לדעת:</b> מעקב פתיחות הוא <b>כיווני, לא מדויק</b> (כך בכל מערכת דיוור).
-        אפל מייל (Mail Privacy Protection) טוען את פיקסל המעקב אוטומטית כשהמייל מגיע — גם בלי פתיחה אמיתית — ולכן <b>מנפח</b> את המספר;
-        ג׳ימייל טוען דרך פרוקסי שמקשש את התמונה, אז פתיחה חוזרת של אותו אדם לרוב לא נספרת;
-        ומי שקורא בלי תמונות לא נספר כלל. קרא את המספרים כ״בערך כמה / אילו כתובות התעניינו״.
+        <b>חשוב לדעת:</b> מעקב פתיחות <b>כיווני, לא מדויק</b> (כך בכל מערכת דיוור): אפל מייל טוען את פיקסל המעקב אוטומטית כשהמייל מגיע — גם בלי פתיחה אמיתית — ולכן <b>מנפח</b> פתיחות;
+        ג׳ימייל מקשש את התמונה, אז פתיחה חוזרת לרוב לא נספרת; ומי שקורא בלי תמונות לא נספר. <b>לחיצות, לעומת זאת, אמינות הרבה יותר</b> — הן נרשמות רק כשאדם באמת לוחץ על קישור.
       </p>
     </div>
 
@@ -140,7 +139,7 @@ export async function renderStats(root) {
 
     <div class="admin-card" style="border-color: #f3d9d9;">
       <h3 style="color: #b91c1c;">איפוס נתוני שימוש</h3>
-      <p class="muted" style="margin-top:0;">מוחק את כל מוני הצפיות, סיומי הקריאה, השיתופים, וזיהויי הדפדפנים. הפעולה <b>אינה הפיכה</b>. ההתראות, רשימת המנויים, התזמון, וההגדרות נשמרים. אם הוגדר ארכוב אוטומטי בהגדרות, הנתונים נשמרים בארכיון לפני האיפוס האוטומטי.</p>
+      <p class="muted" style="margin-top:0;">מוחק את כל מוני הצפיות, סיומי הקריאה, השיתופים, זיהויי הדפדפנים, <b>ופתיחות+לחיצות המייל</b>. הפעולה <b>אינה הפיכה</b>. ההתראות, רשימת המנויים, התזמון, וההגדרות נשמרים. אם הוגדר ארכוב אוטומטי בהגדרות — כל הנתונים, כולל הפתיחות והלחיצות, נשמרים בקובץ הסיכום (CSV) לפני האיפוס.</p>
       <button type="button" class="btn btn-secondary" id="resetStats">${icon('trash', { size: 18 })} אפס נתוני שימוש</button>
       <div id="resetStatus" style="margin-top:14px;"></div>
     </div>
@@ -283,33 +282,45 @@ function fmtDateTime(iso) {
   });
 }
 
-// One collapsible row per bulletin: summary shows open count (and open-rate
-// vs. how many were sent), expanding to the list of addresses that opened.
+// Short label for a recipient's per-link click breakdown, e.g. "קריאה 2 · PDF 1".
+function clickBreakdown(byLabel) {
+  const map = { read: 'קריאה', pdf: 'PDF', share: 'שיתוף' };
+  const parts = ['read', 'pdf', 'share']
+    .filter((k) => byLabel && byLabel[k])
+    .map((k) => `${map[k]} ${byLabel[k]}`);
+  return parts.length ? parts.join(' · ') : '—';
+}
+
+// One collapsible row per bulletin: summary shows opened + clicked counts (and
+// rates vs. how many were sent), expanding to the per-recipient table — who
+// opened, who clicked, and which links.
 function renderOpens(bulletins) {
   if (!bulletins.length) {
-    return '<p class="muted">עדיין אין פתיחות שנרשמו. פתיחות יתחילו להופיע אחרי השליחה הבאה של העלון.</p>';
+    return '<p class="muted">עדיין אין נתוני מעורבות. פתיחות ולחיצות יתחילו להופיע אחרי השליחה הבאה של העלון.</p>';
   }
   return bulletins.map((b) => {
     const title = `פרשת ${escapeHtml(b.parshaName)} · ${escapeHtml(b.yearDisplay || b.year)}`;
-    const rate = b.openRate != null ? ` (${b.openRate}%)` : '';
-    const summary = b.sent
-      ? `נפתח ע״י ${b.opened.toLocaleString('he-IL')} מתוך ${b.sent.toLocaleString('he-IL')} שנשלחו${rate}`
-      : `נפתח ע״י ${b.opened.toLocaleString('he-IL')}`;
+    const openRate = b.openRate != null ? ` (${b.openRate}%)` : '';
+    const clickRate = b.clickRate != null ? ` (${b.clickRate}%)` : '';
+    const sentTxt = b.sent ? ` · מתוך ${b.sent.toLocaleString('he-IL')} שנשלחו` : '';
+    const summary = `נפתח ${b.opened.toLocaleString('he-IL')}${openRate} · נלחץ ${b.clicked.toLocaleString('he-IL')}${clickRate}${sentTxt}`;
     return `
       <details class="open-bulletin" style="border:1px solid var(--line,#ece6d8); border-radius:12px; padding:10px 14px; margin-bottom:10px;">
         <summary style="cursor:pointer; display:flex; justify-content:space-between; gap:12px; align-items:center; font-weight:600;">
           <span>${title}</span>
           <span class="muted" style="font-weight:500; font-size:.9rem;">${summary}</span>
         </summary>
-        <div style="max-height:320px; overflow:auto; margin-top:10px;">
+        <div style="max-height:340px; overflow:auto; margin-top:10px;">
           <table class="admin-table">
-            <thead><tr><th>כתובת</th><th>פתיחה אחרונה</th><th>פעמים</th></tr></thead>
+            <thead><tr><th>כתובת</th><th>פתיחות</th><th>לחיצות</th><th>קישורים</th><th>פעילות אחרונה</th></tr></thead>
             <tbody>
-              ${b.openers.map((o) => `
+              ${b.recipients.map((r) => `
                 <tr>
-                  <td data-label="כתובת">${escapeHtml(o.email)}</td>
-                  <td data-label="פתיחה אחרונה">${fmtDateTime(o.lastOpen)}</td>
-                  <td data-label="פעמים">${(o.count || 1).toLocaleString('he-IL')}</td>
+                  <td data-label="כתובת">${escapeHtml(r.email)}</td>
+                  <td data-label="פתיחות">${(r.opens || 0).toLocaleString('he-IL')}</td>
+                  <td data-label="לחיצות">${(r.clicks || 0).toLocaleString('he-IL')}</td>
+                  <td data-label="קישורים">${r.clicks ? escapeHtml(clickBreakdown(r.byLabel)) : '—'}</td>
+                  <td data-label="פעילות אחרונה">${fmtDateTime(r.lastClick || r.lastOpen)}</td>
                 </tr>
               `).join('')}
             </tbody>

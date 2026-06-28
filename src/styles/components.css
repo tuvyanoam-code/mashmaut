@@ -168,6 +168,34 @@
   50% { transform: translateY(6px); opacity: 1; }
 }
 
+/* ===== Splash motion — staggered entrance + color-cycling wordmark =====
+   Gated behind prefers-reduced-motion so readers who opt out get a calm,
+   fully-static splash. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Each splash element rises + fades in, one after the next. */
+  .splash-inner > * {
+    animation: splashRise .8s cubic-bezier(.22, .61, .36, 1) both;
+  }
+  .splash-brand   { animation-delay: .08s; }
+  .splash-tagline { animation-delay: .22s; }
+  .splash-divider { animation-delay: .36s; }
+  .splash-hook    { animation-delay: .50s; }
+  .splash-scroll  { animation-delay: .64s; }
+
+  /* The "משמעות" mark is a near-monochrome image, so a slow hue-rotate cycles
+     it smoothly through the spectrum without muddying — it "changes colors". */
+  .splash-logo { animation: logoHue 16s linear infinite; }
+}
+
+@keyframes splashRise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes logoHue {
+  from { filter: hue-rotate(0deg); }
+  to   { filter: hue-rotate(360deg); }
+}
+
 /* ===== Cover — the latest bulletin section, below the splash ===== */
 .cover {
   position: relative;

@@ -172,6 +172,8 @@ function renderResumePill(r) {
 function renderSplash(config, hasLatest) {
   const siteName = config.siteName || 'משמעות';
   const tagline = config.tagline || 'רעיונות לפרשת השבוע מתוך תורתו של הרב יצחק גינזבורג שליט״א';
+  // Emphasise the rabbi's name — heavier weight + the (per-bulletin) site colour.
+  const taglineHtml = tagline.replace('הרב יצחק גינזבורג', '<span class="splash-tagline-name">הרב יצחק גינזבורג</span>');
   const brand = config.logo
     ? `<img class="splash-logo" src="${config.logo}" alt="${siteName}" />`
     : `<span class="splash-wordmark">${siteName}</span>`;
@@ -183,7 +185,7 @@ function renderSplash(config, hasLatest) {
 
       <div class="splash-inner">
         <div class="splash-brand">${brand}</div>
-        <p class="splash-tagline">${tagline}</p>
+        <p class="splash-tagline">${taglineHtml}</p>
 
         <div class="splash-divider" aria-hidden="true"><span></span></div>
 

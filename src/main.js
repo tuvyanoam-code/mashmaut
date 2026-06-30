@@ -2,6 +2,12 @@ import './styles/base.css';
 import './styles/components.css';
 import './styles/admin.css';
 
+import { loadBrandFont } from './lib/fontLoader.js';
+// Kick off the (obfuscated) brand-font load immediately, in parallel with
+// routing. Fire-and-forget: text renders in the system fallback first, then
+// swaps to buTactica once it's decoded + registered.
+loadBrandFont();
+
 import { defineRoute, startRouter } from './router.js';
 import { renderHome } from './pages/home.js';
 import { renderYears } from './pages/years.js';

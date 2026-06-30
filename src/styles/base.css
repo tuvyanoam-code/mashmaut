@@ -1,15 +1,8 @@
-/* ===== Web font — buTactica 2.0 (Bn Uri), self-hosted variable font =====
-   One variable file covers the full weight range (ExtraLight→Bold and the
-   intermediate weights the UI uses), so every font-weight renders faithfully
-   from a single small woff2. Replaces the former Rubik + Assistant. */
-@font-face {
-  font-family: 'buTactica';
-  src: url('/fonts/buTactica-2.0-VariableVF.woff2') format('woff2'),
-       url('/fonts/buTactica-2.0-VariableVF.woff') format('woff');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
+/* ===== Web font — buTactica 2.0 (Bn Uri) =====
+   The font is NOT declared with a plain @font-face here. It's loaded at runtime
+   from an obfuscated blob via the FontFace API (see src/lib/fontLoader.js), so
+   no clean .woff2 is exposed in DevTools for casual saving. The --font-* vars
+   below reference the 'buTactica' family that the loader registers. */
 
 /* ===== Reset & Base ===== */
 *, *::before, *::after { box-sizing: border-box; }

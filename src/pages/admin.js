@@ -1389,7 +1389,7 @@ async function renderEditor(root) {
   }
   const colors = week.colors || {};
   const styleOverrides = week.styleOverrides || {};
-  const fonts = ['Assistant', 'Heebo', 'Rubik'];
+  const fonts = ['buTactica', 'Heebo'];
 
   root.innerHTML = `
     <header class="admin-header">

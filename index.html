@@ -28,9 +28,13 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/favicon.png" />
 
+  <!-- Self-hosted primary UI font (buTactica). Preloaded so first paint uses
+       the real font, not a fallback flash. -->
+  <link rel="preload" href="/fonts/buTactica-2.0-VariableVF.woff2" as="font" type="font/woff2" crossorigin />
+  <!-- Heebo kept only as an optional per-bulletin font in the admin picker. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;500;600;700;800&family=Heebo:wght@300;400;500;700;800;900&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet" />
 
   <script type="application/ld+json">
   {

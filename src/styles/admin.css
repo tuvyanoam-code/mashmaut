@@ -224,7 +224,7 @@
 .admin-sheet-item svg { color: var(--accent); flex-shrink: 0; }
 
 .admin-sidebar-brand {
-  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-family: var(--font-display, 'buTactica', sans-serif);
   font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -.01em;
@@ -286,7 +286,7 @@
 }
 .admin-header h1 {
   margin: 0;
-  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-family: var(--font-display, 'buTactica', sans-serif);
   font-size: clamp(1.5rem, 3.6vw, 2rem);
   font-weight: 700;
   letter-spacing: -.012em;
@@ -304,7 +304,7 @@
 }
 .admin-card:hover { box-shadow: var(--a-shadow-sm); }
 .admin-card h3 {
-  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-family: var(--font-display, 'buTactica', sans-serif);
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -.005em;
@@ -789,7 +789,7 @@
   margin-bottom: 6px;
 }
 .admin-hero-title {
-  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-family: var(--font-display, 'buTactica', sans-serif);
   font-size: clamp(1.3rem, 3vw, 1.7rem);
   font-weight: 700;
   letter-spacing: -.012em;
@@ -919,7 +919,7 @@
   margin: 0 auto 14px;
 }
 .admin-empty h3 {
-  font-family: var(--font-display, 'Rubik', sans-serif);
+  font-family: var(--font-display, 'buTactica', sans-serif);
   font-size: 1.15rem;
   font-weight: 700;
   margin: 0 0 6px;

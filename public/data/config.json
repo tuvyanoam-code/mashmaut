@@ -6,8 +6,8 @@
   "heroBlurb": "",
   "footer": "עלון משמעות תשפ\"ו",
   "globalDefaults": {
-    "fontBody": "Assistant",
-    "fontHeading": "Frank Ruhl Libre"
+    "fontBody": "buTactica",
+    "fontHeading": "buTactica"
   },
   "adminEmail": "alonmashmaut@gmail.com",
   "apiBase": "https://api.alonmashmaut.org",

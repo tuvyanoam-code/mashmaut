@@ -1,3 +1,16 @@
+/* ===== Web font — buTactica 2.0 (Bn Uri), self-hosted variable font =====
+   One variable file covers the full weight range (ExtraLight→Bold and the
+   intermediate weights the UI uses), so every font-weight renders faithfully
+   from a single small woff2. Replaces the former Rubik + Assistant. */
+@font-face {
+  font-family: 'buTactica';
+  src: url('/fonts/buTactica-2.0-VariableVF.woff2') format('woff2'),
+       url('/fonts/buTactica-2.0-VariableVF.woff') format('woff');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ===== Reset & Base ===== */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -20,9 +33,9 @@ a:hover { opacity: .75; }
 
 /* ===== CSS Variables (default theme — overridden per bulletin) ===== */
 :root {
-  --font-body: 'Assistant', 'Rubik', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Rubik', 'Assistant', sans-serif;
-  --font-display: 'Rubik', 'Rubik', sans-serif;
+  --font-body: 'buTactica', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-heading: 'buTactica', system-ui, -apple-system, sans-serif;
+  --font-display: 'buTactica', system-ui, -apple-system, sans-serif;
   --bg: #fbfaf7;
   --bg-elevated: #ffffff;
   --text: #1a1a1a;

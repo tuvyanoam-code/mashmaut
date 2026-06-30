@@ -124,9 +124,7 @@ export function getLastVisited() {
 }
 
 /**
- * Mark a bulletin as finished. Persists across refreshes / sessions so the
- * reading-progress component can suppress the celebration (confetti, balloons,
- * chime) on subsequent loads — the user already finished it once.
+ * Mark a bulletin as finished. Persists across refreshes / sessions.
  * Also clears the saved scroll position (no resume needed) and the
  * lastVisitedKey if it pointed here.
  */

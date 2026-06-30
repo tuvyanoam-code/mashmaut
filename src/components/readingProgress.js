@@ -1,6 +1,6 @@
-// Reading progress ring + completion celebration.
+// Reading progress ring.
 // Tracks scroll progress through a target element and updates a circular
-// indicator. When 100% reached the first time, plays a happy chord and confetti.
+// indicator; fires onComplete (and persists "finished") once at ~100%.
 
 import { icon } from '../icons.js';
 import { saveReadingPosition, markFinished, isFinished } from '../lib/readingPosition.js';
@@ -19,7 +19,7 @@ const CIRC = 2 * Math.PI * RADIUS;
  */
 export function mountReadingProgress(targetSelector, onComplete, meta) {
   // Avoid multiple mounts (e.g., on rerenders)
-  document.querySelectorAll('.reading-progress, .confetti').forEach((n) => n.remove());
+  document.querySelectorAll('.reading-progress').forEach((n) => n.remove());
 
   const ring = document.createElement('div');
   ring.className = 'reading-progress';
@@ -87,7 +87,6 @@ export function mountReadingProgress(targetSelector, onComplete, meta) {
     if (pct >= 0.92 && !completed) {
       completed = true;
       ring.classList.add('complete');
-      celebrate();
       // Persist the "finished" flag — markFinished also clears any saved
       // reading position so we don't offer to resume to the very end.
       if (meta && meta.yearId && meta.slug) markFinished(meta.yearId, meta.slug);
@@ -124,101 +123,6 @@ export function mountReadingProgress(targetSelector, onComplete, meta) {
     window.removeEventListener('resize', onScroll);
     document.removeEventListener('visibilitychange', flushOnHide);
     ring.remove();
-    document.querySelectorAll('.confetti').forEach((n) => n.remove());
   };
 }
 
-let audioCtx = null;
-function playChime() {
-  try {
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    const ctx = audioCtx;
-    if (ctx.state === 'suspended') ctx.resume();
-    // Layered bells: C major triad, then a gentle sustain
-    const motifs = [
-      [523.25, 659.25, 783.99, 1046.50], // C5 E5 G5 C6
-      [783.99, 987.77, 1318.51],          // G5 B5 E6 — a happy lift
-    ];
-    const start = ctx.currentTime;
-    motifs.forEach((notes, m) => {
-      notes.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = m === 0 ? 'sine' : 'triangle';
-        osc.frequency.value = freq;
-        osc.connect(gain).connect(ctx.destination);
-        const t0 = start + m * 0.45 + i * 0.07;
-        gain.gain.setValueAtTime(0, t0);
-        gain.gain.linearRampToValueAtTime(0.16, t0 + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6);
-        osc.start(t0);
-        osc.stop(t0 + 1.7);
-      });
-    });
-  } catch (e) { /* audio failure is non-critical */ }
-}
-
-const COLOR_VARS = [
-  'var(--bulletin-primary)', 'var(--bulletin-secondary)',
-  'var(--joy-pink)', 'var(--joy-yellow)', 'var(--joy-coral)', 'var(--joy-sky)',
-];
-const SOLID_COLORS = ['#ff7ab6', '#ffd166', '#ff8b5a', '#6ec5ff', '#52b788', '#a78bfa', '#ff5a8b'];
-
-function celebrate() {
-  // Honor reduced-motion preference: keep the chime as a subtle audio cue,
-  // skip confetti + balloons (they would all freeze in place via the global
-  // motion override and look like clutter on the page).
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  playChime();
-  if (reduce) return;
-
-  const confettiLayer = document.createElement('div');
-  confettiLayer.className = 'confetti';
-  document.body.appendChild(confettiLayer);
-
-  // Quiet celebration: confetti only, no balloons. A single soft wave that
-  // marks the moment of completion without dominating the page.
-  spawnConfetti(confettiLayer, 32);
-
-  setTimeout(() => {
-    confettiLayer.remove();
-  }, 5000);
-}
-
-function spawnConfetti(layer, count) {
-  const shapes = ['', 'shape-circle', 'shape-strip'];
-  for (let i = 0; i < count; i++) {
-    const piece = document.createElement('div');
-    piece.className = 'confetti-piece ' + shapes[i % shapes.length];
-    const left = Math.random() * 100;
-    const drift = Math.random() * 320 - 160;
-    const dur = 2.4 + Math.random() * 1.8;
-    const delay = Math.random() * 0.3;
-    piece.style.left = left + 'vw';
-    piece.style.setProperty('--drift', drift + 'px');
-    piece.style.setProperty('--dur', dur + 's');
-    piece.style.animationDelay = delay + 's';
-    piece.style.background = COLOR_VARS[i % COLOR_VARS.length];
-    piece.style.transform = `rotate(${Math.random() * 360}deg)`;
-    layer.appendChild(piece);
-  }
-}
-
-function spawnBalloons(layer, count) {
-  for (let i = 0; i < count; i++) {
-    const b = document.createElement('div');
-    b.className = 'balloon';
-    const left = 4 + (i / count) * 92 + (Math.random() * 6 - 3);
-    const drift = Math.random() * 80 - 40;
-    const dur = 3.6 + Math.random() * 1.8;
-    const delay = Math.random() * 1.2;
-    const color = SOLID_COLORS[i % SOLID_COLORS.length];
-    b.style.left = left + 'vw';
-    b.style.setProperty('--drift', drift + 'px');
-    b.style.setProperty('--dur', dur + 's');
-    b.style.setProperty('--balloon-color', color);
-    b.style.background = `radial-gradient(circle at 30% 30%, color-mix(in srgb, ${color} 70%, white), ${color})`;
-    b.style.animationDelay = delay + 's';
-    layer.appendChild(b);
-  }
-}

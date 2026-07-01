@@ -22,5 +22,6 @@
   "statsArchive": {
     "enabled": true,
     "periodDays": 7
-  }
+  },
+  "commentsEnabled": false
 }

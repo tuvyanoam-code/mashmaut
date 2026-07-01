@@ -23,5 +23,5 @@
     "enabled": true,
     "periodDays": 7
   },
-  "commentsEnabled": false
+  "commentsEnabled": true
 }

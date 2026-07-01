@@ -263,10 +263,13 @@ function bindLikes(app, week) {
     button.classList.toggle('liked', liked);
     button.setAttribute('aria-pressed', liked ? 'true' : 'false');
     if (iconHost) iconHost.innerHTML = icon(liked ? 'heartFilled' : 'heart', { size: 22 });
-    if (countBottom) countBottom.textContent = count > 0 ? String(count) : '';
+    // Only surface the number once it reflects more than the reader themselves
+    // (≥2). A lone like just fills the heart — no pointless "1".
+    const showCount = count >= 2;
+    if (countBottom) countBottom.textContent = showCount ? String(count) : '';
     if (countTop) countTop.textContent = String(count);
-    if (bubble) bubble.hidden = count === 0;
-    if (likesDot) likesDot.hidden = count === 0;
+    if (bubble) bubble.hidden = !showCount;
+    if (likesDot) likesDot.hidden = !showCount;
   };
 
   // Fetch initial state (non-blocking).
@@ -399,24 +402,24 @@ function renderTocMobile(headings) {
   // mirrors the reading-progress ring: same size, same surface, same
   // corner. Tap opens a sheet from the bottom. Desktop hides this
   // entirely (≥1100px), where the sidebar TOC takes over.
+  // FAB + a chapters "scroll" that unrolls out of the button. Reuses the same
+  // data-attributes the binder already wires (data-toc-fab / data-toc-sheet /
+  // data-toc-sheet-close), so no JS changes are needed. `--i` is a reverse
+  // index so items reveal from the button (bottom) upward as it unrolls.
   return `
     <button type="button" class="bulletin-toc-fab" data-toc-fab aria-label="פרקים בעלון" aria-expanded="false">
       ${icon('listUnordered', { size: 22 })}
     </button>
-    <div class="bulletin-toc-sheet" data-toc-sheet aria-hidden="true">
-      <div class="bulletin-toc-sheet-overlay" data-toc-sheet-close></div>
-      <div class="bulletin-toc-sheet-panel" role="dialog" aria-label="פרקים בעלון">
-        <div class="bulletin-toc-sheet-handle" aria-hidden="true"></div>
-        <div class="bulletin-toc-sheet-title">פרקים בעלון</div>
-        <ul>
-          ${items.map((h) => `
-            <li>
-              <a class="toc-link toc-h${h.level}" data-target="${h.id}" href="#${h.id}">${h.text}</a>
-            </li>
-          `).join('')}
-        </ul>
-      </div>
-    </div>
+    <div class="bulletin-toc-scrim" data-toc-sheet-close aria-hidden="true"></div>
+    <nav class="bulletin-toc-roll" data-toc-sheet aria-hidden="true" aria-label="פרקים בעלון">
+      <ul>
+        ${items.map((h, i) => `
+          <li style="--i:${items.length - 1 - i}">
+            <a class="toc-link toc-h${h.level}" data-target="${h.id}" href="#${h.id}">${h.text}</a>
+          </li>
+        `).join('')}
+      </ul>
+    </nav>
   `;
 }
 

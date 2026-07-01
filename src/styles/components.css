@@ -1362,94 +1362,103 @@
 .bulletin-toc-fab svg { width: 22px; height: 22px; }
 @media (min-width: 1280px) { .bulletin-toc-fab { display: none; } }
 
-/* Bottom sheet — slides up from the bottom of the viewport. The
- * overlay swallows taps outside the panel to dismiss the sheet.
- * Open/close state lives on an `is-open` class on the sheet, not the
- * `hidden` attribute — toggling `[hidden]` flips display:none and
- * suppresses the CSS transition from running. JS adds `is-open` after
- * a frame so the initial translated-down state can paint first. */
-.bulletin-toc-sheet {
+/* Chapters "scroll" — instead of a bottom sheet, the list unrolls out of the
+ * FAB. It's pinned just above the button and grows upward (max-height 0 → open
+ * with the bottom edge fixed), so it reads as unrolling from the button. The
+ * FAB sits BELOW the list and never overlaps it, so it can't block taps on the
+ * chapters; tapping the FAB again rolls the list back in. A transparent scrim
+ * (below the FAB + list) catches outside taps to close. */
+.bulletin-toc-scrim {
   position: fixed;
   inset: 0;
-  z-index: 70;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  z-index: 58;
   pointer-events: none;
 }
-.bulletin-toc-sheet.is-open { pointer-events: auto; }
-.bulletin-toc-sheet-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(20,20,20,.35);
-  opacity: 0;
-  transition: opacity .22s ease;
-}
-.bulletin-toc-sheet.is-open .bulletin-toc-sheet-overlay { opacity: 1; }
-.bulletin-toc-sheet-panel {
-  position: relative;
+body.toc-sheet-open .bulletin-toc-scrim { pointer-events: auto; }
+
+.bulletin-toc-roll {
+  position: fixed;
+  right: 16px;
+  /* Sit just above the 52px FAB (which is at bottom: 76px + safe) with a small
+     gap, so it reads as emerging straight out of the button. */
+  bottom: calc(76px + var(--safe-bottom, 0px) + 52px + 6px);
+  z-index: 66;
+  width: min(74vw, 300px);
+  max-width: calc(100vw - 32px);
+  max-height: 0;
+  overflow: hidden;
   background: var(--bg-elevated);
-  border-radius: 22px 22px 0 0;
-  padding: 12px 0 calc(24px + var(--safe-bottom, 0px));
-  max-height: 65vh;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 14px 36px -10px rgba(20,20,20,.30);
+  max-height: min(60vh, 420px);
+  opacity: 0;
+  pointer-events: none;
+  /* Morph out of the button: collapsed it's a tiny round blob sitting ON the
+     FAB (origin = the button's corner, scaled down, nudged onto it, rounded
+     like the FAB). Opening springs it up + out into the full card with a small
+     overshoot, so it clearly reads as growing out of the button. */
+  transform-origin: bottom right;
+  transform: translate(-4px, 40px) scale(.14);
+  border-radius: 40px;
+  transition: transform .46s cubic-bezier(.34, 1.35, .5, 1),
+              border-radius .4s ease,
+              opacity .24s ease;
+}
+.bulletin-toc-roll.is-open {
   overflow-y: auto;
-  box-shadow: 0 -16px 40px -8px rgba(0,0,0,.2);
-  transform: translateY(100%);
-  transition: transform .28s cubic-bezier(.2,.8,.2,1);
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(0, 0) scale(1);
+  border-radius: 16px;
 }
-.bulletin-toc-sheet.is-open .bulletin-toc-sheet-panel { transform: translateY(0); }
-.bulletin-toc-sheet-handle {
-  width: 40px;
-  height: 4px;
-  background: var(--border);
-  border-radius: 4px;
-  margin: 0 auto 12px;
+.bulletin-toc-roll ul { list-style: none; margin: 0; padding: 6px; }
+.bulletin-toc-roll li {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .22s ease, transform .22s ease;
 }
-.bulletin-toc-sheet-title {
-  text-align: center;
-  font-weight: 600;
-  color: var(--text-muted);
-  font-size: .85rem;
-  letter-spacing: .02em;
-  margin: 0 0 8px;
+.bulletin-toc-roll.is-open li {
+  opacity: 1;
+  transform: none;
+  /* Fill in only after the card has popped out, bottom item (nearest the
+     button) first — so the chapters look like they spill out of it. */
+  transition-delay: calc(var(--i, 0) * .05s + .24s);
 }
-.bulletin-toc-sheet ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+/* Skip the pop/stagger for readers who opt out of motion. */
+@media (prefers-reduced-motion: reduce) {
+  .bulletin-toc-roll { transition: opacity .2s ease; transform: none; border-radius: 16px; }
+  .bulletin-toc-roll li { transition: none; }
 }
-.bulletin-toc-sheet a {
+.bulletin-toc-roll a {
   display: block;
   color: var(--text);
   font-size: .95rem;
-  padding: 12px 22px;
+  padding: 10px 14px;
+  border-radius: 10px;
   border-inline-end: 3px solid transparent;
   line-height: 1.4;
 }
-.bulletin-toc-sheet a:hover { background: color-mix(in srgb, var(--bulletin-primary) 6%, transparent); }
-.bulletin-toc-sheet a.active {
+.bulletin-toc-roll a:hover { background: color-mix(in srgb, var(--bulletin-primary) 6%, transparent); }
+.bulletin-toc-roll a.active {
   color: var(--bulletin-primary);
   border-inline-end-color: var(--bulletin-primary);
   font-weight: 600;
   background: color-mix(in srgb, var(--bulletin-primary) 8%, transparent);
 }
-.bulletin-toc-sheet .toc-h2 { padding-inline-end: 28px; }
-.bulletin-toc-sheet .toc-h3 { padding-inline-end: 40px; font-size: .9rem; opacity: .9; }
-/* Lock page scroll while the sheet is open (matches native iOS feel).
-   Also hide the reading-progress V and the chapters FAB — both share
-   the bottom-right area the sheet occupies, and would otherwise peek
-   through over the list items (their bulletin-page stacking context
-   isolates them from the sheet's z-index). */
-body.toc-sheet-open { overflow: hidden; }
-body.toc-sheet-open .reading-progress,
-body.toc-sheet-open .bulletin-toc-fab {
-  /* !important needed for .reading-progress because its JS sets
-     inline `style.opacity = 1` every scroll frame; without it the
-     inline style wins and the V keeps peeking through the sheet. */
-  opacity: 0 !important;
-  pointer-events: none;
-  transition: opacity .15s ease;
+.bulletin-toc-roll .toc-h2 { padding-inline-end: 24px; }
+.bulletin-toc-roll .toc-h3 { padding-inline-end: 34px; font-size: .9rem; opacity: .9; }
+@media (min-width: 1280px) { .bulletin-toc-scrim, .bulletin-toc-roll { display: none; } }
+
+/* FAB open state — fills with the bulletin colour and the icon turns, so it
+   clearly reads as the active toggle that rolls the list back. */
+.bulletin-toc-fab svg { transition: transform .25s ease; }
+.bulletin-toc-fab[aria-expanded="true"] {
+  color: #fff;
+  background: var(--bulletin-primary);
+  border-color: var(--bulletin-primary);
 }
+.bulletin-toc-fab[aria-expanded="true"] svg { transform: rotate(90deg); }
 
 /* Reading time — inline text with tiny icon, no pill. */
 .reading-time {

@@ -29,40 +29,49 @@ export function initSubscribeBanner() {
 }
 
 export function showSubscribeBanner() {
-  if (document.querySelector('.subscribe-banner')) return;
-  const el = document.createElement('div');
-  el.className = 'subscribe-banner';
-  el.setAttribute('role', 'dialog');
-  el.setAttribute('aria-label', 'הרשמה לעלון משמעות');
-  el.innerHTML = `
-    <button type="button" class="subscribe-banner-close" aria-label="סגור">${icon('close', { size: 18 })}</button>
-    <div class="subscribe-banner-icon">${icon('email', { size: 26 })}</div>
-    <h3 class="subscribe-banner-title">קבל את העלון כל שבוע</h3>
-    <p class="subscribe-banner-text">בכל יום חמישי — רעיון לפרשת השבוע, ישר לתיבה שלך. בלי ספאם, הסרה בלחיצה אחת.</p>
-    <form class="subscribe-banner-form">
-      <input type="text" name="name" placeholder="שם מלא" required autocomplete="name" />
-      <input type="email" name="email" placeholder="הכנס כתובת מייל" required />
-      <button class="btn" type="submit">${icon('check', { size: 18 })} הירשם</button>
-    </form>
-    <div class="subscribe-banner-status"></div>
+  if (document.querySelector('.subscribe-banner-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'subscribe-banner-overlay';
+  overlay.innerHTML = `
+    <div class="subscribe-banner" role="dialog" aria-modal="true" aria-label="הרשמה לעלון משמעות">
+      <button type="button" class="subscribe-banner-close" aria-label="סגור">${icon('close', { size: 18 })}</button>
+      <div class="subscribe-banner-icon">${icon('email', { size: 26 })}</div>
+      <h3 class="subscribe-banner-title">קבל את העלון כל שבוע</h3>
+      <p class="subscribe-banner-text">בכל יום חמישי — רעיון לפרשת השבוע, ישר לתיבה שלך. בלי ספאם, הסרה בלחיצה אחת.</p>
+      <form class="subscribe-banner-form">
+        <input type="text" name="name" placeholder="שם מלא" required autocomplete="name" />
+        <input type="email" name="email" placeholder="הכנס כתובת מייל" required />
+        <button class="btn" type="submit">${icon('check', { size: 18 })} הירשם</button>
+      </form>
+      <div class="subscribe-banner-status"></div>
+    </div>
   `;
-  document.body.appendChild(el);
-  requestAnimationFrame(() => el.classList.add('visible'));
+  // Inherit the current page's (per-bulletin) accent colour so the button and
+  // icon match the site's changing colour, not the default green.
+  const themed = document.querySelector('[style*="--bulletin-primary"]');
+  if (themed) {
+    const c = getComputedStyle(themed).getPropertyValue('--bulletin-primary').trim();
+    if (c) overlay.style.setProperty('--bulletin-primary', c);
+  }
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
 
   const close = (flag) => {
     if (flag) setFlag(flag);
-    el.classList.remove('visible');
+    overlay.classList.remove('visible');
     document.removeEventListener('keydown', onKey);
-    setTimeout(() => el.remove(), 320);
+    setTimeout(() => overlay.remove(), 340);
   };
   const onKey = (e) => { if (e.key === 'Escape') close('dismissed'); };
   document.addEventListener('keydown', onKey);
 
-  el.querySelector('.subscribe-banner-close').addEventListener('click', () => close('dismissed'));
+  overlay.querySelector('.subscribe-banner-close').addEventListener('click', () => close('dismissed'));
+  // Tapping the dimmed backdrop (outside the card) also dismisses.
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close('dismissed'); });
 
-  el.querySelector('.subscribe-banner-form').addEventListener('submit', async (e) => {
+  overlay.querySelector('.subscribe-banner-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const status = el.querySelector('.subscribe-banner-status');
+    const status = overlay.querySelector('.subscribe-banner-status');
     const fd = new FormData(e.target);
     const name = (fd.get('name') || '').trim();
     const email = (fd.get('email') || '').trim();

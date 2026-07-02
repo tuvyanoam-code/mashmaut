@@ -32,6 +32,10 @@ defineRoute('/admin/:section', renderAdmin);
 
 startRouter();
 
+// Timed "subscribe to the weekly bulletin" invite — slides up after ~2 minutes
+// on the site (once per browser, unless dismissed / already subscribed).
+import('./components/subscribeBanner.js').then((m) => m.initSubscribeBanner());
+
 // Warm up the search index in the background a couple of seconds after the
 // initial route renders, so the user's first /search query is instant.
 // Also opportunistically prune stale (>30d) reading-position entries.

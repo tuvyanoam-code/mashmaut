@@ -185,13 +185,17 @@ function renderSplash(config, hasLatest) {
 
       <div class="splash-inner">
         <div class="splash-brand">${brand}</div>
+
+        <div class="splash-rule from-right splash-rule--under-logo" style="--rd:.85s" aria-hidden="true"></div>
+
         <p class="splash-tagline">${taglineHtml}</p>
 
-        <div class="splash-divider" aria-hidden="true"><span></span></div>
+        <div class="splash-rule from-left splash-rule--under-tagline" style="--rd:1.5s" aria-hidden="true"></div>
 
         ${hook ? `<p class="splash-hook">${hook}</p>` : ''}
 
         ${hasLatest ? `
+          <div class="splash-rule from-right splash-rule--pre-scroll" style="--rd:2.15s" aria-hidden="true"></div>
           <button type="button" class="splash-scroll" data-scroll-to-cover aria-label="גלול לעלון האחרון">
             <span>העלון האחרון</span>
             ${icon('chevronDown', { size: 22 })}

@@ -52,6 +52,8 @@ export function openSubscribeModal() {
       if (!data.ok) throw new Error(data.error || 'שגיאה');
       status.innerHTML = '<div class="modal-status success">נרשמת בהצלחה. שלחנו לך מייל ברוך הבא.</div>';
       showToast('נרשמת בהצלחה');
+      // Suppress the timed subscribe banner — they've just subscribed.
+      try { localStorage.setItem('mashmaut.subInvite', 'done'); } catch (_) {}
       setTimeout(close, 1800);
     } catch (err) {
       status.innerHTML = `<div class="modal-status error">${err.message}</div>`;

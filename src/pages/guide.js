@@ -68,11 +68,13 @@ export async function renderGuide() {
         </header>
 
         <section class="guide-tour" data-guide>
-          <div class="guide-dots" role="tablist">
-            ${STEPS.map((s, i) => `<button type="button" class="guide-dot${i === 0 ? ' active' : ''}" data-goto="${i}" aria-label="שלב ${i + 1}: ${s.title}"></button>`).join('')}
-          </div>
-
           <div class="guide-stage">
+            <div class="guide-info" data-info>
+              <div class="guide-step-num" data-num></div>
+              <div class="guide-step-icon" data-stepicon aria-hidden="true"></div>
+              <h2 class="guide-step-title" data-title></h2>
+              <p class="guide-step-text" data-text></p>
+            </div>
             <div class="guide-stage-row">
               <button type="button" class="guide-arrow" data-prev aria-label="השלב הקודם">${icon('arrowRight', { size: 22 })}</button>
               <div class="guide-device" data-device>
@@ -87,12 +89,10 @@ export async function renderGuide() {
               </div>
               <button type="button" class="guide-arrow" data-next aria-label="השלב הבא">${icon('arrowLeft', { size: 22 })}</button>
             </div>
-            <div class="guide-info" data-info>
-              <div class="guide-step-num" data-num></div>
-              <div class="guide-step-icon" data-stepicon aria-hidden="true"></div>
-              <h2 class="guide-step-title" data-title></h2>
-              <p class="guide-step-text" data-text></p>
-            </div>
+          </div>
+
+          <div class="guide-dots" role="tablist">
+            ${STEPS.map((s, i) => `<button type="button" class="guide-dot${i === 0 ? ' active' : ''}" data-goto="${i}" aria-label="שלב ${i + 1}: ${s.title}"></button>`).join('')}
           </div>
         </section>
 

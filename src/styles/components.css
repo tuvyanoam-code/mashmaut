@@ -2007,7 +2007,7 @@ body.toc-sheet-open .bulletin-toc-scrim { pointer-events: auto; }
 .guide-head h1 { font-size: clamp(1.8rem, 6vw, 2.6rem); margin: 0 0 8px; }
 .guide-head p { color: var(--text-muted); margin: 0; }
 
-.guide-dots { display: flex; gap: 8px; justify-content: center; margin-bottom: clamp(18px, 4vw, 28px); }
+.guide-dots { display: flex; gap: 8px; justify-content: center; margin-top: clamp(18px, 4vw, 28px); }
 .guide-dot {
   width: 9px; height: 9px; padding: 0; border: none; border-radius: 50%;
   background: var(--border); cursor: pointer;
@@ -2119,7 +2119,7 @@ body.toc-sheet-open .bulletin-toc-scrim { pointer-events: auto; }
 }
 
 /* Step info */
-.guide-info { max-width: 430px; margin: clamp(20px, 4vw, 28px) auto 0; text-align: center; }
+.guide-info { max-width: 430px; margin: 0 auto clamp(18px, 4vw, 26px); text-align: center; }
 .guide-step-num { font-size: .8rem; font-weight: 700; letter-spacing: .05em; color: var(--bulletin-primary); }
 .guide-step-icon {
   width: 46px; height: 46px; margin: 10px auto 10px;

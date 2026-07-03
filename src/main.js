@@ -38,6 +38,10 @@ startRouter();
 // on the site (once per browser, unless dismissed / already subscribed).
 import('./components/subscribeBanner.js').then((m) => m.initSubscribeBanner());
 
+// First-visit invite pointing at the usage guide — slides up ~7s after arrival,
+// once per browser.
+import('./components/guideBanner.js').then((m) => m.initGuideBanner());
+
 // Warm up the search index in the background a couple of seconds after the
 // initial route renders, so the user's first /search query is instant.
 // Also opportunistically prune stale (>30d) reading-position entries.

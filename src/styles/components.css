@@ -1996,6 +1996,138 @@ body.toc-sheet-open .bulletin-toc-scrim { pointer-events: auto; }
 .subscribe-banner-status:empty { display: none; }
 .subscribe-banner-status .modal-status { margin-top: 12px; }
 
+/* ===== Guide — interactive walkthrough ===== */
+.guide { max-width: 760px; margin: 0 auto; padding: clamp(24px, 6vw, 48px) var(--page-x) 64px; }
+.guide-head { text-align: center; margin-bottom: clamp(22px, 5vw, 38px); }
+.guide-head h1 { font-size: clamp(1.8rem, 6vw, 2.6rem); margin: 0 0 8px; }
+.guide-head p { color: var(--text-muted); margin: 0; }
+
+.guide-dots { display: flex; gap: 8px; justify-content: center; margin-bottom: clamp(18px, 4vw, 28px); }
+.guide-dot {
+  width: 9px; height: 9px; padding: 0; border: none; border-radius: 50%;
+  background: var(--border); cursor: pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+.guide-dot.active { background: var(--bulletin-primary); transform: scale(1.28); }
+
+.guide-stage { position: relative; }
+.guide-stage-row { display: flex; align-items: center; justify-content: center; gap: clamp(4px, 2vw, 16px); }
+.guide-stage .guide-shot,
+.guide-stage .guide-info { transition: opacity .22s ease, transform .3s cubic-bezier(.2, .9, .25, 1); }
+.guide-stage.is-swapping .guide-shot { opacity: 0; transform: scale(.97); }
+.guide-stage.is-swapping .guide-info { opacity: 0; transform: translateY(7px); }
+
+/* Paging arrows — right beside the device, so navigating never means scrolling
+   away from the screenshot. */
+.guide-arrow {
+  flex: none;
+  width: 46px; height: 46px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--bulletin-primary);
+  border: 1px solid color-mix(in srgb, var(--bulletin-primary) 22%, var(--border));
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition), opacity var(--transition);
+}
+.guide-arrow:hover { background: color-mix(in srgb, var(--bulletin-primary) 8%, var(--bg-elevated)); transform: translateY(-1px); }
+.guide-arrow[disabled] { opacity: .3; pointer-events: none; }
+
+/* Device frame */
+.guide-device { display: flex; flex-direction: column; align-items: center; flex: none; }
+.guide-device-screen { position: relative; overflow: hidden; background: var(--bg); }
+.guide-shot,
+.guide-vid { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+/* Beat the base `display:block` above so hiding actually removes the element
+   (the `hidden` attribute alone loses on specificity to the class rule). */
+.guide-shot[hidden],
+.guide-vid[hidden] { display: none; }
+.guide-stage.is-swapping .guide-vid { opacity: 0; transform: scale(.97); }
+.guide-vid { transition: opacity .22s ease, transform .3s cubic-bezier(.2, .9, .25, 1); }
+
+/* Animated tap / cursor pointing at the step's control. */
+.guide-pointer { position: absolute; transform: translate(-50%, -50%); width: 44px; height: 44px; pointer-events: none; z-index: 3; }
+.guide-pointer-ripple {
+  position: absolute; inset: 0; margin: auto;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: color-mix(in srgb, var(--bulletin-primary) 30%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bulletin-primary) 55%, transparent);
+}
+.guide-pointer::after {
+  content: ""; position: absolute; inset: 0; margin: auto;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--bulletin-primary); box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+}
+.guide-pointer .guide-cursor { position: absolute; left: 54%; top: 54%; display: none; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .3)); }
+.guide-pointer--cursor .guide-cursor { display: block; }
+.guide-pointer--cursor::after { display: none; }
+.guide-pointer.is-live .guide-pointer-ripple { animation: guideTap 1.9s ease-out infinite; }
+.guide-pointer--cursor.is-live .guide-cursor { animation: guideClick 1.9s ease-in-out infinite; }
+@keyframes guideTap {
+  0% { transform: scale(.35); opacity: 0; }
+  12% { opacity: .55; }
+  55% { transform: scale(2.1); opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes guideClick {
+  0%, 48%, 100% { transform: scale(1); }
+  56% { transform: scale(.8); }
+  66% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guide-pointer.is-live .guide-pointer-ripple,
+  .guide-pointer--cursor.is-live .guide-cursor { animation: none; }
+}
+
+.guide-device--phone {
+  width: min(54vw, 210px);
+  padding: 9px;
+  border-radius: 34px;
+  background: #3a3c44; /* soft graphite, not harsh black */
+  box-shadow: 0 22px 54px -22px rgba(20, 20, 20, .42), inset 0 0 0 1px rgba(255, 255, 255, .06);
+}
+/* Screen aspect matches the screenshot exactly, so the full display shows with
+   no crop and no fade. */
+.guide-device--phone .guide-device-screen {
+  width: 100%;
+  aspect-ratio: 390 / 844;
+  border-radius: 26px;
+}
+
+.guide-device--laptop { width: min(100%, 640px); }
+.guide-device--laptop .guide-device-screen {
+  width: 100%;
+  aspect-ratio: 1280 / 800;
+  border: 10px solid #3a3c44;
+  border-bottom: none;
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 20px 46px -22px rgba(20, 20, 20, .42);
+}
+.guide-device--laptop::after {
+  content: "";
+  width: 114%;
+  height: 14px;
+  background: linear-gradient(#d3d6dc, #a9adb6);
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 10px 18px -10px rgba(20, 20, 20, .3);
+}
+
+/* Step info */
+.guide-info { max-width: 430px; margin: clamp(20px, 4vw, 28px) auto 0; text-align: center; }
+.guide-step-num { font-size: .8rem; font-weight: 700; letter-spacing: .05em; color: var(--bulletin-primary); }
+.guide-step-icon {
+  width: 46px; height: 46px; margin: 10px auto 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bulletin-primary) 12%, var(--bg-elevated));
+  color: var(--bulletin-primary);
+}
+.guide-step-title { font-family: var(--font-heading); font-size: clamp(1.3rem, 4.5vw, 1.7rem); font-weight: 800; margin: 0 0 8px; }
+.guide-step-text { color: var(--text-muted); line-height: 1.65; margin: 0; }
+
+.guide-cta { text-align: center; margin-top: clamp(28px, 6vw, 44px); }
+
 /* ===== Empty states ===== */
 .empty-state {
   text-align: center;

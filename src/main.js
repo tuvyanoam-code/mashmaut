@@ -15,6 +15,7 @@ import { renderYear } from './pages/year.js';
 import { renderBulletin } from './pages/bulletin.js';
 import { renderPdf } from './pages/pdfView.js';
 import { renderSearch } from './pages/search.js';
+import { renderGuide } from './pages/guide.js';
 import { renderAdmin } from './pages/admin.js';
 import { renderDiscussNew } from './pages/discussNew.js';
 import { renderDiscussThread } from './pages/discussThread.js';
@@ -27,6 +28,7 @@ defineRoute('/y/:year/:slug/pdf', renderPdf);
 defineRoute('/y/:year/:slug/discuss/new', renderDiscussNew);
 defineRoute('/y/:year/:slug/discuss/:threadId', renderDiscussThread);
 defineRoute('/search', renderSearch);
+defineRoute('/guide', renderGuide);
 defineRoute('/admin', renderAdmin);
 defineRoute('/admin/:section', renderAdmin);
 

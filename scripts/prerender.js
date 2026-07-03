@@ -163,6 +163,14 @@ function main() {
   }));
   count++;
 
+  // /guide
+  writeRoute('/guide', rewriteHead(template, {
+    title: `מדריך שימוש · עלון ${siteName}`,
+    description: `מדריך אינטראקטיבי קצר: איך קוראים את העלון, מנווטים בארכיון, מחפשים ונרשמים לקבלה במייל.`,
+    path: '/guide',
+  }));
+  count++;
+
   // Year archive pages
   for (const y of (idx.years || [])) {
     if (!y.id) continue;

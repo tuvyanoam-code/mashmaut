@@ -91,6 +91,7 @@ export function footerHtml(config) {
         <nav class="footer-nav" aria-label="קישורים בפוטר">
           <a href="/years">ארכיון</a>
           <a href="/search">חיפוש</a>
+          <a href="/guide">מדריך</a>
           <button type="button" data-action="subscribe">קבל למייל</button>
           <button type="button" data-action="contact">צור קשר</button>
         </nav>

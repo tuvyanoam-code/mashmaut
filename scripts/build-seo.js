@@ -30,6 +30,7 @@ function buildSitemap() {
   urls.push({ loc: `${SITE}/`, lastmod: today, changefreq: 'weekly', priority: '1.0' });
   urls.push({ loc: `${SITE}/years`, lastmod: today, changefreq: 'monthly', priority: '0.6' });
   urls.push({ loc: `${SITE}/search`, changefreq: 'yearly', priority: '0.3' });
+  urls.push({ loc: `${SITE}/guide`, changefreq: 'monthly', priority: '0.5' });
 
   // Year archive pages
   for (const y of (idx.years || [])) {

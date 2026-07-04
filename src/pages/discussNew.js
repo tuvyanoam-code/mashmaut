@@ -46,8 +46,8 @@ export async function renderDiscussNew({ params }) {
         </div>
         <p class="discuss-status" data-status></p>
       </form>
-      ${footerHtml(config)}
     </div>
+    ${footerHtml(config)}
   `;
   bindNav();
   setPageSeo({

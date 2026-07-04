@@ -231,7 +231,8 @@
    page's cover+invite block; other pages use their own <main>. The home cover
    itself keeps its natural height (excluded here). */
 #app main:not(.cover),
-.home-latest {
+.home-latest,
+.discuss-page {
   min-height: 100vh;
   min-height: 100dvh;
   box-sizing: border-box;
@@ -291,7 +292,7 @@
   padding: 0 clamp(8px, 3vw, 24px);
   font-family: var(--font-heading);
   font-size: clamp(1.4rem, 4.2vw, 2.2rem);
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.35;
   color: var(--text);
   letter-spacing: -.015em;
@@ -302,10 +303,10 @@
   color: var(--bulletin-primary);
   letter-spacing: -.025em;
 }
-/* Soft highlight in the changing bulletin colour — not the browser's harsh
-   default yellow — matching the gentle mark on the bulletin page. */
+/* Same gentle fixed highlight as the bulletin page (soft joy-yellow), not the
+   browser's harsh default yellow. */
 .cover-headline mark {
-  background: color-mix(in srgb, var(--bulletin-primary) 20%, transparent);
+  background: color-mix(in srgb, var(--joy-yellow) 45%, transparent);
   color: inherit;
   padding: 0 3px;
   border-radius: 3px;
@@ -316,7 +317,7 @@
    never shows an empty highlight ahead of them. */
 .cover-headline.is-typing mark { background: transparent; transition: none; }
 .cover-headline.is-typing mark.is-active {
-  background: color-mix(in srgb, var(--bulletin-primary) 20%, transparent);
+  background: color-mix(in srgb, var(--joy-yellow) 45%, transparent);
 }
 .cover-quote {
   display: inline;

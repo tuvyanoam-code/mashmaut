@@ -88,9 +88,8 @@ export async function renderDiscussThread({ params }) {
           </form>
           <p class="discuss-status" data-status></p>
         </div>
-
-        ${footerHtml(config)}
       </div>
+      ${footerHtml(config)}
     `;
     bindNav();
     bindHandlers(draftValue);

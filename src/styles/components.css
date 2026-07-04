@@ -64,15 +64,31 @@
   color: var(--bulletin-primary);
   text-shadow: 0 1px 0 color-mix(in srgb, var(--bulletin-primary) 18%, transparent);
 }
+/* The mark is the logo PNG masked over a fill of the weekly bulletin colour, so
+   it wears the site's changing accent rather than cycling through hues. The
+   hidden <img> reserves the correct box (size + aspect ratio). */
 .splash-logo {
+  position: relative;
   display: block;
   width: 100%;
   max-width: 470px;
-  max-height: 290px;
-  object-fit: contain;
   /* Nudge slightly left to visually center against the tagline.
      The calligraphic mark has more visual weight on its right side. */
   transform: translateX(-12px);
+}
+.splash-logo-size {
+  display: block;
+  width: 100%;
+  max-height: 290px;
+  object-fit: contain;
+  visibility: hidden;
+}
+.splash-logo-tint {
+  position: absolute;
+  inset: 0;
+  background: var(--bulletin-primary);
+  -webkit-mask: center / contain no-repeat;
+  mask: center / contain no-repeat;
 }
 .splash-tagline {
   /* Symmetric top/bottom margin — the adjacent rules contribute 0 on their
@@ -193,10 +209,6 @@
     animation: ruleDraw .65s cubic-bezier(.5, 0, .2, 1) both;
     animation-delay: var(--rd, 0s);
   }
-
-  /* The "משמעות" mark is a near-monochrome image, so a slow hue-rotate cycles
-     it smoothly through the spectrum without muddying — it "changes colors". */
-  .splash-logo { animation: logoHue 16s linear infinite; }
 }
 
 @keyframes splashRise {
@@ -211,6 +223,20 @@
   from { filter: hue-rotate(0deg); }
   to   { filter: hue-rotate(360deg); }
 }
+
+/* Keep the footer (site links + credits) below the fold on any screen size: the
+   content region above it fills at least one screenful, with its content at its
+   natural height/top and any slack as empty space beneath — so the footer only
+   shows once the reader scrolls down. `.home-latest` does this for the home
+   page's cover+invite block; other pages use their own <main>. The home cover
+   itself keeps its natural height (excluded here). */
+#app main:not(.cover),
+.home-latest {
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
+}
+.home-latest { display: flex; flex-direction: column; }
 
 /* ===== Cover — the latest bulletin section, below the splash ===== */
 .cover {
@@ -287,6 +313,55 @@
 }
 .cover-quote-end { display: inline; }
 
+/* Typewriter caret for the weekly headline — a thin accent bar that blinks at
+   the cursor while the line types itself in (see typewriteHeadline in home.js). */
+.type-caret {
+  display: inline-block;
+  width: 3px;
+  height: 1.05em;
+  margin-inline-start: 2px;
+  vertical-align: -0.12em;
+  border-radius: 2px;
+  background: var(--bulletin-primary);
+  animation: type-blink 1.05s steps(1, end) infinite;
+}
+@keyframes type-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .type-caret { display: none; } }
+
+/* Divider rules between the cover's segments — same thin, bulletin-tinted line
+   as the splash, drawn in from an anchored side (reuses the ruleDraw keyframe).
+   Doubles as the extra breathing room between the headline and the actions. */
+.cover-rule {
+  width: min(90%, 620px);
+  height: 1px;
+  margin: clamp(20px, 4.5vw, 34px) auto;
+  background: color-mix(in srgb, var(--bulletin-primary) 16%, transparent);
+}
+.cover-rule.from-right { transform-origin: right; }
+.cover-rule.from-left { transform-origin: left; }
+
+/* Staggered entrance for the cover (and the readers' invite), mirroring the
+   splash: each element rises + fades and the rules draw across, one after the
+   next — but triggered when the section scrolls into view (JS toggles .reveal),
+   since it sits below the splash. Fully static for reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .cover--anim > *:not(.cover-rule):not(.cover-share-panel),
+  .readers-invite.is-anim .content > *:not(.cover-rule) { opacity: 0; }
+  .cover--anim .cover-rule,
+  .readers-invite.is-anim .cover-rule { transform: scaleX(0); }
+
+  .cover--anim.reveal > *:not(.cover-rule):not(.cover-share-panel),
+  .readers-invite.is-anim.reveal .content > *:not(.cover-rule) {
+    animation: splashRise .7s cubic-bezier(.22, .61, .36, 1) both;
+    animation-delay: var(--d, 0s);
+  }
+  .cover--anim.reveal .cover-rule,
+  .readers-invite.is-anim.reveal .cover-rule {
+    animation: ruleDraw .85s cubic-bezier(.5, 0, .2, 1) both;
+    animation-delay: var(--d, 0s);
+  }
+}
+
 /* Primary CTA + secondary text link. Block-level row so it's on its own
    horizontal line, separate from the share row below. */
 .cover-actions {
@@ -297,6 +372,11 @@
   gap: 12px 16px;
   margin-bottom: clamp(20px, 4vw, 28px);
 }
+/* On phones the buttons sit too close under the headline's rule; give them more
+   room above so they read as centred between the rule above and the one below. */
+@media (max-width: 600px) {
+  .cover-actions { margin-top: clamp(52px, 16vw, 74px); }
+}
 /* Primary hero CTA — filled in the bulletin color but quiet about it: a
    modest shadow, smaller padding, and a soft hover lift. No heavy drop. */
 .cover-cta {
@@ -304,18 +384,20 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 0 26px;
+  min-height: 46px;
+  padding: 0 28px;
   font-size: .96rem;
   font-weight: 600;
-  background: var(--bulletin-primary);
-  border: 1px solid var(--bulletin-primary);
-  box-shadow: 0 2px 8px -3px color-mix(in srgb, var(--bulletin-primary) 30%, transparent);
+  color: var(--bulletin-primary);
+  background: color-mix(in srgb, var(--bulletin-primary) 14%, var(--bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--bulletin-primary) 42%, var(--border));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--bulletin-primary) 18%, transparent);
   transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
 }
 .cover-cta:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--bulletin-primary) 45%, transparent);
+  background: color-mix(in srgb, var(--bulletin-primary) 20%, var(--bg-elevated));
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--bulletin-primary) 38%, transparent);
 }
 /* Secondary text-style action. The "underline on hover" comes back as a
    border-bottom so it doesn't disturb baseline rhythm. */
@@ -347,34 +429,53 @@
 
 /* Share row — block-level, on its own line below the actions. Label sits
    ABOVE the buttons, centered. */
-.cover-share {
-  display: flex;
-  flex-direction: column;
+/* Read / PDF / share share one action row. The CTA is the tinted pill; PDF and
+   share are quiet outlined pills of the same height. Tapping share reveals the
+   channel buttons just beneath the row. */
+.cover-pill {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-}
-.cover-share .share-buttons { background: transparent; border-color: transparent; box-shadow: none; padding: 4px 0; }
-.cover-share-label {
-  font-family: var(--font-display);
-  font-size: .8rem;
-  letter-spacing: .12em;
+  justify-content: center;
+  gap: 7px;
+  min-height: 46px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--border);
   color: var(--text-muted);
-  text-transform: uppercase;
+  font: inherit;
+  font-size: .92rem;
   font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
 }
+.cover-pill svg { opacity: .8; }
+.cover-pill:hover,
+.cover-pill[aria-expanded="true"] {
+  color: var(--bulletin-primary);
+  border-color: color-mix(in srgb, var(--bulletin-primary) 35%, var(--border));
+  background: color-mix(in srgb, var(--bulletin-primary) 6%, transparent);
+}
+.cover-share-panel { display: flex; justify-content: center; margin-top: 4px; }
+.cover-share-panel[hidden] { display: none; }
+.cover-share-panel .share-buttons { justify-content: center; background: transparent; border: none; box-shadow: none; padding: 0; }
+@media (prefers-reduced-motion: no-preference) { .cover-share-panel:not([hidden]) { animation: share-reveal .28s ease; } }
+@keyframes share-reveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
-/* Discussion invite — sits under the share row. Prompt is quiet
-   (muted text), button "stands out a bit" — tinted background with
-   the bulletin's accent + slight lift on hover. */
-.cover-discuss {
-  margin-top: clamp(28px, 5vw, 40px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
+/* Readers' discussion invite — moved out of the cover to its own quiet
+   section lower down the page, so it doesn't add weight to the centre. */
+.readers-invite {
+  padding: clamp(10px, 3vw, 24px) 0 clamp(34px, 6vw, 56px);
   text-align: center;
 }
-.cover-discuss-prompt {
+.readers-invite .content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.readers-invite-prompt {
   margin: 0;
   max-width: 460px;
   color: var(--text-muted);
@@ -385,22 +486,21 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 22px;
+  padding: 9px 18px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--bulletin-primary) 12%, var(--bg-elevated));
-  border: 1px solid color-mix(in srgb, var(--bulletin-primary) 35%, var(--border));
-  color: var(--bulletin-primary);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
   font-family: var(--font-body);
-  font-size: .95rem;
-  font-weight: 600;
+  font-size: .92rem;
+  font-weight: 500;
   text-decoration: none;
-  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--bulletin-primary) 20%, transparent);
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
 }
 .cover-discuss-btn:hover {
-  background: color-mix(in srgb, var(--bulletin-primary) 18%, var(--bg-elevated));
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--bulletin-primary) 40%, transparent);
+  color: var(--bulletin-primary);
+  border-color: color-mix(in srgb, var(--bulletin-primary) 32%, var(--border));
+  background: color-mix(in srgb, var(--bulletin-primary) 5%, transparent);
 }
 .cover-discuss-btn svg { stroke-width: 1.6; flex-shrink: 0; }
 /* Active threads count on the latest bulletin. Appears only when count > 0.

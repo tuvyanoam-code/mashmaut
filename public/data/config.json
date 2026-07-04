@@ -9,7 +9,7 @@
     "fontBody": "buTactica",
     "fontHeading": "buTactica"
   },
-  "adminEmail": "alonmashmaut@gmail.com",
+  "adminEmail": "alon@alonmashmaut.org",
   "apiBase": "https://api.alonmashmaut.org",
   "dispatchSchedule": {
     "enabled": true,

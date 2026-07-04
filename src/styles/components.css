@@ -302,6 +302,22 @@
   color: var(--bulletin-primary);
   letter-spacing: -.025em;
 }
+/* Soft highlight in the changing bulletin colour — not the browser's harsh
+   default yellow — matching the gentle mark on the bulletin page. */
+.cover-headline mark {
+  background: color-mix(in srgb, var(--bulletin-primary) 20%, transparent);
+  color: inherit;
+  padding: 0 3px;
+  border-radius: 3px;
+  transition: background .3s ease;
+}
+/* While typing, a mark stays clear until its own text starts to appear, then
+   highlights instantly — so the emphasis is "written in" with the words, and
+   never shows an empty highlight ahead of them. */
+.cover-headline.is-typing mark { background: transparent; transition: none; }
+.cover-headline.is-typing mark.is-active {
+  background: color-mix(in srgb, var(--bulletin-primary) 20%, transparent);
+}
 .cover-quote {
   display: inline;
   color: var(--bulletin-primary);
@@ -365,6 +381,7 @@
 /* Primary CTA + secondary text link. Block-level row so it's on its own
    horizontal line, separate from the share row below. */
 .cover-actions {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
@@ -457,7 +474,16 @@
   border-color: color-mix(in srgb, var(--bulletin-primary) 35%, var(--border));
   background: color-mix(in srgb, var(--bulletin-primary) 6%, transparent);
 }
-.cover-share-panel { display: flex; justify-content: center; margin-top: 4px; }
+/* Revealed out of flow (absolutely, just under the action row) so it drops into
+   the empty space below rather than pushing the discussion + footer down. */
+.cover-share-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+}
 .cover-share-panel[hidden] { display: none; }
 .cover-share-panel .share-buttons { justify-content: center; background: transparent; border: none; box-shadow: none; padding: 0; }
 @media (prefers-reduced-motion: no-preference) { .cover-share-panel:not([hidden]) { animation: share-reveal .28s ease; } }

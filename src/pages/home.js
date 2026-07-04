@@ -188,6 +188,9 @@ function prepareTypewriter(h1) {
   return {
     clear() {
       h1.style.minHeight = h1.getBoundingClientRect().height + 'px';
+      // Mark it typing from the moment it's blanked, so the empty <mark> doesn't
+      // flash its highlight in the gap before typing actually starts.
+      h1.classList.add('is-typing');
       parts.forEach((p) => { p.node.nodeValue = ''; });
       if (endQuote) endQuote.style.opacity = '0';
     },
@@ -207,6 +210,10 @@ function prepareTypewriter(h1) {
         }
         const cur = parts[pi];
         cur.node.nodeValue = cur.text.slice(0, ci + 1);
+        // Light up a <mark> only once its own text begins to appear, so the
+        // highlight is drawn in with the words rather than ahead of them.
+        const markEl = cur.node.parentElement && cur.node.parentElement.closest('mark');
+        if (markEl) markEl.classList.add('is-active');
         cur.node.parentNode.insertBefore(caret, cur.node.nextSibling);
         const ch = cur.text[ci];
         ci += 1;
@@ -344,9 +351,9 @@ function renderCover(week, config) {
           ${icon('share', { size: 16 })}
           <span>שתף עם חבר</span>
         </button>
-      </div>
-      <div class="cover-share-panel" id="coverSharePanel" hidden>
-        ${shareButtonsHtml({ url: fullUrl, parshaName: week.parshaName, year: week.yearDisplay })}
+        <div class="cover-share-panel" id="coverSharePanel" hidden>
+          ${shareButtonsHtml({ url: fullUrl, parshaName: week.parshaName, year: week.yearDisplay })}
+        </div>
       </div>
     </main>
   `;

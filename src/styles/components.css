@@ -247,6 +247,10 @@
    the snap points belong to the actual root scroller again. (.cover already has
    scroll-margin-top so the snap lands just below the fixed nav.) */
 html.home-snap body { overflow-x: clip; }
+/* Firm snapping to the splash / bulletin / footer. The "לעלון האחרון" button
+   momentarily drops the `home-snap` class while it smooth-scrolls, so mandatory
+   snapping doesn't yank that programmatic scroll back (an iOS Safari quirk) —
+   see the scroll-button handler in home.js. */
 html.home-snap { scroll-snap-type: y mandatory; }
 html.home-snap .splash,
 html.home-snap .cover { scroll-snap-align: start; }

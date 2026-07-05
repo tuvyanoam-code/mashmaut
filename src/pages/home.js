@@ -101,13 +101,28 @@ export async function renderHome() {
     }
   }
 
-  // Smooth-scroll the splash arrow to the cover section.
+  // Smooth-scroll the splash arrow to the cover section. Mandatory scroll-snap
+  // fights a programmatic smooth-scroll on iOS Safari (it yanks it back to the
+  // splash), so drop the snap for the duration of the scroll and re-arm it once
+  // the scroll settles — at the cover, which is itself a snap point.
   const scrollBtn = app.querySelector('[data-scroll-to-cover]');
   if (scrollBtn) {
     scrollBtn.addEventListener('click', (e) => {
       e.preventDefault();
       const target = app.querySelector('.cover');
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (!target) return;
+      const root = document.documentElement;
+      root.classList.remove('home-snap');
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      let rearmed = false;
+      const rearm = () => {
+        if (rearmed) return;
+        rearmed = true;
+        window.removeEventListener('scrollend', rearm);
+        if (document.body.classList.contains('is-home')) root.classList.add('home-snap');
+      };
+      window.addEventListener('scrollend', rearm);
+      setTimeout(rearm, 1200); // fallback where scrollend isn't supported
     });
   }
 
@@ -250,18 +265,43 @@ function initCoverReveal(cover, invite, cleanups) {
   const typer = prepareTypewriter(cover.querySelector('.cover-headline:not(.cover-headline-plain)'));
   let done = false;
   const timers = [];
-  const io = new IntersectionObserver((entries) => {
-    if (done || !entries.some((e) => e.isIntersecting)) return;
+
+  const reveal = () => {
+    if (done) return;
     done = true;
     io.disconnect();
+    clearTimeout(fallback);
+    window.removeEventListener('scroll', onScrollCheck);
     if (typer) typer.clear();            // blank it before it fades in
     cover.classList.add('reveal');
     if (typer) timers.push(setTimeout(() => typer.run(), 1450)); // type once it's faded in
     // The discussion invite comes last — only after the action buttons land.
     if (invite) timers.push(setTimeout(() => invite.classList.add('reveal'), 2050));
+  };
+
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) reveal();
   }, { threshold: 0.15 });
   io.observe(cover);
-  cleanups.push(() => { io.disconnect(); timers.forEach(clearTimeout); if (typer) typer.stop(); });
+
+  // Belt-and-suspenders so the pre-hidden cover (and its buttons) never stay
+  // invisible if the observer misbehaves — a known iOS Safari failure mode:
+  //   1) a scroll check reveals the moment the cover nears the viewport,
+  //   2) a timer reveals unconditionally if nothing else has by then.
+  const onScrollCheck = () => {
+    const r = cover.getBoundingClientRect();
+    if (r.top < window.innerHeight * 0.9 && r.bottom > 0) reveal();
+  };
+  window.addEventListener('scroll', onScrollCheck, { passive: true });
+  const fallback = setTimeout(reveal, 6000);
+
+  cleanups.push(() => {
+    io.disconnect();
+    clearTimeout(fallback);
+    window.removeEventListener('scroll', onScrollCheck);
+    timers.forEach(clearTimeout);
+    if (typer) typer.stop();
+  });
 }
 
 function renderResumePill(r) {

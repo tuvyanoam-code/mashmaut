@@ -270,7 +270,6 @@ function initCoverReveal(cover, invite, cleanups) {
     if (done) return;
     done = true;
     io.disconnect();
-    clearTimeout(fallback);
     window.removeEventListener('scroll', onScrollCheck);
     if (typer) typer.clear();            // blank it before it fades in
     cover.classList.add('reveal');
@@ -284,20 +283,20 @@ function initCoverReveal(cover, invite, cleanups) {
   }, { threshold: 0.15 });
   io.observe(cover);
 
-  // Belt-and-suspenders so the pre-hidden cover (and its buttons) never stay
-  // invisible if the observer misbehaves — a known iOS Safari failure mode:
-  //   1) a scroll check reveals the moment the cover nears the viewport,
-  //   2) a timer reveals unconditionally if nothing else has by then.
+  // Backup for the observer (it can misbehave on iOS Safari, leaving the
+  // pre-hidden cover invisible): reveal only once the cover actually nears the
+  // viewport — on scroll, or immediately if it's already there on load (e.g. a
+  // restored scroll position). It must NOT fire while the reader is still up on
+  // the splash, so there's no unconditional timer.
   const onScrollCheck = () => {
     const r = cover.getBoundingClientRect();
     if (r.top < window.innerHeight * 0.9 && r.bottom > 0) reveal();
   };
   window.addEventListener('scroll', onScrollCheck, { passive: true });
-  const fallback = setTimeout(reveal, 6000);
+  requestAnimationFrame(onScrollCheck); // catch an already-in-view cover on load
 
   cleanups.push(() => {
     io.disconnect();
-    clearTimeout(fallback);
     window.removeEventListener('scroll', onScrollCheck);
     timers.forEach(clearTimeout);
     if (typer) typer.stop();

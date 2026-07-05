@@ -73,11 +73,20 @@ export async function renderHome() {
     const shareTrigger = app.querySelector('[data-share-trigger]');
     const sharePanel = app.querySelector('#coverSharePanel');
     if (shareTrigger && sharePanel) {
+      let revertTimer = null;
       shareTrigger.addEventListener('click', () => {
-        const open = sharePanel.hidden;
-        sharePanel.hidden = !open;
-        shareTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        // Swap the pill for the channel buttons in place; swap back after 15s.
+        shareTrigger.hidden = true;
+        sharePanel.hidden = false;
+        shareTrigger.setAttribute('aria-expanded', 'true');
+        clearTimeout(revertTimer);
+        revertTimer = setTimeout(() => {
+          sharePanel.hidden = true;
+          shareTrigger.hidden = false;
+          shareTrigger.setAttribute('aria-expanded', 'false');
+        }, 15000);
       });
+      cleanups.push(() => clearTimeout(revertTimer));
     }
   }
 
@@ -107,6 +116,9 @@ export async function renderHome() {
   // Mark the body as "home" — drops body padding-top so the splash is
   // full-bleed (the fixed nav floats above without reserving flow space).
   document.body.classList.add('is-home');
+  // Gentle scroll-snapping so a scroll settles on the splash or the bulletin
+  // section rather than half-way (on the root scroller = <html>).
+  document.documentElement.classList.add('home-snap');
 
   // Hide the nav while the visitor is on the splash; reveal it once they've
   // scrolled past ~40vh so it's available for navigation deeper into the page.
@@ -163,6 +175,7 @@ export async function renderHome() {
     if (onScroll) window.removeEventListener('scroll', onScroll);
     if (navEl) navEl.classList.remove('nav--hidden');
     document.body.classList.remove('is-home');
+    document.documentElement.classList.remove('home-snap');
     cleanups.forEach((fn) => { try { fn(); } catch (_) {} });
   };
 }

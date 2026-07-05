@@ -239,6 +239,19 @@
 }
 .home-latest { display: flex; flex-direction: column; }
 
+/* Home entry: vertical scroll-snapping on the root scroller, so a manual scroll
+   settles on the splash, the bulletin section, or the footer — never half-way.
+   The site's horizontal-overflow guard uses `overflow-x: hidden` on <body>,
+   which quietly turns <body> into a scroll container and swallows the snap
+   targets; `clip` guards the same overflow WITHOUT creating that container, so
+   the snap points belong to the actual root scroller again. (.cover already has
+   scroll-margin-top so the snap lands just below the fixed nav.) */
+html.home-snap body { overflow-x: clip; }
+html.home-snap { scroll-snap-type: y mandatory; }
+html.home-snap .splash,
+html.home-snap .cover { scroll-snap-align: start; }
+html.home-snap .footer { scroll-snap-align: end; }
+
 /* ===== Cover — the latest bulletin section, below the splash ===== */
 .cover {
   position: relative;
@@ -475,16 +488,10 @@
   border-color: color-mix(in srgb, var(--bulletin-primary) 35%, var(--border));
   background: color-mix(in srgb, var(--bulletin-primary) 6%, transparent);
 }
-/* Revealed out of flow (absolutely, just under the action row) so it drops into
-   the empty space below rather than pushing the discussion + footer down. */
-.cover-share-panel {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-}
+/* On tap, the "שתף עם חבר" pill is swapped in place for the channel buttons
+   (which sit in the same row slot); it swaps back after 15s — see home.js. */
+.cover-share-panel { display: inline-flex; align-items: center; }
+.cover-pill[hidden],
 .cover-share-panel[hidden] { display: none; }
 .cover-share-panel .share-buttons { justify-content: center; background: transparent; border: none; box-shadow: none; padding: 0; }
 @media (prefers-reduced-motion: no-preference) { .cover-share-panel:not([hidden]) { animation: share-reveal .28s ease; } }

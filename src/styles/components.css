@@ -492,12 +492,37 @@ html.home-snap .footer { scroll-snap-align: end; }
   border-color: color-mix(in srgb, var(--bulletin-primary) 35%, var(--border));
   background: color-mix(in srgb, var(--bulletin-primary) 6%, transparent);
 }
-/* On tap, the "שתף עם חבר" pill is swapped in place for the channel buttons
-   (which sit in the same row slot); it swaps back after 15s — see home.js. */
-.cover-share-panel { display: inline-flex; align-items: center; }
+/* On tap, the "שתף עם חבר" pill is swapped in place for the channel icons — all
+   inside ONE outlined pill matching the trigger (same border, transparency and
+   muted colour); the individual channel rings are dropped. Swaps back after 15s
+   — see home.js. */
+.cover-share-panel {
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+}
 .cover-pill[hidden],
 .cover-share-panel[hidden] { display: none; }
-.cover-share-panel .share-buttons { justify-content: center; background: transparent; border: none; box-shadow: none; padding: 0; }
+.cover-share-panel .share-buttons { gap: 2px; justify-content: center; background: transparent; border: none; box-shadow: none; padding: 0; }
+.cover-share-panel .share-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+}
+.cover-share-panel .share-btn:hover,
+.cover-share-panel .share-btn:focus-visible,
+.cover-share-panel .share-btn.copied {
+  border: none;
+  background: transparent;
+  color: var(--bulletin-primary);
+  transform: none;
+}
 @media (prefers-reduced-motion: no-preference) { .cover-share-panel:not([hidden]) { animation: share-reveal .28s ease; } }
 @keyframes share-reveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 

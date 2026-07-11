@@ -12,7 +12,14 @@
 // Cron: Thursday 17:00 UTC — sends current week's bulletin to all subscribers.
 
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
+  // Locked to the production site. The API is bearer-authenticated; it must not
+  // be usable in a browser from arbitrary origins (was '*', which let any site
+  // send credentialed writes).
+  'Access-Control-Allow-Origin': 'https://alonmashmaut.org',
+  'Vary': 'Origin',
+  // Baseline security headers on every API response.
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS,PUT',
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   // Without this, browsers hide Content-Disposition from cross-origin JS,
@@ -2525,6 +2532,10 @@ export default {
           const body = await request.json();
           const { data: cur } = await ghReadJson(env, 'public/data/config.json');
           const next = { ...(cur || {}), ...body };
+          // The public config.json is served to every visitor — never let any
+          // secret be persisted into it (this is how the admin key leaked). The
+          // admin key lives only in the ADMIN_API_KEY worker secret.
+          for (const k of ['adminApiKey', 'apiKey', 'adminKey', 'githubToken', 'resendApiKey', 'secret']) delete next[k];
           await ghWriteJson(env, 'public/data/config.json', next, `update site config`);
           return ok();
         }

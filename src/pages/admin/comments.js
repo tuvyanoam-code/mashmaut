@@ -154,6 +154,9 @@ function renderUserCard(u) {
             <span class="admin-user-dot">·</span>
             <span class="muted">${relativeTime(u.lastAt)}</span>
           </div>
+          ${u.email
+            ? `<a class="admin-user-email" href="mailto:${escapeAttr(u.email)}">${icon('email', { size: 13 })} ${escapeHtml(u.email)}</a>`
+            : `<span class="admin-user-email is-none">${icon('email', { size: 13 })} ללא מייל</span>`}
           ${aliases}
         </div>
         <button type="button" class="admin-user-rename" data-rename="${escapeAttr(u.fp)}" data-current-name="${escapeAttr(u.currentName || '')}" title="שנה שם">
@@ -213,6 +216,7 @@ async function renderThread({ year, slug, threadId }) {
   const replies = data.replies || [];
   const reactions = data.reactions || {};
   const reports = data.reports || {};
+  const emails = data.emails || {};
 
   _rootEl.innerHTML = `
     <header class="admin-header">
@@ -222,14 +226,17 @@ async function renderThread({ year, slug, threadId }) {
     </header>
 
     <div class="admin-card">
-      <div class="admin-comment ${thread.deleted ? 'deleted' : ''}">
+      <div class="admin-comment ${thread.deleted ? 'deleted' : ''}" data-msg-id="${escapeAttr(thread.id)}">
         <div class="admin-comment-head">
-          <b>${escapeHtml(thread.author || '')}</b>          <span class="muted">${formatTime(thread.createdAt)}${thread.editedAt ? ' · נערך' : ''}</span>
+          <b>${escapeHtml(thread.author || '')}</b>
+          ${!thread.isAdmin && emails[thread.fp] ? `<a class="admin-comment-email" href="mailto:${escapeAttr(emails[thread.fp])}">${escapeHtml(emails[thread.fp])}</a>` : ''}
+          <span class="muted">${formatTime(thread.createdAt)}${thread.editedAt ? ' · נערך' : ''}</span>
           ${reports[thread.id] ? `<span class="admin-status error" style="margin-right:8px;">${reports[thread.id]} דיווחים</span>` : ''}
         </div>
         <div class="admin-comment-body">${thread.deleted ? '<i>[נמחקה]</i>' : (escapeHtml(thread.body || '').replace(/\n/g, '<br>'))}</div>
         ${formatReactions(reactions[thread.id])}
         <div class="admin-comment-actions">
+          ${!thread.deleted ? `<button type="button" class="btn-text" data-edit-msg="${escapeAttr(thread.id)}" data-kind="thread">${icon('edit', { size: 14 })} ערוך</button>` : ''}
           ${!thread.deleted ? `<button type="button" class="btn-text" data-del-thread>${icon('trash', { size: 14 })} מחק שיחה</button>` : ''}
         </div>
       </div>
@@ -237,14 +244,17 @@ async function renderThread({ year, slug, threadId }) {
       ${replies.length === 0 ? '<p class="muted" style="margin-top:18px;">אין תגובות.</p>' : `
         <ul class="admin-comment-list" style="margin-top: 18px;">
           ${replies.map((r) => `
-            <li class="admin-comment ${r.deleted ? 'deleted' : ''} ${r.isAdmin ? 'admin-reply' : ''}">
+            <li class="admin-comment ${r.deleted ? 'deleted' : ''} ${r.isAdmin ? 'admin-reply' : ''}" data-msg-id="${escapeAttr(r.id)}">
               <div class="admin-comment-head">
-                <b>${escapeHtml(r.author || '')}</b>                <span class="muted">${formatTime(r.createdAt)}${r.editedAt ? ' · נערך' : ''}</span>
+                <b>${escapeHtml(r.author || '')}</b>
+                ${!r.isAdmin && emails[r.fp] ? `<a class="admin-comment-email" href="mailto:${escapeAttr(emails[r.fp])}">${escapeHtml(emails[r.fp])}</a>` : ''}
+                <span class="muted">${formatTime(r.createdAt)}${r.editedAt ? ' · נערך' : ''}</span>
                 ${reports[r.id] ? `<span class="admin-status error" style="margin-right:8px;">${reports[r.id]} דיווחים</span>` : ''}
               </div>
               <div class="admin-comment-body">${r.deleted ? '<i>[נמחקה]</i>' : (escapeHtml(r.body || '').replace(/\n/g, '<br>'))}</div>
               ${formatReactions(reactions[r.id])}
               <div class="admin-comment-actions">
+                ${!r.deleted ? `<button type="button" class="btn-text" data-edit-msg="${escapeAttr(r.id)}" data-kind="reply">${icon('edit', { size: 14 })} ערוך</button>` : ''}
                 ${!r.deleted ? `<button type="button" class="btn-text" data-del-reply data-id="${escapeAttr(r.id)}">${icon('trash', { size: 14 })} מחק</button>` : ''}
               </div>
             </li>
@@ -307,6 +317,63 @@ async function renderThread({ year, slug, threadId }) {
     });
   });
 
+  // Inline edit of any user message (thread opener or reply). Admin-only:
+  // swaps the body for a textarea (+ a title field on the opener). Saving
+  // hits /admin/discuss/edit and re-renders the thread.
+  _rootEl.querySelectorAll('[data-edit-msg]').forEach((btn) => {
+    btn.addEventListener('click', () => startEditMessage(btn.dataset.editMsg, btn.dataset.kind));
+  });
+
+  function startEditMessage(id, kind) {
+    const isThread = kind === 'thread';
+    const msg = isThread ? thread : replies.find((r) => r.id === id);
+    if (!msg) return;
+    const article = _rootEl.querySelector(`.admin-comment[data-msg-id="${cssIdEscape(id)}"]`);
+    if (!article || article.querySelector('.admin-comment-edit')) return; // already editing
+    const bodyEl = article.querySelector('.admin-comment-body');
+    const actionsEl = article.querySelector('.admin-comment-actions');
+    const form = document.createElement('form');
+    form.className = 'admin-comment-edit';
+    form.innerHTML = `
+      ${isThread ? `<input type="text" name="title" value="${escapeAttr(msg.title || '')}" maxlength="120" placeholder="כותרת" required />` : ''}
+      <textarea name="body" rows="4" maxlength="4000" required>${escapeHtml(msg.body || '')}</textarea>
+      <div class="admin-comment-edit-actions">
+        <button type="button" class="btn-text" data-edit-cancel>ביטול</button>
+        <button type="submit" class="btn">${icon('check', { size: 15 })} שמור</button>
+      </div>
+    `;
+    bodyEl.style.display = 'none';
+    if (actionsEl) actionsEl.style.display = 'none';
+    bodyEl.insertAdjacentElement('afterend', form);
+    const ta = form.querySelector('textarea');
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+    form.querySelector('[data-edit-cancel]').addEventListener('click', () => {
+      form.remove();
+      bodyEl.style.display = '';
+      if (actionsEl) actionsEl.style.display = '';
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const newBody = (fd.get('body') || '').toString().trim();
+      const newTitle = isThread ? (fd.get('title') || '').toString().trim() : undefined;
+      if (!newBody || (isThread && !newTitle)) return;
+      const payload = { year, slug, threadId, body: newBody };
+      if (isThread) payload.title = newTitle; else payload.replyId = id;
+      const submitBtn = form.querySelector('[type="submit"]');
+      submitBtn.disabled = true;
+      try {
+        await adminCall('/admin/discuss/edit', { method: 'POST', body: payload });
+        showToast('ההודעה עודכנה', { kind: 'success' });
+        renderThread({ year, slug, threadId });
+      } catch (err) {
+        submitBtn.disabled = false;
+        showToast(err.message || 'שגיאה', { kind: 'error' });
+      }
+    });
+  }
+
   _rootEl.querySelector('.admin-comment-reply').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -319,6 +386,10 @@ async function renderThread({ year, slug, threadId }) {
       showToast(err.message || 'שגיאה', { kind: 'error' });
     }
   });
+}
+
+function cssIdEscape(s) {
+  return String(s || '').replace(/[^A-Za-z0-9_-]/g, '');
 }
 
 function formatReactions(agg) {

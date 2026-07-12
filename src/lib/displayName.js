@@ -9,9 +9,14 @@
 // from the settings panel.
 
 import { icon } from '../icons.js';
-import { setEmailPrefs, markOpted, hasOpted, isValidEmail, getEmailPrefs } from './emailPrefs.js';
+import { setEmailPrefs, isValidEmail, getEmailPrefs } from './emailPrefs.js';
 
 const STORAGE_KEY = 'mashmaut.displayName';
+// Per-thread name lock. A user's name is remembered for each conversation
+// they post in, so changing the global name only affects *future*
+// conversations — it never rewrites the name inside a thread they're
+// already part of. Shape: { [threadId]: name }.
+const THREAD_NAMES_KEY = 'mashmaut.threadNames';
 
 // Mirror of the server's FORBIDDEN_NAME_PATTERNS — keeps the two in sync so
 // the user gets feedback the moment they try the name, not after they've
@@ -43,24 +48,52 @@ export function clearDisplayName() {
   try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
 }
 
+/** The name this browser used in a specific thread, or '' if none yet.
+ *  Once set, it's the fixed identity for that conversation. */
+export function getThreadName(threadId) {
+  if (!threadId) return '';
+  try {
+    const map = JSON.parse(localStorage.getItem(THREAD_NAMES_KEY) || '{}');
+    return map && typeof map[threadId] === 'string' ? map[threadId] : '';
+  } catch (_) { return ''; }
+}
+
+/** Remember the name used in a thread. First name to post in the thread
+ *  wins; later calls with the same id are no-ops so the lock can't drift. */
+export function setThreadName(threadId, name) {
+  const n = String(name || '').trim();
+  if (!threadId || !n) return;
+  try {
+    const map = JSON.parse(localStorage.getItem(THREAD_NAMES_KEY) || '{}');
+    if (map[threadId] === n) return;
+    map[threadId] = n;
+    localStorage.setItem(THREAD_NAMES_KEY, JSON.stringify(map));
+  } catch (_) {}
+}
+
 /** Open a modal and resolve with the chosen name, or null if cancelled.
  *
  *  Options:
  *    initial      — name text to pre-fill
  *    error        — banner message at top (e.g. "name taken")
- *    askEmail     — force-show the email opt-in section even if the user
- *                   has previously opted. Used by the settings panel when
- *                   the user explicitly chose "change name + email".
+ *    askEmail     — tri-state for the (mandatory) email section:
+ *                     null  → show it only when no valid email is on file
+ *                     true  → always show it
+ *                     false → never show it (e.g. settings rename)
+ *                   When shown, the email is REQUIRED — there is no "skip".
+ *    lockName     — render the name field read-only. Used when we already
+ *                   know the user's name (it's fixed for this conversation)
+ *                   and only need to collect the missing email.
  */
-export function promptForDisplayName({ initial = '', error = '', askEmail = null } = {}) {
+export function promptForDisplayName({ initial = '', error = '', askEmail = null, lockName = false } = {}) {
   return new Promise((resolve) => {
-    // Email section visible on the very first post (auto), or when the
-    // caller passes askEmail explicitly. After the user opts (either way)
-    // we skip the section on subsequent name re-prompts.
-    const showEmail = askEmail === null ? !hasOpted() : !!askEmail;
+    const existingPrefs = getEmailPrefs();
+    const hasEmail = isValidEmail(existingPrefs.email);
+    // Email is mandatory for every participant. Show the section whenever we
+    // don't already have a valid address (or when the caller forces it).
+    const showEmail = askEmail === null ? !hasEmail : !!askEmail;
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay name-prompt-overlay';
-    const existingPrefs = getEmailPrefs();
     overlay.innerHTML = `
       <div class="modal name-prompt" role="dialog" aria-modal="true" aria-label="הצטרפות לשיחות">
         <button type="button" class="modal-close" aria-label="סגור">${icon('close', { size: 20 })}</button>
@@ -70,17 +103,18 @@ export function promptForDisplayName({ initial = '', error = '', askEmail = null
         ${error ? `<div class="admin-status error" style="margin-bottom: 12px;">${escapeHtml(error)}</div>` : ''}
         <form class="name-prompt-form" novalidate>
           <label class="name-prompt-label">איך תרצה שיציגו אותך?</label>
-          <input type="text" name="name" maxlength="40" required autofocus placeholder="לדוגמה: ישראל" value="${escapeAttr(initial)}" />
-          <p class="muted name-prompt-hint">השם יופיע ליד ההודעות שלך, 2–40 תווים.</p>
+          <input type="text" name="name" maxlength="40" required ${lockName ? 'readonly aria-readonly="true"' : 'autofocus'} placeholder="לדוגמה: ישראל" value="${escapeAttr(initial)}" />
+          <p class="muted name-prompt-hint">${lockName
+            ? 'זה השם שלך בשיחה הזו. שינוי שם ב"הגדרות" יחול על שיחות חדשות בלבד.'
+            : 'השם יופיע ליד ההודעות שלך, 2–40 תווים.'}</p>
 
           ${showEmail ? `
             <div class="name-prompt-divider"></div>
-            <label class="name-prompt-label">לקבל התראה במייל כשעונים לך?</label>
+            <label class="name-prompt-label">מייל לקבלת התראות <span style="color:var(--accent,#2d6a4f); font-weight:600;">(חובה)</span></label>
             <div class="name-prompt-email-row">
-              <input type="email" name="email" placeholder="your@email.com" value="${escapeAttr(existingPrefs.email)}" inputmode="email" autocomplete="email" />
-              <button type="button" class="btn-text name-prompt-skip" data-skip-email>דלג</button>
+              <input type="email" name="email" required ${lockName ? 'autofocus' : ''} placeholder="your@email.com" value="${escapeAttr(existingPrefs.email)}" inputmode="email" autocomplete="email" />
             </div>
-            <p class="muted name-prompt-hint">ברירת המחדל: רק כשעונים לך ישירות או מזכירים אותך. את שאר האפשרויות תמצא ב"הגדרות".</p>
+            <p class="muted name-prompt-hint">נשתמש בו כדי לעדכן אותך כשעונים לך או מזכירים אותך. אפשר לכוונן או לכבות התראות אחר כך ב"הגדרות".</p>
           ` : ''}
 
           <div class="name-prompt-actions">
@@ -107,9 +141,8 @@ export function promptForDisplayName({ initial = '', error = '', askEmail = null
     const form = overlay.querySelector('form');
     const input = form.querySelector('input[name="name"]');
     const emailInput = form.querySelector('input[name="email"]');
-    const skipBtn = form.querySelector('[data-skip-email]');
-    // Inline error region — appears as soon as the user types a forbidden
-    // name (and again on submit if they tried to dismiss the warning).
+    // Inline error region for the name — appears as soon as the user types a
+    // forbidden name (and again on submit if they tried to dismiss it).
     const errorEl = document.createElement('div');
     errorEl.className = 'admin-status error';
     errorEl.style.cssText = 'margin: 8px 0 0; display: none;';
@@ -127,47 +160,56 @@ export function promptForDisplayName({ initial = '', error = '', askEmail = null
       }
     }
 
-    input.addEventListener('input', () => setForbidden(isForbiddenName(input.value)));
+    if (!lockName) input.addEventListener('input', () => setForbidden(isForbiddenName(input.value)));
 
-    function commitEmail({ skipped = false } = {}) {
-      if (!showEmail) return;
-      if (skipped) {
-        markOpted();
-        return;
-      }
-      const email = (emailInput?.value || '').trim();
-      if (email && isValidEmail(email)) {
-        setEmailPrefs({ email, mode: 'mention', opted: true });
+    // Inline error region for the email — shown when it's missing/invalid.
+    let emailErrorEl = null;
+    if (emailInput) {
+      emailErrorEl = document.createElement('div');
+      emailErrorEl.className = 'admin-status error';
+      emailErrorEl.style.cssText = 'margin: 8px 0 0; display: none;';
+      emailInput.closest('.name-prompt-email-row').insertAdjacentElement('afterend', emailErrorEl);
+      emailInput.addEventListener('input', () => setEmailError(''));
+    }
+    function setEmailError(msg) {
+      if (!emailErrorEl) return;
+      if (msg) {
+        emailErrorEl.textContent = msg;
+        emailErrorEl.style.display = '';
+        emailInput.setAttribute('aria-invalid', 'true');
       } else {
-        markOpted();
+        emailErrorEl.style.display = 'none';
+        emailErrorEl.textContent = '';
+        emailInput.removeAttribute('aria-invalid');
       }
     }
 
-    if (skipBtn) {
-      skipBtn.addEventListener('click', () => {
-        if (emailInput) emailInput.value = '';
-        commitEmail({ skipped: true });
-        // Continue submission with just the name
-        const name = (input.value || '').trim();
-        if (name.length < 2) {
-          input.focus();
-          return;
-        }
-        if (isForbiddenName(name)) { setForbidden(true); input.focus(); return; }
-        cleanup(name);
-      });
+    // Persist the (required) email. Returns false and flags the field when
+    // the address is missing or malformed, so the caller can block submit.
+    function commitEmail() {
+      if (!showEmail) return true;
+      const email = (emailInput?.value || '').trim();
+      if (!email || !isValidEmail(email)) {
+        setEmailError('צריך כתובת מייל תקינה כדי להשתתף בשיחה.');
+        emailInput?.focus();
+        return false;
+      }
+      const mode = existingPrefs.mode && existingPrefs.mode !== 'off' ? existingPrefs.mode : 'mention';
+      setEmailPrefs({ email, mode, opted: true });
+      return true;
     }
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const name = (new FormData(e.target).get('name') || '').toString().trim();
-      if (name.length < 2) return;
-      if (isForbiddenName(name)) {
+      const name = lockName ? String(initial || '').trim() : (new FormData(e.target).get('name') || '').toString().trim();
+      if (name.length < 2) { input.focus(); return; }
+      if (!lockName && isForbiddenName(name)) {
         setForbidden(true);
         input.focus();
         return;
       }
-      commitEmail();
+      // Email must be valid before we resolve — commitEmail flags the field.
+      if (!commitEmail()) return;
       cleanup(name);
     });
   });

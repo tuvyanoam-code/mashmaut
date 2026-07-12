@@ -171,7 +171,7 @@ function renderSettingsPanel(name, prefs) {
         </div>
         <button type="button" class="discuss-menu-setting-btn" data-action="rename">${name ? 'שנה' : 'בחר'}</button>
       </div>
-      <p class="discuss-menu-setting-hint">השם נשמר בדפדפן הזה. אם תשנה אותו — הודעות חדשות שתפרסם יופיעו עם השם החדש.</p>
+      <p class="discuss-menu-setting-hint">השם נשמר בדפדפן הזה. שינוי יחול על שיחות חדשות בלבד — בשיחות שכבר כתבת בהן השם יישאר כפי שהוא.</p>
 
       <div class="discuss-menu-divider"></div>
 

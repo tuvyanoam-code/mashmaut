@@ -1292,6 +1292,51 @@
   color: var(--text-muted);
   font-style: italic;
 }
+/* Participant email in the "משתתפים" directory card. */
+.admin-user-email {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  font-size: .8rem;
+  color: var(--a-accent, var(--accent));
+  text-decoration: none;
+  word-break: break-all;
+}
+.admin-user-email:hover { text-decoration: underline; opacity: 1; }
+.admin-user-email.is-none { color: var(--text-muted); font-style: italic; }
+.admin-user-email svg { flex-shrink: 0; opacity: .75; }
+
+/* Author email shown beside a message in the thread moderation view. */
+.admin-comment-email {
+  font-size: .82rem;
+  color: var(--a-accent, var(--accent));
+  text-decoration: none;
+  word-break: break-all;
+}
+.admin-comment-email:hover { text-decoration: underline; opacity: 1; }
+
+/* Inline edit form injected into a message when the moderator clicks "ערוך". */
+.admin-comment-edit { margin: 8px 0 2px; }
+.admin-comment-edit input[name="title"],
+.admin-comment-edit textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font: inherit;
+  box-sizing: border-box;
+  background: var(--bg, #fbfaf7);
+  color: var(--text);
+}
+.admin-comment-edit input[name="title"] { margin-bottom: 8px; font-weight: 600; }
+.admin-comment-edit textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+.admin-comment-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
 .admin-user-rename {
   flex-shrink: 0;
   display: inline-flex;

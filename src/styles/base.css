@@ -184,6 +184,12 @@ body {
 body.is-home {
   padding-top: 0;
 }
+/* Admin panel renders its own shell with no public nav, so the 70px the
+   nav normally reserves would show up as an empty white band at the top.
+   Drop it — the admin layout supplies its own top spacing. */
+body.is-admin {
+  padding-top: 0;
+}
 /* PDF view: full-bleed iframe, no nav padding, no top nav. The PDF
    viewer's own UI (zoom / page / download pill) handles every action. */
 body.is-pdf {

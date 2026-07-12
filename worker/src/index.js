@@ -881,6 +881,23 @@ function isValidDisplayName(s) {
   return true;
 }
 
+// Mirrors emailPrefs.isValidEmail on the client. Used to enforce the
+// "every participant supplies an email" rule server-side.
+function isValidEmailAddress(s) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
+}
+
+// Resolve the email tied to a browser (fp): prefer one supplied in the
+// request's emailPrefs, else fall back to whatever is already on file.
+// Returns '' when neither is a valid address.
+async function resolveParticipantEmail(env, fp, emailPrefs) {
+  const provided = emailPrefs && typeof emailPrefs === 'object' ? String(emailPrefs.email || '').trim() : '';
+  if (isValidEmailAddress(provided)) return provided.toLowerCase();
+  const existing = await loadPrefs(env, fp);
+  if (existing && isValidEmailAddress(existing.email)) return existing.email;
+  return '';
+}
+
 // Names that public posters can't claim — protects against impersonation of
 // the site itself or the rabbi whose teachings are being summarized. Admins
 // can override these via the rename endpoint when legitimately needed.
@@ -1954,6 +1971,10 @@ export default {
         if (!FP_RE.test(fp)) return err('fp invalid');
         if (!isValidDisplayName(author)) return err('שם תצוגה לא תקין (2–40 תווים)');
         if (isForbiddenPublicName(author)) return err('השם הזה שמור. בחר שם אחר.', 409);
+        // Email is mandatory for every participant (used for notifications
+        // and shown to the moderator).
+        const email = await resolveParticipantEmail(env, fp, body.emailPrefs);
+        if (!email) return err('חובה להזין כתובת מייל תקינה כדי להשתתף בשיחה.', 400);
         if (!title || title.length > COMMENT_TITLE_MAX) return err(`כותרת חסרה או ארוכה (עד ${COMMENT_TITLE_MAX})`);
         if (!text || text.length > COMMENT_BODY_MAX) return err(`תוכן חסר או ארוך מדי (עד ${COMMENT_BODY_MAX})`);
         const rl = await checkRateLimit(env, fp);
@@ -1963,13 +1984,15 @@ export default {
         const cleanTitle = stripHtml(title).slice(0, COMMENT_TITLE_MAX);
         const cleanBody = stripHtml(text).slice(0, COMMENT_BODY_MAX);
         const saved = await createThread(env, year, slug, { title: cleanTitle, body: cleanBody, author, fp });
-        // Persist the poster's notification prefs (from the onboarding
-        // popup). No notifications enqueued — they're the only person in
-        // the thread so far. Mark them as seen so they don't get notified
-        // about replies that arrived while they're still on the page.
-        if (body.emailPrefs && typeof body.emailPrefs === 'object') {
-          await savePrefs(env, fp, body.emailPrefs);
-        }
+        // Persist the poster's notification prefs with the (required) email.
+        // No notifications enqueued — they're the only person in the thread
+        // so far. Mark them as seen so they don't get notified about replies
+        // that arrived while they're still on the page.
+        await savePrefs(env, fp, {
+          email,
+          mode: body.emailPrefs && typeof body.emailPrefs === 'object' ? body.emailPrefs.mode : undefined,
+          opted: true,
+        });
         await markThreadSeen(env, fp, year, slug, saved.id);
         return ok({ thread: saved });
       }
@@ -2004,11 +2027,30 @@ export default {
         if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('slug + year invalid');
         if (!FP_RE.test(fp)) return err('fp invalid');
         if (!COMMENT_ID_RE.test(threadId)) return err('threadId invalid');
-        if (!isValidDisplayName(author)) return err('שם תצוגה לא תקין (2–40 תווים)');
-        if (isForbiddenPublicName(author)) return err('השם הזה שמור. בחר שם אחר.', 409);
         if (!text || text.length > COMMENT_BODY_MAX) return err(`תוכן חסר או ארוך מדי (עד ${COMMENT_BODY_MAX})`);
         const t = await findThread(env, year, slug, threadId);
         if (!t || t.value.deleted) return err('thread not found', 404);
+        // Email is mandatory for every participant (notifications + shown to
+        // the moderator).
+        const email = await resolveParticipantEmail(env, fp, body.emailPrefs);
+        if (!email) return err('חובה להזין כתובת מייל תקינה כדי להשתתף בשיחה.', 400);
+        // Per-thread name lock: if this browser already authored a message in
+        // this conversation, reuse that name — a person's name never changes
+        // mid-conversation, even after a global rename. Only a brand-new
+        // participant's name is taken from the request (and must pass the
+        // public name rules).
+        let lockedName = null;
+        if (t.value.fp === fp && !t.value.deleted) lockedName = t.value.author;
+        const existingReplies = await listRepliesInThread(env, year, slug, threadId);
+        if (!lockedName) {
+          const mine = existingReplies.find((r) => r.fp === fp && !r.deleted && r.author);
+          if (mine) lockedName = mine.author;
+        }
+        if (!lockedName) {
+          if (!isValidDisplayName(author)) return err('שם תצוגה לא תקין (2–40 תווים)');
+          if (isForbiddenPublicName(author)) return err('השם הזה שמור. בחר שם אחר.', 409);
+        }
+        const finalAuthor = lockedName || author;
         // If replying to a specific reply, validate it exists in this thread,
         // and resolve its author to display "(בתגובה ל-X)".
         let replyToAuthor = null;
@@ -2020,22 +2062,22 @@ export default {
         }
         const rl = await checkRateLimit(env, fp);
         if (!rl.ok) return err('יותר מדי הודעות. נסה שוב בעוד דקה.', 429);
-        const reserved = await reserveDisplayName(env, author, fp);
+        const reserved = await reserveDisplayName(env, finalAuthor, fp);
         if (!reserved.ok) return err(reserved.error, 409);
         const cleanBody = stripHtml(text).slice(0, COMMENT_BODY_MAX);
         const saved = await appendReply(env, year, slug, threadId, {
-          body: cleanBody, author, fp, replyToId, replyToAuthor,
+          body: cleanBody, author: finalAuthor, fp, replyToId, replyToAuthor,
         });
-        // Save the poster's notification prefs if they sent any (e.g. they
-        // typed their email in the onboarding modal and we want to remember
-        // it server-side for the cron worker to match against later).
-        if (body.emailPrefs && typeof body.emailPrefs === 'object') {
-          await savePrefs(env, fp, body.emailPrefs);
-        }
+        // Save the poster's notification prefs with the (required) email.
+        await savePrefs(env, fp, {
+          email,
+          mode: body.emailPrefs && typeof body.emailPrefs === 'object' ? body.emailPrefs.mode : undefined,
+          opted: true,
+        });
         // Enqueue pending notifications for everyone else who's in the
         // thread and has prefs allowing this kind of message. The cron
         // processor handles the 5-minute delay + skip-if-seen logic.
-        const allReplies = await listRepliesInThread(env, year, slug, threadId);
+        const allReplies = existingReplies.concat([saved]);
         const mentions = Array.isArray(body.mentions) ? body.mentions.slice(0, 20).map(String) : [];
         // Fetch parshaName so the email subject can show it.
         let parshaName = '';
@@ -2631,7 +2673,18 @@ export default {
             const n = parseInt(await env.EVENTS.get(`report-count:r:${r.id}`) || '0', 10);
             if (n > 0) reports[r.id] = n;
           }
-          return ok({ thread: t.value, replies, reactions, reports });
+          // Map each participant's fp → email so the moderator can see who's
+          // behind every message. Admin/system authors have no stored prefs.
+          const emails = {};
+          const fps = new Set();
+          if (t.value.fp) fps.add(t.value.fp);
+          for (const r of replies) if (r.fp) fps.add(r.fp);
+          for (const f of fps) {
+            if (f.startsWith('admin-')) continue;
+            const prefs = await loadPrefs(env, f);
+            if (prefs && prefs.email) emails[f] = prefs.email;
+          }
+          return ok({ thread: t.value, replies, reactions, reports, emails });
         }
 
         // Soft-delete a thread or a single reply.
@@ -2660,6 +2713,47 @@ export default {
           const result = await hardDeleteThread(env, year, slug, threadId);
           if (result.removed === 0) return err('not found', 404);
           return ok({ deleted: 'thread', id: threadId, ...result });
+        }
+
+        // Edit a user's message (thread opener or reply). Admin-only — this
+        // bypasses the public author-ownership check and the 15-minute edit
+        // window. Marks the message as edited.
+        if (p === '/admin/discuss/edit' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const slug = String(body.slug || '');
+          const year = String(body.year || '');
+          const threadId = String(body.threadId || '');
+          const replyId = body.replyId ? String(body.replyId) : null;
+          if (!SLUG_RE.test(slug) || !YEAR_RE.test(year)) return err('year+slug required');
+          if (!COMMENT_ID_RE.test(threadId)) return err('threadId invalid');
+          const hasBody = body.body !== undefined;
+          const hasTitle = body.title !== undefined;
+          const newBody = hasBody ? stripHtml(String(body.body || '').trim()).slice(0, COMMENT_BODY_MAX) : undefined;
+          const newTitle = hasTitle ? stripHtml(String(body.title || '').trim()).slice(0, COMMENT_TITLE_MAX) : undefined;
+          if (replyId) {
+            if (!COMMENT_ID_RE.test(replyId)) return err('replyId invalid');
+            const r = await findReply(env, year, slug, threadId, replyId);
+            if (!r) return err('not found', 404);
+            if (!hasBody || !newBody) return err('תוכן לא תקין');
+            const next = { ...r.value, body: newBody, editedAt: new Date().toISOString() };
+            await env.EVENTS.put(r.key, JSON.stringify(next));
+            return ok({ reply: next });
+          }
+          const t = await findThread(env, year, slug, threadId);
+          if (!t) return err('not found', 404);
+          const next = { ...t.value };
+          if (hasTitle) {
+            if (!newTitle) return err('כותרת לא תקינה');
+            next.title = newTitle;
+          }
+          if (hasBody) {
+            if (!newBody) return err('תוכן לא תקין');
+            next.body = newBody;
+          }
+          if (!hasTitle && !hasBody) return err('אין מה לעדכן');
+          next.editedAt = new Date().toISOString();
+          await env.EVENTS.put(t.key, JSON.stringify(next));
+          return ok({ thread: next });
         }
 
         // Admin replies into a thread.
@@ -2731,16 +2825,23 @@ export default {
             if (res.list_complete) break;
           } while (cursor);
           // Serialize: latest activity first, top 3 recent threads each.
-          const out = Array.from(users.values()).map((u) => ({
-            fp: u.fp,
-            names: Array.from(u.names).filter(Boolean),
-            currentName: Array.from(u.names).filter(Boolean).pop() || '',
-            threadCount: u.threadCount,
-            replyCount: u.replyCount,
-            messageCount: u.threadCount + u.replyCount,
-            lastAt: u.lastAt,
-            recent: u.recent.sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 3),
-          }));
+          // Attach the participant's email (from their saved notification
+          // prefs) so the moderator can see who each person is.
+          const out = [];
+          for (const u of users.values()) {
+            const prefs = await loadPrefs(env, u.fp);
+            out.push({
+              fp: u.fp,
+              names: Array.from(u.names).filter(Boolean),
+              currentName: Array.from(u.names).filter(Boolean).pop() || '',
+              email: (prefs && prefs.email) || '',
+              threadCount: u.threadCount,
+              replyCount: u.replyCount,
+              messageCount: u.threadCount + u.replyCount,
+              lastAt: u.lastAt,
+              recent: u.recent.sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 3),
+            });
+          }
           out.sort((a, b) => (b.lastAt || '').localeCompare(a.lastAt || ''));
           return ok({ users: out });
         }

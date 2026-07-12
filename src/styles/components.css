@@ -3088,8 +3088,8 @@ div + .show-more-btn {
 .admin-comment-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 14px;
   margin-top: 10px;
   font-size: .85rem;
 }

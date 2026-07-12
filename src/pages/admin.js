@@ -22,15 +22,23 @@ const adminApi = adminCall;
 export async function renderAdmin({ params }) {
   const app = document.getElementById('app');
 
+  // Mark the body so base.css drops the 70px it reserves for the public nav
+  // (the admin shell has no nav). The router calls this cleanup when the user
+  // navigates away, restoring the normal top spacing for public pages.
+  document.body.classList.add('is-admin');
+  const cleanup = () => document.body.classList.remove('is-admin');
+
   if (!getKey()) {
-    return renderLogin(app);
+    renderLogin(app);
+    return cleanup;
   }
 
   // Verify the saved key still works
   try {
     await adminApi('/admin/auth', { method: 'POST', body: {} });
   } catch (e) {
-    return renderLogin(app, e.message);
+    renderLogin(app, e.message);
+    return cleanup;
   }
 
   const section = params?.section || 'dashboard';
@@ -92,6 +100,7 @@ export async function renderAdmin({ params }) {
 
   // Refresh the unread-notification badge in the chrome.
   refreshNotifBadge();
+  return cleanup;
 }
 
 async function refreshNotifBadge() {

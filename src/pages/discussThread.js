@@ -11,7 +11,8 @@ import { navHtml, footerHtml, bindNav } from '../components/nav.js';
 import { loadConfig, loadBulletin } from '../lib/store.js';
 import { setPageSeo } from '../lib/seo.js';
 import { ensureFp } from '../lib/fp.js';
-import { getDisplayName, setDisplayName, promptForDisplayName } from '../lib/displayName.js';
+import { getDisplayName, setDisplayName, promptForDisplayName, getThreadName, setThreadName } from '../lib/displayName.js';
+import { getEmailPrefs, isValidEmail } from '../lib/emailPrefs.js';
 import {
   getThread, postReply, editThread, editReply, reactThread, reactReply, reportThread, reportReply, deleteOwn,
   markSeenOnServer,
@@ -295,7 +296,7 @@ export async function renderDiscussThread({ params }) {
       const mentionDropdown = createMentionDropdown();
       let activeTrigger = null;
       let activeIndex = 0;
-      const ownName = (getDisplayName() || '').trim();
+      const ownName = (getThreadName(thread.id) || getDisplayName() || '').trim();
       const refreshMentionDropdown = () => {
         const trigger = findMentionTrigger(ta);
         activeTrigger = trigger;
@@ -609,25 +610,24 @@ export async function renderDiscussThread({ params }) {
   }
 
   async function onPostReply(body, ta, sendBtn, status) {
-    let name = getDisplayName();
-    if (!name) {
-      const chosen = await promptForDisplayName({});
-      if (!chosen) return;
-      setDisplayName(chosen);
+    // Per-thread name lock: within a conversation the name never changes.
+    // Prefer the name remembered for THIS thread; fall back to the global
+    // name (which is what a first-time-in-this-thread post will lock in).
+    let name = getThreadName(thread.id) || getDisplayName();
+    const needsName = !name;
+    // Email is mandatory for everyone — prompt until we have a valid one.
+    const needsEmail = !isValidEmail(getEmailPrefs().email);
+    if (needsName || needsEmail) {
+      const chosen = await promptForDisplayName({
+        initial: name || '',
+        askEmail: needsEmail ? true : false,
+        // If the user already has a name, it's fixed for this conversation —
+        // show it read-only and only collect the missing email.
+        lockName: !needsName,
+      });
+      if (!chosen) return; // cancelled (or email not supplied)
       name = chosen;
-    } else {
-      // Existing user that never went through the email opt-in (signed up
-      // before the popup feature existed). Surface it once so they can
-      // choose to receive notifications.
-      const { hasOpted } = await import('../lib/emailPrefs.js');
-      if (!hasOpted()) {
-        const chosen = await promptForDisplayName({ initial: name, askEmail: true });
-        if (chosen === null) return; // user cancelled
-        if (chosen && chosen !== name) {
-          setDisplayName(chosen);
-          name = chosen;
-        }
-      }
+      if (needsName) setDisplayName(chosen);
     }
     status.textContent = 'שולח…';
     status.className = 'discuss-status info';
@@ -642,7 +642,7 @@ export async function renderDiscussThread({ params }) {
       // store at the same time — covers the case where the user opted in
       // through the popup and we want their first reply to also seed the
       // server-side prefs.
-      const localPrefs = (await import('../lib/emailPrefs.js')).getEmailPrefs();
+      const localPrefs = getEmailPrefs();
       const r = await postReply({
         year: params.year, slug: params.slug, threadId: thread.id, body, displayName: name,
         replyToId: replyTo ? replyTo.id : null,
@@ -650,6 +650,9 @@ export async function renderDiscussThread({ params }) {
         emailPrefs: localPrefs.email ? { email: localPrefs.email, mode: localPrefs.mode, opted: true } : null,
       });
       replies.push(r.reply);
+      // Lock our name to this conversation now that the post stuck. Use the
+      // server's authoritative author (it enforces the same per-thread rule).
+      setThreadName(thread.id, r.reply.author || name);
       thread.replyCount = (thread.replyCount || 0) + 1;
       thread.lastAt = r.reply.createdAt;
       // Reset composer: clear text, drop reply-context.

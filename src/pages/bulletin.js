@@ -75,6 +75,7 @@ export async function renderBulletin({ params }) {
                 ${icon('dialog', { size: 14 })}
                 <span class="meta-md">שיחות</span>
                 <b data-discuss-count></b>
+                <span class="bh-discuss-unread" data-discuss-unread hidden></span>
               </a>
             `}
           </div>
@@ -217,8 +218,8 @@ export async function renderBulletin({ params }) {
       let jumped = false;
       unmountThreadList = mountThreadList(mount, {
         yearId: week.yearId, slug: week.slug, parshaName: week.parshaName,
-        onCount: (n) => {
-          updateDiscussCount(app, n);
+        onCount: (n, unread) => {
+          updateDiscussCount(app, n, unread);
           if (shouldJump && !jumped) {
             jumped = true;
             // Wait a frame so the freshly-rendered rows are laid out.
@@ -309,12 +310,23 @@ function bindDiscussJump(app) {
   });
 }
 
-function updateDiscussCount(app, n) {
+function updateDiscussCount(app, n, unread = 0) {
   const link = app.querySelector('[data-discuss-jump]');
   const count = app.querySelector('[data-discuss-count]');
   const dot = app.querySelector('[data-discuss-dot]');
+  const unreadEl = app.querySelector('[data-discuss-unread]');
   if (!link) return;
   if (count) count.textContent = n > 0 ? String(n) : '';
+  if (unreadEl) {
+    if (unread > 0) {
+      unreadEl.textContent = unread > 99 ? '99+' : String(unread);
+      unreadEl.hidden = false;
+      link.classList.add('has-unread');
+    } else {
+      unreadEl.hidden = true;
+      link.classList.remove('has-unread');
+    }
+  }
   if (dot) dot.hidden = false;
   link.hidden = false;
 }

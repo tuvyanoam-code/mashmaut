@@ -13,6 +13,7 @@ import { setPageSeo } from '../lib/seo.js';
 import { ensureFp } from '../lib/fp.js';
 import { getDisplayName, setDisplayName, promptForDisplayName, getThreadName, setThreadName } from '../lib/displayName.js';
 import { getEmailPrefs, isValidEmail } from '../lib/emailPrefs.js';
+import { setSeenCount } from '../lib/threadSeen.js';
 import {
   getThread, postReply, editThread, editReply, reactThread, reactReply, reportThread, reportReply, deleteOwn,
   markSeenOnServer,
@@ -63,6 +64,11 @@ export async function renderDiscussThread({ params }) {
   const backHref = withBase(`/y/${params.year}/${params.slug}`);
 
   function paint(opts = {}) {
+    // Viewing (or receiving a live update in) this thread means the reader has
+    // now seen every currently-loaded message — record it so the bulletin's
+    // thread list clears this thread's unread badge. High-water-mark, so it
+    // never lowers.
+    setSeenCount(thread.id, (replies ? replies.length : 0) + 1);
     const draftValue = draftText;
     const scrollY = window.scrollY;
     app.innerHTML = `

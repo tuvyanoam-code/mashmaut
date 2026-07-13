@@ -1388,6 +1388,26 @@ html.home-snap .footer { scroll-snap-align: end; }
 .bh-discuss svg { opacity: .75; flex-shrink: 0; }
 .bh-discuss b { color: var(--text); font-weight: 600; font-family: inherit; margin-right: 2px; }
 .bh-discuss b:empty { display: none; }
+/* Unread-messages badge — makes the discussions entry pop when there's
+ * something new to read. */
+.bh-discuss-unread {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent, #2d6a4f);
+  color: #fff;
+  font-size: .7rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-right: 3px;
+}
+.bh-discuss-unread[hidden] { display: none; }
+.bh-discuss.has-unread { color: var(--accent, #2d6a4f); font-weight: 600; }
+.bh-discuss.has-unread svg { opacity: 1; color: var(--accent, #2d6a4f); }
 
 /* PDF badge — tiny bordered wordmark replacing the document icon. */
 .bh-badge {
@@ -2364,6 +2384,7 @@ body.toc-sheet-open .bulletin-toc-scrim { pointer-events: auto; }
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  margin-top: 6px;
   padding: 10px 22px;
   border: 1.5px solid var(--d-edge);
   border-radius: 999px;
@@ -2395,49 +2416,135 @@ body.toc-sheet-open .bulletin-toc-scrim { pointer-events: auto; }
   transform: rotate(-12deg) scale(1.08);
 }
 .threadlist-cta-label { line-height: 1; }
+/* Section header — makes the discussion area read as a real, inviting
+ * destination rather than an afterthought. */
+.threadlist-head { text-align: center; }
+.threadlist-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--font-display, sans-serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--d-ink);
+}
+.threadlist-heading-icon { display: inline-flex; color: var(--d-apricot); }
+.threadlist-summary {
+  margin: 5px 0 0;
+  font-size: .88rem;
+  color: var(--d-ink-soft);
+}
+.threadlist-summary-unread { color: var(--d-mint); font-weight: 700; }
+
 .threadlist-items {
   list-style: none;
-  margin: 18px 0 0;
+  margin: 16px 0;
   padding: 0;
   text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
+/* Whole row is one tap target — opens the conversation. */
 .threadlist-row {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 10px 4px;
-  border-top: 1px dotted var(--d-edge);
-  font-size: .95rem;
-  transition: background .15s ease;
-  border-radius: 8px;
-}
-.threadlist-row:first-child { border-top: 0; }
-.threadlist-row:hover {
-  background: rgba(254, 244, 226, .55);
-}
-.threadlist-title {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(to left, var(--d-ink) 0, var(--d-ink) calc(100% - 36px), transparent 100%);
-          mask-image: linear-gradient(to left, var(--d-ink) 0, var(--d-ink) calc(100% - 36px), transparent 100%);
-  color: var(--d-ink);
-}
-.threadlist-show {
-  flex-shrink: 0;
-  font-size: .82rem;
-  font-weight: 600;
-  color: var(--d-apricot);
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--d-edge-soft);
+  border-radius: 14px;
+  background: var(--d-paper);
   text-decoration: none;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: transparent;
-  transition: background .15s ease, color .15s ease;
+  color: inherit;
+  transition: transform .15s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
-.threadlist-show:hover {
+.threadlist-row:hover {
+  border-color: var(--d-apricot);
+  box-shadow: 0 4px 14px rgba(245, 156, 102, .14);
+  transform: translateY(-1px);
+  opacity: 1;
+}
+/* Unread conversations get a soft mint wash + accent edge so they stand out. */
+.threadlist-row.is-unread {
+  border-color: color-mix(in srgb, var(--d-mint) 40%, var(--d-edge));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--d-mint) 7%, var(--d-paper)) 0%, var(--d-paper) 62%);
+}
+.threadlist-avatar {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--d-apricot-soft);
   color: var(--d-ink);
+  font-weight: 700;
+  font-size: .95rem;
+  line-height: 1;
+}
+.threadlist-avatar.is-admin { background: var(--d-mint); color: #fff; }
+.threadlist-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.threadlist-title {
+  font-weight: 600;
+  color: var(--d-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.threadlist-row.is-unread .threadlist-title { font-weight: 700; }
+.threadlist-meta {
+  font-size: .78rem;
+  color: var(--d-ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.threadlist-counts {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.threadlist-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--d-ink-soft);
+}
+.threadlist-count svg { opacity: .65; }
+.threadlist-unread {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--d-mint);
+  color: #fff;
+  font-size: .74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--d-mint) 35%, transparent);
+}
+.threadlist-chevron {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--d-ink-soft);
+  opacity: .45;
+  transition: transform .2s ease, opacity .2s ease, color .2s ease;
+}
+.threadlist-row:hover .threadlist-chevron {
+  opacity: 1;
+  transform: translateX(-3px);
+  color: var(--d-apricot);
 }
 
 /* === Discussion pages (new + thread view) === */

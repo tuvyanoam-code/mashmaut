@@ -41,6 +41,10 @@ startRouter();
 // Mounted once, persists across route changes; required by IS 5568.
 import('./components/a11yWidget.js').then((m) => m.initA11yWidget());
 
+// Auto-hide the top nav on scroll-down (reveal on scroll-up) so it doesn't
+// crowd the reading view. Skips the home splash + PDF view.
+import('./components/navAutoHide.js').then((m) => m.initNavAutoHide());
+
 // First-visit privacy/tracking notice — links to the privacy policy.
 import('./components/privacyNotice.js').then((m) => m.initPrivacyNotice());
 

@@ -80,25 +80,36 @@ function conversationsLinkHtml() {
 }
 
 export function footerHtml(config) {
-  const tagline = config?.footer || 'עלון משמעות · פרשת השבוע';
+  const siteName = config?.siteName || 'משמעות';
+  const tagline = config?.footer || 'רעיונות לפרשת השבוע, בגובה העיניים';
   const year = new Date().getFullYear();
   return `
     <footer class="footer">
       <div class="footer-inner">
         <div class="footer-brand">
-          <span>${tagline}</span>
+          <span class="footer-brand-name">${siteName}</span>
+          <span class="footer-tagline">${tagline}</span>
         </div>
-        <nav class="footer-nav" aria-label="קישורים בפוטר">
-          <a href="/years">ארכיון</a>
-          <a href="/search">חיפוש</a>
-          <a href="/guide">מדריך</a>
-          <button type="button" data-action="subscribe">קבל למייל</button>
-          <button type="button" data-action="contact">צור קשר</button>
-          <a href="/accessibility">הצהרת נגישות</a>
-          <a href="/privacy">מדיניות פרטיות</a>
+        <nav class="footer-cols" aria-label="קישורים בפוטר">
+          <div class="footer-col">
+            <h4 class="footer-col-title">באתר</h4>
+            <a href="/years">ארכיון</a>
+            <a href="/search">חיפוש</a>
+            <a href="/guide">מדריך</a>
+          </div>
+          <div class="footer-col">
+            <h4 class="footer-col-title">הצטרפות</h4>
+            <button type="button" data-action="subscribe">קבל למייל</button>
+            <button type="button" data-action="contact">צור קשר</button>
+          </div>
+          <div class="footer-col">
+            <h4 class="footer-col-title">מידע</h4>
+            <a href="/accessibility">הצהרת נגישות</a>
+            <a href="/privacy">מדיניות פרטיות</a>
+          </div>
         </nav>
-        <div class="footer-meta">© ${year}</div>
       </div>
+      <div class="footer-meta">© ${year} · ${siteName}</div>
     </footer>
   `;
 }

@@ -299,78 +299,89 @@ body.is-pdf .nav { display: none; }
 .footer {
   border-top: 1px solid var(--border);
   margin-top: clamp(48px, 10vw, 80px);
-  padding: clamp(28px, 5vw, 40px) 16px clamp(24px, 4vw, 32px);
+  padding: clamp(32px, 5vw, 48px) 16px clamp(18px, 3vw, 26px);
   color: var(--text-muted);
   font-size: .9rem;
 }
 @media (max-width: 720px) {
-  .footer { padding-inline: 8px; }
+  .footer { padding-inline: 20px; }
 }
+/* Centered layout — this is an RTL Hebrew site, so the columns sit in the
+   middle rather than pinned to one edge. Brand on top, link columns centered
+   below, copyright underneath. */
 .footer-inner {
   max-width: var(--maxw-wide);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: clamp(22px, 4vw, 32px);
   text-align: center;
 }
 .footer-brand {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+}
+.footer-brand-name {
+  font-family: var(--font-display, var(--font-heading));
+  font-size: 1.4rem;
+  font-weight: 700;
   color: var(--text);
-  font-family: var(--font-heading);
-  font-weight: 600;
-  letter-spacing: -.005em;
+  letter-spacing: -.01em;
 }
-.footer-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: .85rem;
-  font-weight: 800;
+.footer-tagline {
+  font-size: .86rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 40ch;
 }
-.footer-nav {
+.footer-cols {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 4px 14px;
-  font-family: var(--font-display);
-  font-size: .85rem;
-  letter-spacing: .04em;
+  gap: 22px clamp(30px, 7vw, 60px);
 }
-.footer-nav a,
-.footer-nav button {
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+.footer-col-title {
+  margin: 0 0 2px;
+  font-family: var(--font-display);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--text-muted);
+  opacity: .6;
+}
+.footer-col a,
+.footer-col button {
   color: var(--text-muted);
   background: transparent;
   border: none;
-  padding: 6px 4px;
+  padding: 0;
   font: inherit;
+  font-size: .9rem;
   cursor: pointer;
-  border-radius: 4px;
+  transition: color .15s ease;
 }
-.footer-nav a:hover,
-.footer-nav button:hover { color: var(--accent); opacity: 1; }
+.footer-col a:hover,
+.footer-col button:hover { color: var(--accent); opacity: 1; }
 .footer-meta {
+  max-width: var(--maxw-wide);
+  margin: clamp(20px, 4vw, 30px) auto 0;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   font-family: var(--font-display);
-  font-size: .78rem;
-  letter-spacing: .08em;
+  font-size: .76rem;
+  letter-spacing: .06em;
   color: var(--text-muted);
-  opacity: .7;
-}
-@media (min-width: 720px) {
-  .footer-inner {
-    flex-direction: row;
-    justify-content: space-between;
-    text-align: right;
-  }
-  .footer-nav { justify-content: flex-start; }
+  opacity: .6;
+  text-align: center;
 }
 
 /* ===== Loading ===== */

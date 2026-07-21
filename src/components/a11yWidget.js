@@ -41,37 +41,39 @@ export function initA11yWidget() {
 
   const host = document.createElement('div');
   host.className = 'a11y-root';
+  // The "+ / −" glyphs sit right after an aleph; buTactica ligates that into an
+  // elongated aleph, so a zero-width non-joiner (‌) separates them.
   host.innerHTML = `
     <button type="button" id="a11yFab" class="a11y-fab" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11yPanel" aria-label="תפריט נגישות">
       ${accessibilityIcon()}
     </button>
     <div id="a11yPanel" class="a11y-panel" role="dialog" aria-modal="false" aria-label="הגדרות נגישות" hidden>
-      <div class="a11y-panel-head">
+      <div class="a11y-panel-head" style="--i:6">
         <h2 class="a11y-panel-title">נגישות</h2>
         <button type="button" class="a11y-panel-close" aria-label="סגור תפריט נגישות">✕</button>
       </div>
 
-      <div class="a11y-group" role="group" aria-label="גודל טקסט">
+      <div class="a11y-group" role="group" aria-label="גודל טקסט" style="--i:5">
         <span class="a11y-group-label">גודל טקסט</span>
         <div class="a11y-textsize">
-          <button type="button" class="a11y-btn" data-act="dec" aria-label="הקטן טקסט">א−</button>
+          <button type="button" class="a11y-btn" data-act="dec" aria-label="הקטן טקסט">א‌−</button>
           <span class="a11y-scale-val" data-scale-val aria-live="polite">100%</span>
-          <button type="button" class="a11y-btn" data-act="inc" aria-label="הגדל טקסט">א+</button>
+          <button type="button" class="a11y-btn" data-act="inc" aria-label="הגדל טקסט">א‌+</button>
         </div>
       </div>
 
-      <button type="button" class="a11y-toggle" data-act="contrast" aria-pressed="false">
+      <button type="button" class="a11y-toggle" data-act="contrast" aria-pressed="false" style="--i:4">
         <span>ניגודיות גבוהה</span><span class="a11y-toggle-state" aria-hidden="true"></span>
       </button>
-      <button type="button" class="a11y-toggle" data-act="underline" aria-pressed="false">
+      <button type="button" class="a11y-toggle" data-act="underline" aria-pressed="false" style="--i:3">
         <span>הדגשת קישורים</span><span class="a11y-toggle-state" aria-hidden="true"></span>
       </button>
-      <button type="button" class="a11y-toggle" data-act="stopMotion" aria-pressed="false">
+      <button type="button" class="a11y-toggle" data-act="stopMotion" aria-pressed="false" style="--i:2">
         <span>עצירת אנימציות</span><span class="a11y-toggle-state" aria-hidden="true"></span>
       </button>
 
-      <button type="button" class="a11y-reset" data-act="reset">איפוס הגדרות</button>
-      <a class="a11y-statement-link" href="/accessibility">להצהרת הנגישות</a>
+      <button type="button" class="a11y-reset" data-act="reset" style="--i:1">איפוס הגדרות</button>
+      <a class="a11y-statement-link" href="/accessibility" style="--i:0">להצהרת הנגישות</a>
     </div>
   `;
   document.body.appendChild(host);
@@ -79,18 +81,25 @@ export function initA11yWidget() {
   const fab = host.querySelector('#a11yFab');
   const panel = host.querySelector('#a11yPanel');
   const closeBtn = host.querySelector('.a11y-panel-close');
+  let hideTimer = null;
 
   const openPanel = () => {
+    clearTimeout(hideTimer);
     panel.hidden = false;
-    requestAnimationFrame(() => panel.classList.add('open'));
+    host.classList.add('a11y-open');
+    // Force a reflow so the collapsed→open transition plays even when rAF is
+    // throttled (inactive/background tabs).
+    void panel.offsetWidth;
+    panel.classList.add('open');
     fab.setAttribute('aria-expanded', 'true');
     // Focus the first control for keyboard users.
     panel.querySelector('button, a')?.focus();
   };
   const closePanel = ({ focusFab = true } = {}) => {
     panel.classList.remove('open');
+    host.classList.remove('a11y-open');
     fab.setAttribute('aria-expanded', 'false');
-    setTimeout(() => { panel.hidden = true; }, 180);
+    hideTimer = setTimeout(() => { panel.hidden = true; }, 420);
     if (focusFab) fab.focus();
   };
   const togglePanel = () => (panel.hidden ? openPanel() : closePanel());

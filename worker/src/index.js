@@ -203,6 +203,8 @@ async function addSubscriber(env, email, request, opts = {}) {
     country: request?.cf?.country || null,
     city: request?.cf?.city || null,
     source: opts.source || 'public',
+    // Consent documentation (spam law): when + how the person opted in.
+    ...(opts.consent ? { consentAt: new Date().toISOString(), consentText: (opts.consentText || 'opt-in').slice(0, 200) } : {}),
     token,
   };
   await env.EMAILS.put(key, JSON.stringify(data));
@@ -1750,7 +1752,10 @@ export default {
         // a cached/old client (SPA tab opened before this change) can still
         // subscribe rather than erroring out — it just won't have a name.
         const subName = (body.name || '').trim();
-        const { existing, data } = await addSubscriber(env, body.email, request, { source: 'public', name: subName });
+        const { existing, data } = await addSubscriber(env, body.email, request, {
+          source: 'public', name: subName,
+          consent: !!body.consent, consentText: body.consentText,
+        });
         if (!existing) {
           // Record an admin notification (only for genuine new signups).
           await recordNotification(env, 'subscribe', {

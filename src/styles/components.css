@@ -3737,3 +3737,207 @@ div + .show-more-btn {
 
 /* Body-level horizontal-overflow guard. */
 html, body { overflow-x: hidden; }
+
+/* ===== Compliance: legal pages, accessibility widget, privacy notice ===== */
+
+/* --- Legal pages (הצהרת נגישות / מדיניות פרטיות) --- */
+.legal-page {
+  max-width: var(--maxw-content, 720px);
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 48px) var(--page-x, 16px) 72px;
+}
+.legal { line-height: 1.75; color: var(--text); }
+.legal-title {
+  font-family: var(--font-display, 'buTactica', sans-serif);
+  font-size: clamp(1.8rem, 4.4vw, 2.4rem);
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+.legal-lead { font-size: 1.05rem; color: var(--text-muted); margin: 0 0 26px; }
+.legal h2 {
+  font-family: var(--font-display, 'buTactica', sans-serif);
+  font-size: 1.22rem;
+  font-weight: 700;
+  margin: 30px 0 8px;
+  color: var(--text);
+}
+.legal p { margin: 8px 0; }
+.legal ul { padding-inline-start: 1.25em; margin: 8px 0; }
+.legal li { margin: 6px 0; }
+.legal a { color: var(--accent); text-underline-offset: 2px; }
+.legal-contact { list-style: none; padding: 0; }
+.legal-updated { margin-top: 34px; font-size: .85rem; color: var(--text-muted); font-style: italic; }
+
+/* --- Consent checkboxes on the subscribe forms --- */
+.modal-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: right;
+  font-size: .86rem;
+  line-height: 1.4;
+  color: var(--text-muted, #6f675b);
+  margin: 2px 2px;
+  cursor: pointer;
+}
+.modal-consent input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent, #2d6a4f);
+  cursor: pointer;
+}
+.modal-consent a { color: var(--accent, #2d6a4f); font-weight: 600; }
+
+/* --- Accessibility widget (FAB + panel) --- */
+.a11y-root {
+  position: fixed;
+  inset-block-end: calc(16px + var(--safe-bottom, 0px));
+  /* Physical left — the site's reading-progress ring + chapters FAB occupy
+     the bottom-right corner, so the accessibility button lives bottom-left
+     on every page for a predictable, conflict-free position. */
+  left: 16px;
+  z-index: 250;
+}
+/* The accessibility widget is for the public site; hide it in the admin panel
+   (which has its own bottom tab bar). */
+body.is-admin .a11y-root { display: none; }
+.a11y-fab {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent, #2d6a4f);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, .85);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .22);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.a11y-fab:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0, 0, 0, .26); }
+.a11y-fab:focus-visible { outline: 3px solid var(--accent, #2d6a4f); outline-offset: 3px; }
+.a11y-panel {
+  position: absolute;
+  inset-block-end: calc(100% + 12px);
+  /* Anchor to the button's left edge and open rightward into the viewport. */
+  left: 0;
+  width: 284px;
+  max-width: calc(100vw - 32px);
+  background: #fff;
+  border: 1px solid var(--border, #e8e3d8);
+  border-radius: 18px;
+  box-shadow: 0 12px 44px rgba(40, 30, 10, .20);
+  padding: 16px;
+  transform: translateY(10px);
+  opacity: 0;
+  transition: transform .18s ease, opacity .18s ease;
+}
+.a11y-panel.open { transform: translateY(0); opacity: 1; }
+.a11y-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.a11y-panel-title { font-size: 1.1rem; font-weight: 700; margin: 0; color: var(--text); font-family: var(--font-display, sans-serif); }
+.a11y-panel-close {
+  background: transparent; border: none; font-size: 1.1rem; line-height: 1;
+  color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 8px;
+}
+.a11y-panel-close:hover { background: var(--accent-soft, #e7efe6); color: var(--text); }
+.a11y-group { margin-bottom: 12px; }
+.a11y-group-label { display: block; font-size: .85rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; }
+.a11y-textsize { display: flex; align-items: center; gap: 8px; }
+.a11y-btn {
+  flex: 1;
+  padding: 10px 0;
+  border: 1.5px solid var(--border, #e8e3d8);
+  border-radius: 12px;
+  background: var(--bg, #fbfaf7);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.a11y-btn:hover:not(:disabled) { border-color: var(--accent, #2d6a4f); }
+.a11y-btn:disabled { opacity: .4; cursor: not-allowed; }
+.a11y-btn:focus-visible { outline: 2px solid var(--accent, #2d6a4f); outline-offset: 2px; }
+.a11y-scale-val { min-width: 52px; text-align: center; font-weight: 700; color: var(--text); }
+.a11y-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  margin-bottom: 8px;
+  border: 1.5px solid var(--border, #e8e3d8);
+  border-radius: 12px;
+  background: var(--bg, #fbfaf7);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+.a11y-toggle:hover { border-color: var(--accent, #2d6a4f); }
+.a11y-toggle:focus-visible { outline: 2px solid var(--accent, #2d6a4f); outline-offset: 2px; }
+.a11y-toggle-state {
+  width: 38px; height: 22px; border-radius: 999px; background: #cfc8ba; position: relative; flex-shrink: 0;
+  transition: background .18s ease;
+}
+.a11y-toggle-state::after {
+  content: ""; position: absolute; top: 2px; inset-inline-start: 2px;
+  width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .18s ease;
+}
+.a11y-toggle.is-on .a11y-toggle-state { background: var(--accent, #2d6a4f); }
+.a11y-toggle.is-on .a11y-toggle-state::after { transform: translateX(-16px); }
+.a11y-reset {
+  width: 100%; padding: 10px; margin-top: 4px;
+  border: none; border-radius: 12px; background: var(--accent-soft, #e7efe6);
+  color: var(--accent, #2d6a4f); font: inherit; font-weight: 600; cursor: pointer;
+}
+.a11y-reset:hover { background: var(--accent, #2d6a4f); color: #fff; }
+.a11y-statement-link {
+  display: block; text-align: center; margin-top: 10px;
+  font-size: .85rem; color: var(--text-muted); text-decoration: underline;
+}
+
+/* --- First-visit privacy / tracking notice --- */
+.privacy-notice {
+  position: fixed;
+  inset-block-end: 0;
+  inset-inline: 0;
+  z-index: 200;
+  display: flex; gap: 14px; align-items: center; justify-content: center; flex-wrap: wrap;
+  padding: 12px 16px calc(12px + var(--safe-bottom, 0px));
+  background: rgba(40, 37, 32, .97);
+  color: #f4f1ea;
+  transform: translateY(110%);
+  transition: transform .32s cubic-bezier(.2, .7, .3, 1);
+}
+.privacy-notice.visible { transform: translateY(0); }
+.privacy-notice-text { margin: 0; font-size: .9rem; line-height: 1.4; }
+.privacy-notice-text a { color: #ffd9b3; font-weight: 600; }
+.privacy-notice-btn {
+  flex-shrink: 0;
+  padding: 8px 20px; border: none; border-radius: 999px;
+  background: #f4f1ea; color: #28251f; font: inherit; font-weight: 600; cursor: pointer;
+}
+.privacy-notice-btn:hover { background: #fff; }
+.privacy-notice-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* --- Accessibility toolbar effects applied to the whole document --- */
+html.a11y-underline a { text-decoration: underline !important; }
+html.a11y-contrast {
+  --text: #000;
+  --text-muted: #1c1c1c;
+}
+html.a11y-contrast .muted,
+html.a11y-contrast .discuss-msg-time,
+html.a11y-contrast .threadlist-meta,
+html.a11y-contrast .bh-meta { color: #1c1c1c !important; }
+html.a11y-contrast a:not(.btn):not(.nav-brand):not(.a11y-statement-link) { text-decoration: underline; }
+html.a11y-contrast .footer { background: #201d18; color: #fff; }
+html.a11y-stop-motion *,
+html.a11y-stop-motion *::before,
+html.a11y-stop-motion *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+  scroll-behavior: auto !important;
+}

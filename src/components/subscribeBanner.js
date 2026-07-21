@@ -41,6 +41,14 @@ export function showSubscribeBanner() {
       <form class="subscribe-banner-form">
         <input type="text" name="name" placeholder="שם מלא" required autocomplete="name" />
         <input type="email" name="email" placeholder="הכנס כתובת מייל" required />
+        <label class="modal-consent">
+          <input type="checkbox" name="consentMail" />
+          <span>מעוניין/ת לקבל את עלון משמעות השבועי למייל.</span>
+        </label>
+        <label class="modal-consent">
+          <input type="checkbox" name="consentPrivacy" />
+          <span>קראתי ומסכים/ה ל<a href="/privacy" target="_blank" rel="noopener">מדיניות הפרטיות</a>.</span>
+        </label>
         <button class="btn" type="submit">${icon('check', { size: 18 })} הירשם</button>
       </form>
       <div class="subscribe-banner-status"></div>
@@ -76,6 +84,8 @@ export function showSubscribeBanner() {
     const name = (fd.get('name') || '').trim();
     const email = (fd.get('email') || '').trim();
     if (!name) { status.innerHTML = '<div class="modal-status error">נא להזין שם מלא</div>'; return; }
+    if (!fd.get('consentMail')) { status.innerHTML = '<div class="modal-status error">יש לאשר קבלת הדיוור כדי להירשם</div>'; return; }
+    if (!fd.get('consentPrivacy')) { status.innerHTML = '<div class="modal-status error">יש לאשר את מדיניות הפרטיות</div>'; return; }
     status.innerHTML = '<div class="modal-status">שולח…</div>';
     try {
       const base = await apiBase();
@@ -83,7 +93,7 @@ export function showSubscribeBanner() {
       const r = await fetch(base + '/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name }),
+        body: JSON.stringify({ email, name, consent: true, consentText: 'הסכמה לדיוור + מדיניות פרטיות (באנר הרשמה)' }),
       });
       const data = await r.json();
       if (!data.ok) throw new Error(data.error || 'שגיאה');

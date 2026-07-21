@@ -16,6 +16,14 @@ export function openSubscribeModal() {
       <form id="subscribeForm">
         <input type="text" name="name" placeholder="שם מלא" required autofocus autocomplete="name" />
         <input type="email" name="email" placeholder="הכנס כתובת מייל" required />
+        <label class="modal-consent">
+          <input type="checkbox" name="consentMail" />
+          <span>מעוניין/ת לקבל את עלון משמעות השבועי לתיבת המייל.</span>
+        </label>
+        <label class="modal-consent">
+          <input type="checkbox" name="consentPrivacy" />
+          <span>קראתי ואני מסכים/ה ל<a href="/privacy" target="_blank" rel="noopener">מדיניות הפרטיות</a>.</span>
+        </label>
         <button class="btn" type="submit">${icon('check', { size: 18 })} הירשם</button>
       </form>
       <p class="modal-fineprint">בלי ספאם. אפשר להסיר רישום בלחיצה אחת בכל מייל.</p>
@@ -39,6 +47,9 @@ export function openSubscribeModal() {
     const email = (fd.get('email') || '').trim();
     const name = (fd.get('name') || '').trim();
     if (!name) { status.innerHTML = '<div class="modal-status error">נא להזין שם מלא</div>'; return; }
+    // Separate, affirmative consent is required by the spam + privacy laws.
+    if (!fd.get('consentMail')) { status.innerHTML = '<div class="modal-status error">יש לאשר קבלת הדיוור כדי להירשם</div>'; return; }
+    if (!fd.get('consentPrivacy')) { status.innerHTML = '<div class="modal-status error">יש לאשר את מדיניות הפרטיות</div>'; return; }
     status.innerHTML = '<div class="modal-status">שולח…</div>';
     try {
       const base = await apiBase();
@@ -46,7 +57,7 @@ export function openSubscribeModal() {
       const r = await fetch(base + '/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name }),
+        body: JSON.stringify({ email, name, consent: true, consentText: 'הסכמה לדיוור + מדיניות פרטיות (טופס הרשמה)' }),
       });
       const data = await r.json();
       if (!data.ok) throw new Error(data.error || 'שגיאה');

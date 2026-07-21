@@ -19,6 +19,7 @@ import { renderGuide } from './pages/guide.js';
 import { renderAdmin } from './pages/admin.js';
 import { renderDiscussNew } from './pages/discussNew.js';
 import { renderDiscussThread } from './pages/discussThread.js';
+import { renderAccessibility, renderPrivacy } from './pages/legal.js';
 
 defineRoute('/', renderHome);
 defineRoute('/years', renderYears);
@@ -29,10 +30,19 @@ defineRoute('/y/:year/:slug/discuss/new', renderDiscussNew);
 defineRoute('/y/:year/:slug/discuss/:threadId', renderDiscussThread);
 defineRoute('/search', renderSearch);
 defineRoute('/guide', renderGuide);
+defineRoute('/accessibility', renderAccessibility);
+defineRoute('/privacy', renderPrivacy);
 defineRoute('/admin', renderAdmin);
 defineRoute('/admin/:section', renderAdmin);
 
 startRouter();
+
+// Accessibility toolbar (text size / contrast / stop motion / underline links).
+// Mounted once, persists across route changes; required by IS 5568.
+import('./components/a11yWidget.js').then((m) => m.initA11yWidget());
+
+// First-visit privacy/tracking notice — links to the privacy policy.
+import('./components/privacyNotice.js').then((m) => m.initPrivacyNotice());
 
 // Timed "subscribe to the weekly bulletin" invite — slides up after ~2 minutes
 // on the site (once per browser, unless dismissed / already subscribed).

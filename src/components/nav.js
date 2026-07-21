@@ -94,6 +94,8 @@ export function footerHtml(config) {
           <a href="/guide">מדריך</a>
           <button type="button" data-action="subscribe">קבל למייל</button>
           <button type="button" data-action="contact">צור קשר</button>
+          <a href="/accessibility">הצהרת נגישות</a>
+          <a href="/privacy">מדיניות פרטיות</a>
         </nav>
         <div class="footer-meta">© ${year}</div>
       </div>

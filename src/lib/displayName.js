@@ -114,7 +114,7 @@ export function promptForDisplayName({ initial = '', error = '', askEmail = null
             <div class="name-prompt-email-row">
               <input type="email" name="email" required ${lockName ? 'autofocus' : ''} placeholder="your@email.com" value="${escapeAttr(existingPrefs.email)}" inputmode="email" autocomplete="email" />
             </div>
-            <p class="muted name-prompt-hint">נשתמש בו כדי לעדכן אותך כשעונים לך או מזכירים אותך. אפשר לכוונן או לכבות התראות אחר כך ב"הגדרות".</p>
+            <p class="muted name-prompt-hint">נשתמש בו כדי לעדכן אותך כשעונים לך או מזכירים אותך. אפשר לכוונן או לכבות התראות אחר כך ב"הגדרות". פרטים ב<a href="/privacy" target="_blank" rel="noopener">מדיניות הפרטיות</a>.</p>
           ` : ''}
 
           <div class="name-prompt-actions">

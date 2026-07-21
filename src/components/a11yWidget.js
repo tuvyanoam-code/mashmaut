@@ -44,6 +44,9 @@ export function initA11yWidget() {
   // The "+ / −" glyphs sit right after an aleph; buTactica ligates that into an
   // elongated aleph, so a zero-width non-joiner (‌) separates them.
   host.innerHTML = `
+    <button type="button" class="a11y-reveal" data-a11y-reveal aria-label="הצג כפתור נגישות" aria-expanded="false">
+      ${chevronIcon()}
+    </button>
     <button type="button" id="a11yFab" class="a11y-fab" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11yPanel" aria-label="תפריט נגישות">
       ${accessibilityIcon()}
     </button>
@@ -81,7 +84,23 @@ export function initA11yWidget() {
   const fab = host.querySelector('#a11yFab');
   const panel = host.querySelector('#a11yPanel');
   const closeBtn = host.querySelector('.a11y-panel-close');
+  const revealBtn = host.querySelector('[data-a11y-reveal]');
   let hideTimer = null;
+
+  // On mobile the widget collapses to a tiny corner arrow; tapping it reveals
+  // the full accessibility button (CSS handles the show/hide per breakpoint).
+  const reveal = () => {
+    host.classList.add('a11y-revealed');
+    revealBtn.setAttribute('aria-expanded', 'true');
+    requestAnimationFrame(() => fab.focus());
+  };
+  const collapse = () => {
+    host.classList.remove('a11y-revealed');
+    revealBtn.setAttribute('aria-expanded', 'false');
+  };
+  revealBtn.addEventListener('click', () => {
+    host.classList.contains('a11y-revealed') ? collapse() : reveal();
+  });
 
   const openPanel = () => {
     clearTimeout(hideTimer);
@@ -100,7 +119,10 @@ export function initA11yWidget() {
     host.classList.remove('a11y-open');
     fab.setAttribute('aria-expanded', 'false');
     hideTimer = setTimeout(() => { panel.hidden = true; }, 420);
-    if (focusFab) fab.focus();
+    const wasRevealed = host.classList.contains('a11y-revealed');
+    collapse(); // return to the minimal arrow on mobile
+    // Move focus to whatever stays visible (the arrow on mobile, the FAB on desktop).
+    if (focusFab) (wasRevealed ? revealBtn : fab).focus();
   };
   const togglePanel = () => (panel.hidden ? openPanel() : closePanel());
 
@@ -110,7 +132,9 @@ export function initA11yWidget() {
     if (e.key === 'Escape' && !panel.hidden) closePanel();
   });
   document.addEventListener('click', (e) => {
-    if (!panel.hidden && !host.contains(e.target)) closePanel({ focusFab: false });
+    if (host.contains(e.target)) return;
+    if (!panel.hidden) closePanel({ focusFab: false });
+    else if (host.classList.contains('a11y-revealed')) collapse();
   });
 
   host.querySelectorAll('[data-act]').forEach((btn) => {
@@ -156,5 +180,12 @@ function accessibilityIcon() {
   return `<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true" focusable="false">
     <circle cx="12" cy="4" r="2"/>
     <path d="M12 7.5c-1.6 0-3.2.5-5.2 1.2a1.1 1.1 0 0 0 .7 2.1c1.2-.4 2.3-.7 3.1-.85V13l-2.1 6.1a1.15 1.15 0 0 0 2.17.76L12.05 15h-.02l1.35 4.86a1.15 1.15 0 0 0 2.17-.76L13.4 13v-3.1c.85.15 2 .45 3.1.85a1.1 1.1 0 0 0 .7-2.1C15.2 8 13.6 7.5 12 7.5z"/>
+  </svg>`;
+}
+
+function chevronIcon() {
+  // Small chevron pointing out from the edge — the "reveal" affordance on mobile.
+  return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+    <polyline points="9 6 15 12 9 18"/>
   </svg>`;
 }

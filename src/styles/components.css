@@ -3840,6 +3840,47 @@ body.is-admin .a11y-root { display: none; }
 .a11y-fab:focus-visible { transform: translateX(0); outline: 2px solid var(--accent, #2d6a4f); outline-offset: 3px; }
 .a11y-fab svg { width: 25px; height: 25px; margin-inline-start: 4px; }
 
+/* Reveal arrow — desktop shows the full button directly, so it's hidden there. */
+.a11y-reveal { display: none; }
+
+/* Mobile: the widget collapses to a tiny corner arrow; tapping it reveals the
+   full accessibility button (which then opens the panel). Keeps the controls
+   reachable while staying maximally out of the way on small screens. */
+@media (max-width: 720px) {
+  .a11y-fab {
+    animation: none;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-115%);
+    transition: transform .32s cubic-bezier(.34, 1.4, .5, 1), opacity .2s ease, background .2s ease;
+  }
+  .a11y-reveal {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    inset-block-end: 0;
+    left: 0;
+    width: 19px;
+    height: 40px;
+    padding: 0;
+    background: color-mix(in srgb, var(--accent-soft, #e7efe6) 70%, var(--bg-elevated, #fff));
+    color: var(--accent, #2d6a4f);
+    border: 1px solid color-mix(in srgb, var(--accent, #2d6a4f) 18%, transparent);
+    border-left: none;
+    border-radius: 0 11px 11px 0;
+    box-shadow: 2px 2px 9px -3px rgba(40, 60, 40, .22);
+    cursor: pointer;
+    opacity: .78;
+    transition: opacity .2s ease, transform .2s ease, background .2s ease;
+  }
+  .a11y-reveal svg { display: block; }
+  .a11y-reveal:hover,
+  .a11y-reveal:focus-visible { opacity: 1; background: color-mix(in srgb, var(--accent-soft, #e7efe6) 90%, var(--bg-elevated, #fff)); }
+  .a11y-reveal:focus-visible { outline: 2px solid var(--accent, #2d6a4f); outline-offset: 2px; }
+  .a11y-root.a11y-revealed .a11y-fab { opacity: .97; pointer-events: auto; transform: translateX(0); }
+  .a11y-root.a11y-revealed .a11y-reveal { opacity: 0; pointer-events: none; transform: translateX(-10px); }
+}
+
 /* Panel unrolls OUT of the button: collapsed it's a tiny round blob sitting on
    the FAB (origin = the button's bottom-left corner); opening springs it up and
    out into the full card. Controls then spill in bottom-first. */

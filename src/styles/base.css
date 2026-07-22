@@ -160,7 +160,7 @@ p { margin: 0 0 1em; }
   backdrop-filter: saturate(140%) blur(12px);
   -webkit-backdrop-filter: saturate(140%) blur(12px);
   border-bottom: 1px solid var(--border);
-  transition: transform 260ms cubic-bezier(.2,.8,.2,1), opacity 260ms ease;
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1), opacity 260ms ease, visibility 0s;
 }
 /* Home-splash mode: nav slides up out of view until the user scrolls past
    the splash. Toggled by JS in home.js based on scroll position. */
@@ -168,6 +168,10 @@ p { margin: 0 0 1em; }
   transform: translateY(-100%);
   opacity: 0;
   pointer-events: none;
+  /* Remove its links from the keyboard tab order once it's off-screen (delay
+     the visibility flip so the slide-up stays visible). */
+  visibility: hidden;
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1), opacity 260ms ease, visibility 0s 260ms;
 }
 /* On the home page, drop the nav's bottom hairline. As the splash
    gradient meets the cover (both ending in pure --bg), the nav's border
@@ -381,7 +385,7 @@ body.is-pdf .nav { display: none; }
   letter-spacing: .06em;
   color: var(--text-muted);
   opacity: .6;
-  text-align: center;
+  text-align: right;
 }
 
 /* ===== Loading ===== */

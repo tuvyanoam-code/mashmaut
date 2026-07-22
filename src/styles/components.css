@@ -1501,6 +1501,8 @@ html.home-snap .footer { scroll-snap-align: end; }
   max-height: 0;
   overflow-y: auto;
   opacity: 0;
+  /* Collapsed: also drop the chapter links from the keyboard tab order. */
+  visibility: hidden;
   transition: max-height var(--transition), opacity var(--transition), padding var(--transition);
 }
 .bulletin-toc.is-open .bulletin-toc-list {
@@ -1508,6 +1510,7 @@ html.home-snap .footer { scroll-snap-align: end; }
   opacity: 1;
   padding: 4px 8px 10px;
   border-top: 1px solid var(--border);
+  visibility: visible;
 }
 .bulletin-toc li { margin: 2px 0; position: relative; }
 .bulletin-toc a {
@@ -1600,6 +1603,7 @@ body.toc-sheet-open .bulletin-toc-scrim { pointer-events: auto; }
   max-height: min(60vh, 420px);
   opacity: 0;
   pointer-events: none;
+  visibility: hidden; /* also drop chapter links from the tab order while closed */
   /* Morph out of the button: collapsed it's a tiny round blob sitting ON the
      FAB (origin = the button's corner, scaled down, nudged onto it, rounded
      like the FAB). Opening springs it up + out into the full card with a small
@@ -1615,6 +1619,7 @@ body.toc-sheet-open .bulletin-toc-scrim { pointer-events: auto; }
   overflow-y: auto;
   opacity: 1;
   pointer-events: auto;
+  visibility: visible;
   transform: translate(0, 0) scale(1);
   border-radius: 16px;
 }

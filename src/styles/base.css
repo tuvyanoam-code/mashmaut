@@ -310,22 +310,21 @@ body.is-pdf .nav { display: none; }
 @media (max-width: 720px) {
   .footer { padding-inline: 20px; }
 }
-/* Centered layout — this is an RTL Hebrew site, so the columns sit in the
-   middle rather than pinned to one edge. Brand on top, link columns centered
-   below, copyright underneath. */
+/* Right-aligned layout — this is an RTL Hebrew site, so everything hugs the
+   right edge (in RTL, flex-start = right). Brand on top, link columns below. */
 .footer-inner {
   max-width: var(--maxw-wide);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: clamp(22px, 4vw, 32px);
-  text-align: center;
+  text-align: right;
 }
 .footer-brand {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
 }
 .footer-brand-name {
@@ -344,13 +343,13 @@ body.is-pdf .nav { display: none; }
 .footer-cols {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 22px clamp(30px, 7vw, 60px);
 }
 .footer-col {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 9px;
 }
 .footer-col-title {

@@ -179,6 +179,10 @@ p { margin: 0 0 1em; }
    edge over what should feel like a continuous fade. The nav's backdrop
    blur + translucency still separate it from scrolling content beneath. */
 body.is-home .nav { border-bottom: 0; }
+/* Bulletin pages paint a coloured header tint right below the nav. The nav's
+   hairline border + the tint's top edge sat 1px apart and read as an annoying
+   double line — drop the border so only the soft tint edge remains. */
+.bulletin-page > .nav { border-bottom: 0; }
 /* The nav is `fixed` so it doesn't take flow space. Every page reserves
    70px at the top via body padding so content sits below the nav. Home is
    an exception — its splash flows full-bleed under the (hidden) nav. */

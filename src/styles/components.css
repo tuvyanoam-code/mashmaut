@@ -544,7 +544,9 @@ html.home-snap .footer { scroll-snap-align: end; }
    discussion block too far down on desktop. Keep it snug above (the cover
    already breathes) and moderate below, before the prompt. */
 .readers-invite .cover-rule {
-  margin: clamp(6px, 1.2vw, 10px) 0 clamp(14px, 2.4vw, 18px);
+  /* `auto` on the sides keeps the rule horizontally centred (it has a fixed
+     width) — only the top/bottom are tightened here. */
+  margin: clamp(6px, 1.2vw, 10px) auto clamp(14px, 2.4vw, 18px);
 }
 .readers-invite .content {
   display: flex;

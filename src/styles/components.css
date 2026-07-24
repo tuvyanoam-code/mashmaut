@@ -1229,7 +1229,7 @@ html.home-snap .footer { scroll-snap-align: end; }
 /* End-of-article block: like button + share-with-a-friend CTA. */
 .bulletin-end {
   max-width: var(--maxw-content);
-  margin: clamp(28px, 5vw, 44px) auto clamp(40px, 8vw, 64px);
+  margin: clamp(28px, 5vw, 44px) auto clamp(14px, 2.5vw, 22px);
   padding: clamp(20px, 4vw, 28px) var(--page-x);
   border-top: 1px solid var(--border);
   display: flex;
@@ -2369,7 +2369,7 @@ body.toc-sheet-open .bulletin-toc-scrim { pointer-events: auto; }
  * The "התחל שיחה" CTA pops gently against a warm wash; existing threads
  * underneath read as a tidy index. */
 .bulletin-threadlist-mount {
-  margin: clamp(28px, 5vw, 44px) auto 0;
+  margin: clamp(16px, 3vw, 26px) auto 0;
   max-width: var(--maxw-content, 720px);
   padding: 0 var(--page-x, 16px);
 }

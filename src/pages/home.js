@@ -385,11 +385,7 @@ function renderCover(week, config) {
       <div class="cover-rule from-right" style="--d:.50s" aria-hidden="true"></div>
 
       ${week.teaser ? `
-        <h1 class="cover-headline" style="--d:.72s">
-          <span class="cover-quote" aria-hidden="true">״</span>
-          ${week.teaser}
-          <span class="cover-quote cover-quote-end" aria-hidden="true">״</span>
-        </h1>
+        <h1 class="cover-headline" style="--d:.72s"><span class="cover-quote" aria-hidden="true">״</span>⁠${week.teaser}⁠<span class="cover-quote cover-quote-end" aria-hidden="true">״</span></h1>
       ` : `
         <h1 class="cover-headline cover-headline-plain" style="--d:.72s">פרשת ${week.parshaName}</h1>
       `}

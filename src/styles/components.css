@@ -260,7 +260,12 @@ html.home-snap .footer { scroll-snap-align: end; }
 .cover {
   position: relative;
   text-align: center;
-  padding: clamp(32px, 6vw, 56px) var(--page-x) clamp(40px, 8vw, 72px);
+  /* Bottom padding sets the gap down to the readers' discussion invite that
+     follows in the same .home-latest block. Kept tight on desktop (max ~30px)
+     so the invite reads as a related next step, not a distant afterthought.
+     Works together with .cover-actions margin-bottom + .readers-invite
+     padding-top, which stack into the same visual gap. */
+  padding: clamp(32px, 6vw, 56px) var(--page-x) clamp(24px, 3.4vw, 30px);
   background: var(--bg);
   /* Match the fixed nav height (70px) — scrolling-to-cover positions it
      just below the nav, with the last sliver of splash sitting behind the
@@ -405,7 +410,7 @@ html.home-snap .footer { scroll-snap-align: end; }
   align-items: stretch;
   justify-content: center;
   gap: 12px 16px;
-  margin-bottom: clamp(20px, 4vw, 28px);
+  margin-bottom: clamp(14px, 2.4vw, 16px);
 }
 /* On phones the buttons sit too close under the headline's rule; give them more
    room above so they read as centred between the rule above and the one below. */
@@ -529,8 +534,17 @@ html.home-snap .footer { scroll-snap-align: end; }
 /* Readers' discussion invite — moved out of the cover to its own quiet
    section lower down the page, so it doesn't add weight to the centre. */
 .readers-invite {
-  padding: clamp(10px, 3vw, 24px) 0 clamp(34px, 6vw, 56px);
+  /* Small top padding — the cover's bottom padding already provides most of
+     the breathing room above the divider, so keep this side light. */
+  padding: clamp(4px, 1vw, 6px) 0 clamp(34px, 6vw, 56px);
   text-align: center;
+}
+/* The invite's divider doesn't need the cover's full 34px decorative rhythm —
+   that stacks on top of the cover's own bottom spacing and pushes the whole
+   discussion block too far down on desktop. Keep it snug above (the cover
+   already breathes) and moderate below, before the prompt. */
+.readers-invite .cover-rule {
+  margin: clamp(6px, 1.2vw, 10px) 0 clamp(14px, 2.4vw, 18px);
 }
 .readers-invite .content {
   display: flex;
@@ -1229,7 +1243,7 @@ html.home-snap .footer { scroll-snap-align: end; }
 /* End-of-article block: like button + share-with-a-friend CTA. */
 .bulletin-end {
   max-width: var(--maxw-content);
-  margin: clamp(28px, 5vw, 44px) auto clamp(14px, 2.5vw, 22px);
+  margin: clamp(28px, 5vw, 44px) auto clamp(40px, 8vw, 64px);
   padding: clamp(20px, 4vw, 28px) var(--page-x);
   border-top: 1px solid var(--border);
   display: flex;
@@ -2369,7 +2383,7 @@ body.toc-sheet-open .bulletin-toc-scrim { pointer-events: auto; }
  * The "התחל שיחה" CTA pops gently against a warm wash; existing threads
  * underneath read as a tidy index. */
 .bulletin-threadlist-mount {
-  margin: clamp(16px, 3vw, 26px) auto 0;
+  margin: clamp(28px, 5vw, 44px) auto 0;
   max-width: var(--maxw-content, 720px);
   padding: 0 var(--page-x, 16px);
 }

@@ -30,7 +30,12 @@ export async function renderNotifications(root) {
   root.innerHTML = `
     <header class="admin-header">
       <h1>התראות</h1>
-      ${items.length ? `<button class="btn btn-secondary" type="button" id="markAllRead">${icon('check', { size: 18 })} סמן הכל כנקרא</button>` : ''}
+      ${items.length ? `
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-secondary" type="button" id="markAllRead">${icon('check', { size: 18 })} סמן הכל כנקרא</button>
+          <button class="btn btn-secondary notif-clear-all" type="button" id="clearAll">${icon('trash', { size: 18 })} מחק הכל</button>
+        </div>
+      ` : ''}
     </header>
     ${items.length === 0 ? `
       <div class="admin-empty">
@@ -39,7 +44,7 @@ export async function renderNotifications(root) {
         <p class="muted">אין התראות חדשות. כשמשתמש יירשם, יוסר, או שעלון יישלח — תקבל התראה כאן.</p>
       </div>
     ` : `
-      <p class="muted" style="margin: 0 0 14px; font-size: .92rem;">${items.length} ${items.length === 1 ? 'התראה' : 'התראות'} · ${data.unread || 0} ${(data.unread || 0) === 1 ? 'חדשה' : 'חדשות'}</p>
+      <p class="muted notif-count-line" style="margin: 0 0 14px; font-size: .92rem;">${countLine(items.length, data.unread || 0)}</p>
       <div class="admin-card" style="padding:0; overflow:hidden;">
         <ul class="notif-list" id="notifList">
           ${items.map((n) => renderItem(n, readUntil)).join('')}
@@ -60,6 +65,47 @@ export async function renderNotifications(root) {
         clearAllBadges();
       } catch (_) {}
       renderNotifications(root);
+    });
+  }
+
+  // "מחק הכל" — wipe the whole inbox after a confirm (it's irreversible).
+  const clearBtn = root.querySelector('#clearAll');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', async () => {
+      if (!confirm('למחוק את כל ההתראות? הפעולה אינה הפיכה.')) return;
+      clearBtn.disabled = true;
+      try {
+        await api('/admin/notifications/clear', { method: 'POST', body: {} });
+        clearAllBadges();
+      } catch (_) {}
+      renderNotifications(root);
+    });
+  }
+
+  // Per-row delete (delegated). Optimistically fades the row out and fires the
+  // request in the background — no re-fetch, so KV's eventual consistency can't
+  // resurrect a just-deleted item for a few seconds. Re-renders only when the
+  // list empties, to show the "all quiet" state.
+  if (ul) {
+    ul.addEventListener('click', async (e) => {
+      const del = e.target.closest('[data-del]');
+      if (!del) return;
+      const li = del.closest('.notif-item');
+      if (!li) return;
+      const id = li.getAttribute('data-notif-id');
+      if (!id) return;
+      del.disabled = true;
+      api('/admin/notifications/delete', { method: 'POST', body: { id } }).catch(() => {});
+      li.style.transition = 'opacity .18s ease, transform .18s ease';
+      li.style.opacity = '0';
+      li.style.transform = 'translateX(-10px)';
+      setTimeout(() => {
+        const wasUnread = li.classList.contains('unread');
+        li.remove();
+        if (!ul.querySelector('.notif-item')) { renderNotifications(root); return; }
+        updateCountLine(root);
+        if (wasUnread) muteUnreadFor(90_000); // keep the chrome badge honest
+      }, 180);
     });
   }
 
@@ -95,15 +141,30 @@ function renderItem(n, readUntil) {
   const t = describe(n);
   const ago = relativeTime(n.at);
   return `
-    <li class="notif-item ${unread ? 'unread' : ''}">
+    <li class="notif-item ${unread ? 'unread' : ''}" data-notif-id="${escapeHtml(n.id || '')}">
       <span class="notif-icon ${t.kind}" aria-hidden="true">${icon(t.icon, { size: 16 })}</span>
       <div class="notif-body">
         <p class="notif-text">${t.text}</p>
         <p class="notif-meta">${ago}</p>
       </div>
       ${unread ? `<span class="notif-dot" aria-label="חדש"></span>` : ''}
+      <button class="notif-del" type="button" data-del aria-label="מחק התראה" title="מחק">${icon('close', { size: 15 })}</button>
     </li>
   `;
+}
+
+// Header count line, e.g. "5 התראות · 2 חדשות". Recomputed from the DOM after
+// a per-row delete so the count stays truthful without a re-fetch.
+function countLine(total, unread) {
+  return `${total} ${total === 1 ? 'התראה' : 'התראות'} · ${unread} ${unread === 1 ? 'חדשה' : 'חדשות'}`;
+}
+
+function updateCountLine(root) {
+  const line = root.querySelector('.notif-count-line');
+  if (!line) return;
+  const total = root.querySelectorAll('.notif-item').length;
+  const unread = root.querySelectorAll('.notif-item.unread').length;
+  line.textContent = countLine(total, unread);
 }
 
 function describe(n) {

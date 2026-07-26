@@ -264,6 +264,28 @@ async function markNotificationsRead(env) {
   return { readUntil: at };
 }
 
+// Delete a single notification by its id (the key minus the 'notif:' prefix,
+// exactly as handed back by listNotifications).
+async function deleteNotification(env, id) {
+  await env.EVENTS.delete('notif:' + id);
+  return { deleted: 1, id };
+}
+
+// Wipe the whole admin inbox — every `notif:*` key. Used by the "clear all"
+// button once the admin no longer needs the accumulated notifications.
+async function clearNotifications(env) {
+  let cursor;
+  let removed = 0;
+  do {
+    const res = await env.EVENTS.list({ prefix: 'notif:', cursor });
+    await Promise.all(res.keys.map((k) => env.EVENTS.delete(k.name)));
+    removed += res.keys.length;
+    cursor = res.cursor;
+    if (res.list_complete) break;
+  } while (cursor);
+  return { cleared: removed };
+}
+
 // --- Events / analytics --------------------------------------------------
 
 const VALID_EVENTS = new Set(['view', 'pdf', 'finish', 'share', 'subscribe-cta']);
@@ -2399,6 +2421,17 @@ export default {
         }
         if (p === '/admin/notifications/mark-read' && request.method === 'POST') {
           return ok(await markNotificationsRead(env));
+        }
+        if (p === '/admin/notifications/delete' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const id = String(body.id || '');
+          // ids are `<ISO-timestamp>:<rand>` — reject anything else so a crafted
+          // request can't reach outside the notif: namespace.
+          if (!id || id.length > 80 || !/^[\w.\-:]+$/.test(id)) return err('id invalid');
+          return ok(await deleteNotification(env, id));
+        }
+        if (p === '/admin/notifications/clear' && request.method === 'POST') {
+          return ok(await clearNotifications(env));
         }
 
         if (p === '/admin/pending-dispatch' && request.method === 'GET') {

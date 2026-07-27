@@ -164,6 +164,50 @@ async function ghWriteBinary(env, path, base64Content, message) {
   return ghPutFile(env, path, base64Content, message, sha);
 }
 
+// --- Single-commit multi-file writes (Git Data API) ----------------------
+// The Contents API commits one file per call. A bulletin upload touches four
+// files (PDF, Word, bulletin JSON, index JSON) → four commits → four pushes →
+// four queued Pages deploys. ghCommitFiles bundles them into ONE commit (one
+// push → one deploy) via blobs → tree → commit → ref.
+
+async function ghApiJson(env, method, apiPath, body) {
+  const r = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/${apiPath}`, {
+    method,
+    headers: { ...GH_HEADERS(env), 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!r.ok) throw new Error(`GitHub ${method} ${apiPath}: ${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+function jsonToBase64(data) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+}
+
+// files: [{ path, base64 }] — content already base64 (binaries as-is, JSON as
+// base64-encoded UTF-8). Returns the new commit object.
+async function ghCommitFiles(env, files, message) {
+  if (env.STAGING_MODE === '1') {
+    console.log('staging: ghCommitFiles no-op for', files.map((f) => f.path).join(', '));
+    return { staged: true };
+  }
+  const branch = env.GITHUB_BRANCH || 'main';
+  const tree = [];
+  for (const f of files) {
+    const blob = await ghApiJson(env, 'POST', 'git/blobs', { content: f.base64, encoding: 'base64' });
+    tree.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.sha });
+  }
+  const ref = await ghApiJson(env, 'GET', `git/ref/heads/${branch}`);
+  const baseSha = ref.object.sha;
+  const baseCommit = await ghApiJson(env, 'GET', `git/commits/${baseSha}`);
+  const newTree = await ghApiJson(env, 'POST', 'git/trees', { base_tree: baseCommit.tree.sha, tree });
+  const commit = await ghApiJson(env, 'POST', 'git/commits', {
+    message, tree: newTree.sha, parents: [baseSha],
+  });
+  await ghApiJson(env, 'PATCH', `git/refs/heads/${branch}`, { sha: commit.sha });
+  return commit;
+}
+
 // --- Subscribers ---------------------------------------------------------
 
 async function listSubscribers(env) {
@@ -2505,13 +2549,8 @@ export default {
           const { week, pdfBase64, wordBase64 } = body;
           if (!week || !week.yearId || !week.slug) return err('week.yearId and week.slug required');
           const dir = `public/data/bulletins/${week.yearId}`;
-          if (pdfBase64) await ghWriteBinary(env, `${dir}/${week.slug}.pdf`, pdfBase64, `upload PDF for ${week.slug}`);
-          if (wordBase64) await ghWriteBinary(env, `${dir}/${week.slug}.docx`, wordBase64, `upload Word for ${week.slug}`);
 
-          // Update / create the bulletin JSON
-          await ghWriteJson(env, `${dir}/${week.slug}.json`, week, `update bulletin ${week.slug}`);
-
-          // Update the index
+          // Merge the new bulletin into the index (a read — no commit yet).
           const { data: idx } = await ghReadJson(env, 'public/data/index.json');
           const cur = idx || { years: [], weeks: [] };
           if (!cur.years.find((y) => y.id === week.yearId)) {
@@ -2549,7 +2588,14 @@ export default {
             }
             cur.weeks.push(summary);
           }
-          await ghWriteJson(env, 'public/data/index.json', cur, `index: ${i >= 0 ? 'update' : 'add'} ${week.slug}`);
+          // Write PDF, Word, bulletin JSON and index in ONE commit → one push
+          // → one Pages deploy (instead of four separate commits/deploys).
+          const files = [];
+          if (pdfBase64) files.push({ path: `${dir}/${week.slug}.pdf`, base64: pdfBase64 });
+          if (wordBase64) files.push({ path: `${dir}/${week.slug}.docx`, base64: wordBase64 });
+          files.push({ path: `${dir}/${week.slug}.json`, base64: jsonToBase64(week) });
+          files.push({ path: 'public/data/index.json', base64: jsonToBase64(cur) });
+          await ghCommitFiles(env, files, `publish ${week.slug}${week.issueNumber ? ` #${week.issueNumber}` : ''} — ${i >= 0 ? 'update' : 'add'}`);
 
           return ok({ saved: true, slug: week.slug });
         }

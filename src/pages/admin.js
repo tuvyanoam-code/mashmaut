@@ -3,6 +3,7 @@
 
 import { icon } from '../icons.js';
 import { PARSHIOT, slugForHebrew, hebrewYearToNumber, numberToHebrewYear, cycleOrderForSlug } from '../lib/parshiot.js';
+import { computeUploadDefaults } from '../lib/hebrewCalendar.js';
 import { loadIndex, loadConfig, loadBulletin, patchConfig } from '../lib/store.js';
 import { showToast } from '../components/shareButtons.js';
 import { mountRichEditor } from '../components/richEditor.js';
@@ -434,13 +435,14 @@ async function renderUpload(root) {
         <h2 class="admin-hero-title">קל ופשוט · פחות מדקה</h2>
         <ol class="admin-hero-steps">
           <li><span>1</span>גרור את ה-Word וה-PDF</li>
-          <li><span>2</span>בדוק שהפרשה והשנה נכונות</li>
+          <li><span>2</span>בדוק שהפרטים שמולאו אוטומטית נכונים</li>
           <li><span>3</span>שמור — נדחף אוטומטית לאתר</li>
         </ol>
       </div>
     </div>
 
     <div class="admin-card">
+      <p class="muted" id="autofillNote" style="display:none; margin:0 0 16px; font-size:.9rem;"></p>
       <form id="uploadForm">
         <div class="form-row">
           <div class="form-group">
@@ -508,6 +510,41 @@ async function renderUpload(root) {
   setupDropzone(root.querySelector('#wordDrop'), 'docx');
   setupDropzone(root.querySelector('#pdfDrop'), 'pdf');
   const teaserEditor = mountRichEditor(root.querySelector('#teaserEditor'), '');
+
+  // Smart defaults — pre-fill parsha / Hebrew date / year / issue # for the
+  // coming week (Israel schedule). Everything stays editable; the moderator
+  // just verifies or tweaks. Best-effort: if the calendar maths fail, the form
+  // is untouched and works exactly as before.
+  (async () => {
+    const form = root.querySelector('#uploadForm');
+    if (!form) return;
+    let d;
+    try { d = await computeUploadDefaults(idx.weeks || []); } catch (_) { return; }
+    if (!form.isConnected) return; // moderator navigated away while computing
+    const fillEmpty = (el, val) => { if (el && val != null && val !== '' && !el.value) el.value = val; };
+    fillEmpty(form.issueNumber, d.issueNumber);
+    fillEmpty(form.dateLabel, d.dateLabel);
+    if (d.parshaSlug && form.parsha && !form.parsha.value
+        && [...form.parsha.options].some((o) => o.value === d.parshaSlug)) {
+      form.parsha.value = d.parshaSlug;
+    }
+    if (d.yearId && form.yearId && !form.yearId.value) {
+      if ([...form.yearId.options].some((o) => o.value === d.yearId)) {
+        form.yearId.value = d.yearId;
+      } else {
+        // Year not created yet (first bulletin of a new year) — prime the
+        // "add new year" path with the computed Hebrew year.
+        form.yearId.value = '__new__';
+        root.querySelector('#newYearGroup').style.display = 'block';
+        fillEmpty(form.newYearHe, d.yearDisplay);
+      }
+    }
+    const note = root.querySelector('#autofillNote');
+    if (note && (d.parshaSlug || d.dateLabel || d.issueNumber != null)) {
+      note.textContent = 'הפרטים מולאו אוטומטית לשבוע הקרוב — אפשר לערוך הכל.';
+      note.style.display = '';
+    }
+  })();
 
   root.querySelector('#uploadForm').addEventListener('submit', async (e) => {
     e.preventDefault();

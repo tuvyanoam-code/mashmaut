@@ -1928,6 +1928,25 @@ export default {
         return Response.redirect(dest, 302);
       }
 
+      // --- Instant-publish overlay (public) ------------------------------
+      // Freshly published bulletins are stashed in KV (short TTL) by
+      // /admin/bulletin, so the live site can show them within seconds —
+      // before the ~1-minute Pages rebuild bakes them into the static files.
+      // The SPA merges these over the static index/bulletins; the KV entries
+      // self-expire once the static build has caught up.
+      if (p === '/pub/pending' && request.method === 'GET') {
+        const items = [];
+        let cursor;
+        do {
+          const res = await env.EVENTS.list({ prefix: 'pub:pending:', cursor });
+          const vals = await Promise.all(res.keys.map((k) => env.EVENTS.get(k.name, 'json')));
+          for (const v of vals) if (v) items.push(v);
+          cursor = res.cursor;
+          if (res.list_complete) break;
+        } while (cursor);
+        return ok({ items });
+      }
+
       // --- Likes (public; per-fp dedupe) ---------------------------------
 
       if (p === '/like-state' && request.method === 'GET') {
@@ -2596,6 +2615,14 @@ export default {
           files.push({ path: `${dir}/${week.slug}.json`, base64: jsonToBase64(week) });
           files.push({ path: 'public/data/index.json', base64: jsonToBase64(cur) });
           await ghCommitFiles(env, files, `publish ${week.slug}${week.issueNumber ? ` #${week.issueNumber}` : ''} — ${i >= 0 ? 'update' : 'add'}`);
+
+          // Instant-publish overlay: stash the fresh bulletin in KV (short TTL)
+          // so the site shows it within seconds, before the Pages rebuild bakes
+          // it into the static files. Best-effort — the commit above is what
+          // actually publishes; this only shortcuts the visible latency.
+          try {
+            await env.EVENTS.put(`pub:pending:${week.yearId}/${week.slug}`, JSON.stringify(week), { expirationTtl: 600 });
+          } catch (e) { console.log('pending stash failed:', e.message); }
 
           return ok({ saved: true, slug: week.slug });
         }

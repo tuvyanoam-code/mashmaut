@@ -1304,52 +1304,167 @@ async function sendEmail(env, to, subject, html, opts = {}) {
   return r.json();
 }
 
-function buildBulletinEmail(env, week) {
-  const url = `${env.SITE_URL.replace(/\/$/, '')}/y/${week.yearId}/${week.slug}`;
-  const pdfUrl = `${env.SITE_URL.replace(/\/$/, '')}/data/bulletins/${week.yearId}/${week.slug}.pdf`;
+// Builds the weekly-bulletin email. Returns { subject, html } where the html
+// carries per-recipient placeholders substituted at send time:
+//   {{EMAIL}}     — the URL-encoded recipient address (tracking + unsubscribe)
+//   {{GREETING}}  — the personal "ערב שבת שלום, <שם>!" line
+//   {{NAME_NOTE}} — the gentle "we don't have your name" note (empty for named)
+// `extras` are the admin's optional per-bulletin additions (intro + article
+// description). The logo rides inside the email as an inline CID attachment
+// (see sendBulletinToAll), so it always shows without depending on the site.
+function buildBulletinEmail(env, week, extras = {}) {
+  const site = (env.SITE_URL || 'https://alonmashmaut.org').replace(/\/$/, '');
   const apiUrl = (env.API_URL || 'https://api.alonmashmaut.org').replace(/\/$/, '');
-  // Click-tracked link: routes through /click (records the click, then 302s to
-  // the real destination). The destination is rebuilt server-side from the
-  // `l` label — never passed as a URL param — so it can't be an open redirect.
-  // `&amp;` is the HTML-attribute-correct encoding of `&`; the client decodes
-  // it when fetching. {{EMAIL}} is substituted per-recipient at send time.
+  const url = `${site}/y/${week.yearId}/${week.slug}`;
+  const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // Click-tracked link: routes through /click (records the click, then 302s to a
+  // destination rebuilt server-side from `l` — never a caller URL, so it can't
+  // be an open redirect). {{EMAIL}} is substituted per-recipient at send time.
   const clickUrl = (label) => `${apiUrl}/click?e={{EMAIL}}&amp;s=${week.slug}&amp;y=${week.yearId}&amp;l=${label}`;
-  const title = `עלון משמעות — פרשת ${week.parshaName}`;
-  const teaser = (week.teaser || '').replace(/<[^>]+>/g, '');
-  const colors = week.colors || {};
-  const primary = colors.primary || '#2d6a4f';
+  const subject = `עלון משמעות — פרשת ${week.parshaName}`;
+  const teaser = esc((week.teaser || '').replace(/<[^>]+>/g, '').trim());
+  const editionBits = [week.dateLabel, week.yearDisplay].filter(Boolean).join(' · ');
+  const edition = week.issueNumber ? `גליון ${week.issueNumber}${editionBits ? ' · ' + editionBits : ''}` : editionBits;
+  const description = esc((extras.description || '').trim());
+  // Admin's optional opening text — plain text, escaped, line breaks kept.
+  const introHtml = extras.intro ? esc(String(extras.intro).trim()).replace(/\n/g, '<br>') : '';
+  // The parsha title takes the bulletin's own colour (extracted from its PDF,
+  // same as the site cover), so each week's email is tinted like its bulletin.
+  const primary = (week.colors && week.colors.primary) || '#2d6a4f';
+
   const html = `
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
-<head><meta charset="UTF-8"><title>${title}</title></head>
-<body style="margin:0;padding:0;background:#fbfaf7;font-family:Assistant,system-ui,sans-serif;color:#1a1a1a;direction:rtl;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0">
-    <tr><td align="center" style="padding:32px 16px;">
-      <table width="600" cellpadding="0" cellspacing="0" border="0" style="background:#fff;border-radius:18px;border:1px solid #ece6d8;max-width:600px;">
-        <tr><td style="padding:40px 32px 28px;">
-          <div style="font-size:14px;color:${primary};font-weight:600;letter-spacing:0.04em;">העלון של השבוע · ${week.yearDisplay || ''}</div>
-          <h1 style="font-size:34px;margin:8px 0 12px;font-weight:800;letter-spacing:-0.02em;">פרשת ${week.parshaName}</h1>
-          ${teaser ? `<p style="font-size:17px;line-height:1.6;color:#333;">${teaser}</p>` : ''}
-          <div style="margin:28px 0 8px;">
-            <a href="${clickUrl('read')}" style="display:inline-block;background:${primary};color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:600;font-size:15px;">קרא באתר</a>
-            <a href="${clickUrl('pdf')}" style="display:inline-block;background:#fff;color:#1a1a1a;border:1px solid #ece6d8;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:600;font-size:15px;margin-right:6px;">פתח PDF</a>
+<head><meta charset="UTF-8"><title>${esc(subject)}</title></head>
+<body style="margin:0;padding:0;background:#efe9dd;font-family:'Segoe UI',-apple-system,Assistant,Arial,sans-serif;color:#2a2620;direction:rtl;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#efe9dd;">
+    <tr><td align="center" style="padding:26px 12px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#fffdf8;border:1px solid #e7dfce;border-radius:20px;max-width:600px;overflow:hidden;">
+
+        <tr><td style="padding:36px 40px 24px;text-align:center;background:#fbf7ee;border-bottom:1px solid #efe7d6;">
+          <img src="cid:mashmaut-logo" alt="משמעות" width="200" style="display:block;margin:0 auto;width:200px;max-width:62%;height:auto;" />
+          <div style="width:44px;height:2px;background:#d79a5e;margin:16px auto 12px;line-height:2px;font-size:2px;">&nbsp;</div>
+          <div style="font-size:13px;color:#a49a86;line-height:1.5;">רעיונות לפרשת השבוע מתוך תורתו של הרב יצחק גינזבורג שליט״א</div>
+        </td></tr>
+
+        <tr><td style="padding:28px 40px 4px;">
+          <div style="font-size:20px;color:#b9762f;font-weight:700;">{{GREETING}}</div>
+          <div style="font-size:15px;color:#6f675b;line-height:1.6;margin-top:6px;">שמחים לשלוח אליך את עלון השבוע.</div>
+        </td></tr>
+        ${introHtml ? `<tr><td style="padding:14px 40px 0;font-size:15.5px;line-height:1.7;color:#4a443a;">${introHtml}</td></tr>` : ''}
+
+        <tr><td style="padding:22px 40px 0;">
+          <h1 style="font-size:35px;margin:0 0 4px;font-weight:800;color:${primary};letter-spacing:-0.02em;">פרשת ${esc(week.parshaName)}</h1>
+          ${edition ? `<div style="font-size:13px;color:#a49a86;letter-spacing:0.04em;">${esc(edition)}</div>` : ''}
+        </td></tr>
+
+        ${teaser ? `<tr><td style="padding:22px 40px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td width="4" style="background:#e4b483;border-radius:3px;font-size:2px;line-height:2px;">&nbsp;</td>
+            <td style="padding:2px 16px;"><div style="font-size:20px;line-height:1.7;color:#37322b;font-weight:600;">${teaser}</div></td>
+          </tr></table>
+        </td></tr>` : ''}
+
+        ${description ? `<tr><td style="padding:18px 40px 4px;">
+          <div style="font-size:12px;color:#a49a86;font-weight:700;letter-spacing:0.06em;margin-bottom:5px;">על המאמר</div>
+          <div style="font-size:15px;line-height:1.7;color:#5c554a;">${description}</div>
+        </td></tr>` : ''}
+
+        <tr><td style="padding:26px 40px 6px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td style="padding-left:10px;"><a href="${clickUrl('read')}" style="display:inline-block;background:#2d6a4f;color:#fff;text-decoration:none;padding:13px 30px;border-radius:999px;font-weight:700;font-size:15px;">קרא את העלון</a></td>
+            <td><a href="${clickUrl('pdf')}" style="display:inline-block;background:#fffdf8;color:#2a2620;border:1.5px solid #e0d7c4;text-decoration:none;padding:12px 26px;border-radius:999px;font-weight:600;font-size:15px;">פתח PDF</a></td>
+          </tr></table>
+        </td></tr>
+
+        <tr><td style="padding:28px 40px 4px;">
+          <div style="font-size:15.5px;color:#3a352d;line-height:1.7;">שבת שלום ומבורך,</div>
+          <div style="font-size:15.5px;color:#2d6a4f;font-weight:700;">מערכת עלון משמעות</div>
+        </td></tr>
+
+        <tr><td style="padding:22px 40px 8px;">
+          <div style="font-size:13.5px;color:#8a8172;line-height:1.6;background:#faf6ec;border:1px solid #efe7d6;border-radius:12px;padding:14px 18px;">
+            נהנית? העבר את המייל לחבר, או שתף את הקישור:
+            <a href="${clickUrl('share')}" style="color:#2d6a4f;text-decoration:underline;">${esc(url.replace(/^https?:\/\//, ''))}</a>
           </div>
-          <p style="font-size:14px;color:#888;margin-top:32px;line-height:1.5;">
-            רוצה לשתף עם חבר? פשוט העבר את המייל הזה, או שלח להם את הקישור:
-            <br><a href="${clickUrl('share')}" style="color:${primary};text-decoration:underline;">${url}</a>
-          </p>
         </td></tr>
-        <tr><td style="padding:18px 32px;border-top:1px solid #ece6d8;font-size:12px;color:#999;">
-          קיבלת את המייל הזה כי נרשמת לעלון משמעות.
-          <a href="${apiUrl}/unsubscribe?email={{EMAIL}}" style="color:#999;">להסרה מרשימת התפוצה</a>.
+
+        {{NAME_NOTE}}
+
+        <tr><td style="padding:16px 40px 24px;border-top:1px solid #efe7d6;font-size:11.5px;color:#b0a690;line-height:1.6;text-align:center;">
+          קיבלת את המייל כי נרשמת לעלון משמעות · <a href="${apiUrl}/unsubscribe?email={{EMAIL}}" style="color:#b0a690;">להסרה מרשימת התפוצה</a>
         </td></tr>
+
       </table>
     </td></tr>
   </table>
   <img src="${apiUrl}/open?e={{EMAIL}}&amp;s=${week.slug}&amp;y=${week.yearId}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;max-height:1px;overflow:hidden;line-height:1px;border:0;opacity:0;" />
 </body>
 </html>`;
-  return { subject: title, html };
+  return { subject, html };
+}
+
+// First name = the whole name minus its last word (the surname). An explicit
+// per-subscriber override (sub.firstName) wins — for cases like "יעקב בן זכאי"
+// where the surname is two words. Returns '' when there's no name at all.
+function firstNameOf(sub) {
+  if (sub && sub.firstName && String(sub.firstName).trim()) return String(sub.firstName).trim();
+  const name = String((sub && sub.name) || '').trim();
+  if (!name) return '';
+  const parts = name.split(/\s+/);
+  return parts.length <= 1 ? name : parts.slice(0, -1).join(' ');
+}
+
+// Per-recipient personalisation: the greeting line + the (named ? '' : note).
+function personalizeEmail(html, sub) {
+  const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fname = firstNameOf(sub);
+  const greeting = fname ? `ערב שבת שלום, ${esc(fname)}!` : 'ערב שבת שלום!';
+  const note = fname ? '' : `<tr><td style="padding:6px 40px 8px;">
+          <div style="font-size:14px;color:#7a6f5c;line-height:1.7;background:#fbf3e6;border:1px solid #efd9bd;border-radius:14px;padding:16px 20px;">
+            <span style="font-weight:700;color:#b9762f;">רוצים לפנות אליך בשמך 🙂</span><br>
+            עדיין אין אצלנו את שמך הפרטי. נשמח אם תשיב/י למייל הזה עם שמך — וכך נוכל לפנות אליך באופן אישי וחם יותר בכל שבוע.
+          </div>
+        </td></tr>`;
+  return html
+    .replace(/\{\{GREETING\}\}/g, greeting)
+    .replace(/\{\{NAME_NOTE\}\}/g, note)
+    .replace(/\{\{EMAIL\}\}/g, encodeURIComponent(sub.email));
+}
+
+// Fetch the site logo and return it as a base64 inline-image attachment
+// (Resend `content_id` → referenced as cid:mashmaut-logo in the email), so the
+// masthead always renders without depending on the live site. Sourced from
+// config.logo (a data: URL) with a fallback to the built /logo.png. Returns
+// null if neither is available (email still sends, just without the masthead
+// image).
+async function buildLogoAttachment(env, config) {
+  try {
+    let base64 = '';
+    const logo = config && config.logo;
+    if (typeof logo === 'string' && logo.startsWith('data:image')) {
+      base64 = logo.split(',')[1] || '';
+    }
+    if (!base64) {
+      const site = (env.SITE_URL || 'https://alonmashmaut.org').replace(/\/$/, '');
+      const r = await fetch(`${site}/logo.png`, { cf: { cacheTtl: 0 } });
+      if (r.ok) base64 = bytesToBase64(new Uint8Array(await r.arrayBuffer()));
+    }
+    if (!base64) return null;
+    return { filename: 'logo.png', content: base64, content_id: 'mashmaut-logo', content_type: 'image/png' };
+  } catch (e) {
+    console.log('logo attachment failed:', e.message);
+    return null;
+  }
+}
+
+// Per-bulletin email extras the admin composes in the draft editor (optional
+// intro text + short article description), stored in KV. {} when none set.
+async function getEmailExtras(env, week) {
+  try {
+    const v = await env.EVENTS.get(`email-draft:${week.yearId}/${week.slug}`, 'json');
+    return v && typeof v === 'object' ? v : {};
+  } catch { return {}; }
 }
 
 // Fetch the bulletin PDF and return it as a Uint8Array. Returns null if
@@ -1445,24 +1560,22 @@ async function sendBulletinToAll(env) {
   if (!week) return { ok: false, error: 'no bulletin' };
   const subs = await listSubscribers(env);
   if (!subs.length) return { ok: true, sent: 0 };
-  const tpl = buildBulletinEmail(env, week);
+  const config = await fetchSiteConfig(env);
+  const extras = await getEmailExtras(env, week);
+  const tpl = buildBulletinEmail(env, week, extras);
 
-  // Fetch the PDF once and reuse for every recipient. We base64-encode it
-  // here (Resend's attachment format) rather than letting each send make
-  // its own copy. If the fetch fails, we still send the email — just
-  // without an attachment — so a broken PDF link doesn't block dispatch.
-  let attachments;
+  // Attachments shared across all recipients: the PDF (clipped file) and the
+  // logo (inline CID image so the masthead always renders, independent of the
+  // site). Either failing is non-fatal — the email still goes out.
+  const attachments = [];
   try {
     const pdfBytes = await fetchBulletinPdf(env, week);
-    if (pdfBytes) {
-      attachments = [{
-        filename: `${week.parshaName || week.slug}.pdf`,
-        content: bytesToBase64(pdfBytes),
-      }];
-    }
+    if (pdfBytes) attachments.push({ filename: `${week.parshaName || week.slug}.pdf`, content: bytesToBase64(pdfBytes) });
   } catch (e) {
     console.log('PDF attachment fetch failed:', e.message);
   }
+  const logoAtt = await buildLogoAttachment(env, config);
+  if (logoAtt) attachments.push(logoAtt);
 
   let sent = 0, failed = 0;
   const failures = [];
@@ -1470,7 +1583,7 @@ async function sendBulletinToAll(env) {
   for (let i = 0; i < subs.length; i++) {
     const s = subs[i];
     try {
-      const html = tpl.html.replace(/\{\{EMAIL\}\}/g, encodeURIComponent(s.email));
+      const html = personalizeEmail(tpl.html, s);
       await sendEmail(env, s.email, tpl.subject, html, { attachments });
       sent++;
     } catch (e) {
@@ -1802,8 +1915,7 @@ async function maybeSendOnSchedule(env) {
 
 // --- Routing -------------------------------------------------------------
 
-export default {
-  async fetch(request, env) {
+async function handleRequest(request, env) {
     if (request.method === 'OPTIONS') return text('', 204);
     const url = new URL(request.url);
     const p = url.pathname;
@@ -2405,8 +2517,12 @@ export default {
           const existing = await env.EMAILS.get(key, 'json');
           if (!existing) return err('subscriber not found', 404);
           existing.name = name || null;
+          // Optional explicit first-name override for the email greeting — only
+          // touched when the field is present in the request (empty → clear it,
+          // so the greeting falls back to the automatic all-but-last-word split).
+          if ('firstName' in body) existing.firstName = (body.firstName || '').trim().slice(0, 80) || null;
           await env.EMAILS.put(key, JSON.stringify(existing));
-          return ok({ email, name: existing.name });
+          return ok({ email, name: existing.name, firstName: existing.firstName || null });
         }
 
         if (p === '/admin/subscribers/export.csv') {
@@ -2535,15 +2651,25 @@ export default {
           if (!list.length) return err('emails required');
           const week = await fetchLatestBulletin(env);
           if (!week) return err('no bulletin');
-          const tpl = buildBulletinEmail(env, week);
+          const config = await fetchSiteConfig(env);
+          const extras = await getEmailExtras(env, week);
+          const tpl = buildBulletinEmail(env, week, extras);
+          const attachments = [];
+          try {
+            const pdfBytes = await fetchBulletinPdf(env, week);
+            if (pdfBytes) attachments.push({ filename: `${week.parshaName || week.slug}.pdf`, content: bytesToBase64(pdfBytes) });
+          } catch (_) { /* non-fatal */ }
+          const logoAtt = await buildLogoAttachment(env, config);
+          if (logoAtt) attachments.push(logoAtt);
           let sent = 0, failed = 0;
           const failures = [];
           for (let i = 0; i < list.length; i++) {
             const email = list[i];
             if (!isEmail(email)) { failed++; failures.push({ email, error: 'invalid' }); continue; }
             try {
-              const html = tpl.html.replace(/\{\{EMAIL\}\}/g, encodeURIComponent(email));
-              await sendEmail(env, email, tpl.subject, html);
+              const sub = (await env.EMAILS.get('sub:' + email.trim().toLowerCase(), 'json')) || { email };
+              const html = personalizeEmail(tpl.html, sub);
+              await sendEmail(env, email, tpl.subject, html, { attachments });
               sent++;
             } catch (e) {
               failed++;
@@ -2552,6 +2678,79 @@ export default {
             if (i < list.length - 1) await new Promise((r) => setTimeout(r, SEND_THROTTLE_MS));
           }
           return ok({ sent, failed, failures });
+        }
+        // Rendered preview of the weekly email — the real template, so the
+        // admin (and the draft editor) can see exactly what subscribers get.
+        // ?name=<sample> previews the greeting; ?name= (empty) previews the
+        // no-name variant. The inline CID logo is swapped for a browser-
+        // viewable source so it renders outside a mail client.
+        if (p === '/admin/email-preview' && request.method === 'GET') {
+          const slug = url.searchParams.get('slug');
+          const year = url.searchParams.get('year');
+          let week;
+          if (slug && year) {
+            const r = await fetch(`${(env.SITE_URL || '').replace(/\/$/, '')}/data/bulletins/${year}/${slug}.json`, { cf: { cacheTtl: 0 } });
+            week = r.ok ? await r.json() : null;
+          } else {
+            week = await fetchLatestBulletin(env);
+          }
+          if (!week) return err('no bulletin');
+          const config = await fetchSiteConfig(env);
+          const extras = await getEmailExtras(env, week);
+          const tpl = buildBulletinEmail(env, week, extras);
+          const sampleName = url.searchParams.has('name') ? url.searchParams.get('name') : 'טוביה נעם לויט';
+          let html = personalizeEmail(tpl.html, { email: 'preview@example.com', name: sampleName });
+          const logoSrc = (config && typeof config.logo === 'string' && config.logo.startsWith('data:'))
+            ? config.logo
+            : `${(env.SITE_URL || '').replace(/\/$/, '')}/logo.png`;
+          html = html.replace('cid:mashmaut-logo', logoSrc);
+          return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', ...CORS } });
+        }
+
+        // Weekly-email draft: the admin's optional per-bulletin intro text +
+        // article description, stored in KV and merged into the email at send.
+        if (p === '/admin/email-draft' && request.method === 'GET') {
+          const week = await fetchLatestBulletin(env);
+          if (!week) return err('no bulletin');
+          const extras = await getEmailExtras(env, week);
+          return ok({
+            yearId: week.yearId, slug: week.slug, parshaName: week.parshaName,
+            intro: extras.intro || '', description: extras.description || '',
+          });
+        }
+        if (p === '/admin/email-draft' && request.method === 'POST') {
+          const body = await request.json().catch(() => ({}));
+          const yearId = String(body.yearId || '');
+          const slug = String(body.slug || '');
+          if (!yearId || !slug) return err('yearId+slug required');
+          const draft = {
+            intro: String(body.intro || '').slice(0, 5000),
+            description: String(body.description || '').slice(0, 2000),
+          };
+          await env.EVENTS.put(`email-draft:${yearId}/${slug}`, JSON.stringify(draft));
+          return ok({ saved: true });
+        }
+        // Send the real weekly email (with the current draft) to the admin only,
+        // so they can proof it in a real inbox before blasting everyone.
+        if (p === '/admin/email-test' && request.method === 'POST') {
+          const week = await fetchLatestBulletin(env);
+          if (!week) return err('no bulletin');
+          const config = await fetchSiteConfig(env);
+          const extras = await getEmailExtras(env, week);
+          const tpl = buildBulletinEmail(env, week, extras);
+          const attachments = [];
+          try {
+            const pdfBytes = await fetchBulletinPdf(env, week);
+            if (pdfBytes) attachments.push({ filename: `${week.parshaName || week.slug}.pdf`, content: bytesToBase64(pdfBytes) });
+          } catch (_) { /* non-fatal */ }
+          const logoAtt = await buildLogoAttachment(env, config);
+          if (logoAtt) attachments.push(logoAtt);
+          const to = env.ADMIN_EMAIL;
+          if (!to) return err('no admin email configured');
+          const sub = (await env.EMAILS.get('sub:' + String(to).toLowerCase(), 'json')) || { email: to, name: 'טוביה נעם לויט' };
+          const html = personalizeEmail(tpl.html, sub);
+          await sendEmail(env, to, tpl.subject, html, { attachments });
+          return ok({ sent: to });
         }
         if (p === '/admin/test-email' && request.method === 'POST') {
           const body = await request.json().catch(() => ({}));
@@ -3047,6 +3246,23 @@ export default {
     } catch (e) {
       return err(e.message || 'error', 500);
     }
+}
+
+export default {
+  // Reflect an allowed Origin (the production site, or a localhost dev server)
+  // onto every response, so the admin panel works both live and locally. The
+  // static CORS block keeps alonmashmaut.org as the default; this only widens
+  // it to an explicit, safe allowlist (localhost can't be used to attack real
+  // users). Non-allowlisted origins get the default header untouched.
+  async fetch(request, env) {
+    const res = await handleRequest(request, env);
+    const origin = request.headers.get('Origin') || '';
+    if (origin === 'https://alonmashmaut.org' || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      const h = new Headers(res.headers);
+      h.set('Access-Control-Allow-Origin', origin);
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+    }
+    return res;
   },
 
   async scheduled(event, env, ctx) {

@@ -2093,6 +2093,46 @@ body.toc-sheet-open .bulletin-toc-scrim { pointer-events: auto; }
   border-color: var(--accent);
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
+/* Name-edit modal: sub-line, tab switcher, panels, hints. */
+.modal .modal-sub {
+  font-size: .9rem;
+  margin: -2px 0 16px;
+  unicode-bidi: plaintext;
+}
+.modal-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--accent-soft);
+  border-radius: 12px;
+  padding: 4px;
+  margin: 0 0 16px;
+}
+.modal-tab {
+  flex: 1;
+  padding: 9px 10px;
+  border: 0;
+  background: transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  font-size: .92rem;
+  color: var(--text-muted);
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+.modal-tab.active {
+  background: var(--bg-elevated);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+}
+.modal-panel { display: flex; flex-direction: column; gap: 10px; }
+.modal-panel[hidden] { display: none; }
+.modal .modal-hint {
+  font-size: .82rem;
+  line-height: 1.55;
+  margin: 2px 2px 0;
+}
+
 .modal .btn { width: 100%; justify-content: center; padding: 14px; }
 .modal-fineprint {
   font-size: .85rem;

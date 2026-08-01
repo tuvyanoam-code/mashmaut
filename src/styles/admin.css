@@ -1190,6 +1190,16 @@
 .btn.notif-clear-all { color: #b91c1c; }
 .btn.notif-clear-all:hover { background: #fdecec; border-color: #f0c9c9; }
 
+/* Weekly-email compose page: editor + live preview, side by side on desktop. */
+.email-draft-grid { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
+@media (min-width: 1000px) { .email-draft-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.email-draft-grid textarea {
+  font: inherit; font-size: .95rem; line-height: 1.6; color: var(--a-ink, #28251f);
+  width: 100%; box-sizing: border-box; padding: 10px 12px;
+  border: 1px solid var(--a-edge, #ece4d0); border-radius: 10px; background: #fff; resize: vertical;
+}
+.email-draft-grid textarea:focus { outline: none; border-color: var(--a-accent, #2d6a4f); }
+
 .row-selected { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .sub-check { width: 18px; height: 18px; cursor: pointer; }
 

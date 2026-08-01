@@ -9,6 +9,8 @@ import { showToast } from '../components/shareButtons.js';
 import { mountRichEditor } from '../components/richEditor.js';
 import { renderStats } from './admin/stats.js';
 import { renderNotifications, getUnreadNotifCount } from './admin/notifications.js';
+import { renderEmailDraft } from './admin/emailDraft.js';
+import { openNameEditModal } from './admin/nameEditModal.js';
 import { renderComments } from './admin/comments.js';
 import { convertWordToHtml, extractPdfPalette, extractPdfText, fileToBase64 } from '../lib/fileProcess.js';
 import { apiBase } from '../lib/api.js';
@@ -73,7 +75,7 @@ export async function renderAdmin({ params }) {
     app.querySelectorAll('.admin-tab').forEach((el) => {
       const href = el.getAttribute('href') || '';
       const targetId = href.replace(/^\/admin\/?/, '') || 'dashboard';
-      const moreSections = ['years', 'subscribers', 'settings', 'edit', 'notifications', 'comments'];
+      const moreSections = ['years', 'subscribers', 'email', 'settings', 'edit', 'notifications', 'comments'];
       const moreActive = moreSections.includes(section);
       if (el.id === 'adminMoreBtn') el.classList.toggle('active', moreActive);
       else el.classList.toggle('active', targetId === section);
@@ -94,6 +96,7 @@ export async function renderAdmin({ params }) {
     case 'subscribers': await renderSubscribers(main); break;
     case 'comments': await renderComments(main); break;
     case 'notifications': await renderNotifications(main); break;
+    case 'email': await renderEmailDraft(main); break;
     case 'settings': await renderSettings(main); break;
     case 'edit': await renderEditor(main); break;
     default: await renderDashboard(main);
@@ -163,6 +166,7 @@ function renderSidebar(active) {
     { id: 'stats', label: 'גרף שימוש', icon: 'eye' },
     { id: 'comments', label: 'שיחות', icon: 'share' },
     { id: 'subscribers', label: 'מנויים', icon: 'email' },
+    { id: 'email', label: 'מייל שבועי', icon: 'text' },
     { id: 'settings', label: 'הגדרות', icon: 'settings' },
   ];
   return `
@@ -202,7 +206,7 @@ function renderTabbar(active) {
     { id: 'bulletins', label: 'עלונים', icon: 'book' },
     { id: 'stats', label: 'שימוש', icon: 'eye' },
   ];
-  const moreSections = ['years', 'subscribers', 'settings', 'edit', 'notifications', 'comments'];
+  const moreSections = ['years', 'subscribers', 'email', 'settings', 'edit', 'notifications', 'comments'];
   const moreActive = moreSections.includes(active);
   return `
     <nav class="admin-tabbar" aria-label="ניווט מהיר">
@@ -238,6 +242,7 @@ function renderMoreSheet(active) {
     { id: 'notifications', label: 'התראות', icon: 'email', href: '/admin/notifications', badge: true },
     { id: 'comments', label: 'שיחות', icon: 'share', href: '/admin/comments' },
     { id: 'subscribers', label: 'מנויים', icon: 'email', href: '/admin/subscribers' },
+    { id: 'email', label: 'מייל שבועי', icon: 'text', href: '/admin/email' },
     { id: 'years', label: 'שנים', icon: 'calendar', href: '/admin/years' },
     { id: 'settings', label: 'הגדרות', icon: 'settings', href: '/admin/settings' },
     { id: 'view', label: 'צפה באתר', icon: 'eye', href: '/', external: true },
@@ -1085,20 +1090,24 @@ async function renderSubscribers(root) {
 
   // Edit a subscriber's name. Delegated + bound once, so it keeps working
   // across repaints (full and table-only).
-  root.addEventListener('click', async (e) => {
+  // Edit a subscriber's name via the site modal (full name + greeting first
+  // name, two tabs). Bind exactly once: `root` (#adminMain) persists across
+  // section navigations, so re-adding the listener on every render would stack
+  // them and fire the handler — and open the modal — multiple times per click.
+  if (root._nameEditHandler) root.removeEventListener('click', root._nameEditHandler);
+  root._nameEditHandler = async (e) => {
     const btn = e.target.closest('.edit-name');
     if (!btn) return;
     const email = btn.dataset.email;
-    const sub = allSubs.find((s) => s.email === email);
-    const name = prompt(`שם מלא עבור ${email}:`, (sub && sub.name) || '');
-    if (name === null) return;
-    try {
-      await adminApi('/admin/subscribers/set-name', { method: 'POST', body: { email, name: name.trim() } });
-      if (sub) sub.name = name.trim() || null;
-      showToast('השם עודכן');
-      paintTableOnly();
-    } catch (err) { alert(err.message); }
-  });
+    const sub = allSubs.find((s) => s.email === email) || { email };
+    const result = await openNameEditModal(sub);
+    if (!result) return; // cancelled
+    sub.name = result.name;
+    sub.firstName = result.firstName;
+    showToast('השם עודכן');
+    paintTableOnly();
+  };
+  root.addEventListener('click', root._nameEditHandler);
 
   paint();
 }

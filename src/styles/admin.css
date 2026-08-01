@@ -1200,6 +1200,18 @@
 }
 .email-draft-grid textarea:focus { outline: none; border-color: var(--a-accent, #2d6a4f); }
 
+/* Email preview: the 600px-wide email is scaled (via JS) to fit this column,
+   so it never overflows or needs an inner scrollbar — on desktop or mobile. */
+.email-preview-frame { position: relative; width: 100%; overflow: hidden; background: #efe9dd; }
+.email-preview-frame iframe {
+  display: block;
+  width: 624px; /* email's true width (600px card + 12px×2 padding); JS re-measures */
+  max-width: none;
+  border: 0;
+  background: #efe9dd;
+  transform-origin: top right; /* RTL — anchor scaling to the right edge */
+}
+
 .row-selected { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .sub-check { width: 18px; height: 18px; cursor: pointer; }
 

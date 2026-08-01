@@ -52,14 +52,47 @@ export async function renderEmailDraft(root) {
           <span>תצוגה מקדימה — מנוי עם שם</span>
           <button class="btn-plain" type="button" id="toggleNoName" style="background:none;border:0;color:var(--a-accent, #2d6a4f);cursor:pointer;font:inherit;font-size:.82rem;text-decoration:underline;">הצג גרסת "אין שם"</button>
         </div>
-        <iframe id="emailPreview" title="תצוגה מקדימה של המייל" style="width:100%;height:640px;border:0;background:#efe9dd;display:block;"></iframe>
+        <div class="email-preview-frame" id="previewWrap">
+          <iframe id="emailPreview" title="תצוגה מקדימה של המייל" scrolling="no"></iframe>
+        </div>
       </div>
     </div>
   `;
 
   const status = root.querySelector('#draftStatus');
   const iframe = root.querySelector('#emailPreview');
+  const previewWrap = root.querySelector('#previewWrap');
   let showNoName = false;
+
+  // The email is designed at a fixed 600px width. Scale it down to fit the
+  // preview column (so it never needs horizontal scroll, esp. on mobile) and
+  // set the iframe height to its content so the whole email shows without an
+  // inner scrollbar.
+  const fitPreview = () => {
+    const doc = iframe.contentDocument;
+    if (!doc || !doc.documentElement || !previewWrap.clientWidth) return;
+    // Measure the email's TRUE fixed width — it's ≈624px (a 600px card plus the
+    // outer 12px×2 padding), not 600. Forcing the iframe narrow makes the email
+    // overflow to its min-content, which scrollWidth reports; then we size the
+    // iframe to exactly that so nothing is clipped on the (RTL) left edge.
+    iframe.style.width = '1px';
+    const emailW = Math.max(doc.documentElement.scrollWidth, 320);
+    iframe.style.width = emailW + 'px';
+    const h = doc.documentElement.scrollHeight;
+    const scale = Math.min(1, previewWrap.clientWidth / emailW);
+    iframe.style.height = h + 'px';
+    iframe.style.transform = `scale(${scale})`;
+    previewWrap.style.height = Math.ceil(h * scale) + 'px';
+  };
+  iframe.addEventListener('load', () => { fitPreview(); setTimeout(fitPreview, 300); });
+
+  // Re-fit whenever the preview column changes size (viewport resize, layout
+  // shift, sidebar, mobile↔desktop). A ResizeObserver on the container catches
+  // all of these, unlike a window 'resize' listener. Disconnect any prior one
+  // so observers don't accumulate across re-renders of this page.
+  if (window._emailPreviewRO) window._emailPreviewRO.disconnect();
+  window._emailPreviewRO = new ResizeObserver(() => fitPreview());
+  window._emailPreviewRO.observe(previewWrap);
 
   const refreshPreview = async () => {
     try {
@@ -67,7 +100,7 @@ export async function renderEmailDraft(root) {
       // subscriber. The endpoint renders the *real* email template.
       const path = showNoName ? '/admin/email-preview?name=' : '/admin/email-preview';
       const r = await adminFetch(path);
-      iframe.srcdoc = await r.text();
+      iframe.srcdoc = await r.text(); // triggers the iframe 'load' → fitPreview
     } catch (_) { /* keep the last good preview */ }
   };
   refreshPreview();

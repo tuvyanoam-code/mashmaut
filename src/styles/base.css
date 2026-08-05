@@ -51,8 +51,12 @@ a:hover { opacity: .75; }
   --bulletin-bg-to: #f0ebe0;
   --bulletin-text: #1a1a1a;
 
-  --radius: 14px;
-  --radius-lg: 22px;
+  /* Squarer, editorial feel (was 14 / 22). Buttons use --radius-btn. */
+  --radius: 6px;
+  --radius-lg: 10px;
+  --radius-btn: 4px;
+  --stone: #c3b9a6;        /* warm stone border for outlined controls */
+  --stone-strong: #8f8674; /* muted stone text */
   --shadow-sm: 0 2px 8px rgba(20, 20, 20, .04);
   --shadow-md: 0 6px 24px rgba(20, 20, 20, .07);
   --shadow-lg: 0 16px 48px rgba(20, 20, 20, .10);
@@ -90,36 +94,47 @@ p { margin: 0 0 1em; }
 .center { text-align: center; }
 
 /* ===== Buttons ===== */
+/* Squarer, editorial buttons. Primary = filled with a hard offset shadow that
+   "presses" on hover/active (à la cue.re). Letter-spaced; no uppercase (Hebrew).
+   --btn-edge is a darkened shade of the primary, used for the border + shadow. */
 .btn {
+  --btn-edge: color-mix(in srgb, var(--bulletin-primary) 55%, #1a1a1a);
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 18px;
-  border: 1px solid transparent;
-  border-radius: 999px;
+  padding: 11px 22px;
+  border: 1px solid var(--btn-edge);
+  border-radius: var(--radius-btn);
   background: var(--bulletin-primary);
   color: #fff;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.95rem;
+  letter-spacing: .035em;
   cursor: pointer;
-  transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
+  box-shadow: -4px 4px 0 var(--btn-edge);
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease, color .15s ease;
   white-space: nowrap;
   text-decoration: none;
 }
-.btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); opacity: 1; }
-.btn:active { transform: translateY(0); }
+.btn:hover { transform: translate(-2px, 2px); box-shadow: -2px 2px 0 var(--btn-edge); opacity: 1; }
+.btn:active { transform: translate(-4px, 4px); box-shadow: 0 0 0 var(--btn-edge); }
+/* Outlined secondary — thin stone border that darkens on hover; no shadow/press. */
 .btn-secondary {
   background: transparent;
-  color: var(--text);
-  border-color: var(--border);
+  color: var(--stone-strong);
+  border-color: var(--stone);
+  box-shadow: none;
 }
-.btn-secondary:hover { background: var(--bg-elevated); }
+.btn-secondary:hover,
+.btn-secondary:active { background: transparent; border-color: var(--text); color: var(--text); transform: none; box-shadow: none; }
 .btn-ghost {
   background: transparent;
   color: var(--text);
   padding: 8px 12px;
+  border-color: transparent;
+  box-shadow: none;
 }
-.btn-ghost:hover { background: var(--accent-soft); }
+.btn-ghost:hover { background: var(--accent-soft); transform: none; box-shadow: none; }
 .btn-icon {
   display: inline-flex;
   align-items: center;
@@ -127,7 +142,7 @@ p { margin: 0 0 1em; }
   width: 40px;
   height: 40px;
   padding: 0;
-  border-radius: 12px;
+  border-radius: 6px;
   background: transparent;
   color: var(--text);
   border: 1px solid var(--border);
@@ -266,7 +281,7 @@ body.is-pdf .nav { display: none; }
   gap: 6px;
   padding: 8px 12px;
   color: var(--text-muted);
-  border-radius: 999px;
+  border-radius: var(--radius-btn);
   font-weight: 500;
   font-size: .92rem;
   transition: color .15s, background .15s;
@@ -288,7 +303,7 @@ body.is-pdf .nav { display: none; }
   background: transparent;
   color: var(--accent);
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-btn);
   font-weight: 600;
   font: inherit;
   font-size: .92rem;
@@ -418,7 +433,7 @@ body.is-pdf .nav { display: none; }
   background: var(--accent-strong);
   color: #fff;
   padding: 12px 22px;
-  border-radius: 999px;
+  border-radius: var(--radius-btn);
   font-size: .95rem;
   box-shadow: 0 10px 30px -10px color-mix(in srgb, var(--accent-strong) 40%, transparent);
   z-index: 100;
@@ -457,7 +472,7 @@ body.is-pdf .nav { display: none; }
   width: 44px;
   height: 44px;
   padding: 0;
-  border-radius: 12px;
+  border-radius: 6px;
   background: transparent;
   color: var(--text);
   border: 1px solid var(--border);
@@ -476,7 +491,7 @@ body.is-pdf .nav { display: none; }
   gap: 4px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 6px;
   padding: 8px;
   box-shadow: var(--shadow-md);
   z-index: 51;

@@ -1331,6 +1331,17 @@ function buildBulletinEmail(env, week, extras = {}) {
   // The parsha title takes the bulletin's own colour (extracted from its PDF,
   // same as the site cover), so each week's email is tinted like its bulletin.
   const primary = (week.colors && week.colors.primary) || '#2d6a4f';
+  // Darker shade of the bulletin colour for the CTA button's border + hard
+  // offset shadow. Mirrors the site's color-mix(primary 55%, #1a1a1a), computed
+  // here in JS because email clients don't support color-mix.
+  const btnEdge = (() => {
+    const m = /^#?([0-9a-fA-F]{6})$/.exec(String(primary).trim());
+    if (!m) return '#1f4d39';
+    const n = parseInt(m[1], 16);
+    const mix = (c) => Math.round(c * 0.55 + 26 * 0.45); // toward #1a1a1a (26)
+    const hex = (v) => v.toString(16).padStart(2, '0');
+    return '#' + hex(mix((n >> 16) & 255)) + hex(mix((n >> 8) & 255)) + hex(mix(n & 255));
+  })();
 
   const html = `
 <!DOCTYPE html>
@@ -1339,7 +1350,7 @@ function buildBulletinEmail(env, week, extras = {}) {
 <body style="margin:0;padding:0;background:#efe9dd;font-family:'Segoe UI',-apple-system,Assistant,Arial,sans-serif;color:#2a2620;direction:rtl;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#efe9dd;">
     <tr><td align="center" style="padding:26px 12px;">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#fffdf8;border:1px solid #e7dfce;border-radius:20px;max-width:600px;overflow:hidden;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#fffdf8;border:1px solid #e7dfce;border-radius:10px;max-width:600px;overflow:hidden;">
 
         <tr><td style="padding:36px 40px 24px;text-align:center;background:#fbf7ee;border-bottom:1px solid #efe7d6;">
           <img src="cid:mashmaut-logo" alt="משמעות" width="200" style="display:block;margin:0 auto;width:200px;max-width:62%;height:auto;" />
@@ -1372,8 +1383,8 @@ function buildBulletinEmail(env, week, extras = {}) {
 
         <tr><td style="padding:26px 40px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-            <td style="padding-left:10px;"><a href="${clickUrl('read')}" style="display:inline-block;background:#2d6a4f;color:#fff;text-decoration:none;padding:13px 30px;border-radius:999px;font-weight:700;font-size:15px;">קרא את העלון</a></td>
-            <td><a href="${clickUrl('pdf')}" style="display:inline-block;background:#fffdf8;color:#2a2620;border:1.5px solid #e0d7c4;text-decoration:none;padding:12px 26px;border-radius:999px;font-weight:600;font-size:15px;">פתח PDF</a></td>
+            <td style="padding-left:16px;"><a href="${clickUrl('read')}" style="display:inline-block;background:${primary};color:#fff;border:1px solid ${btnEdge};text-decoration:none;padding:13px 30px;border-radius:4px;font-weight:700;font-size:15px;letter-spacing:0.03em;box-shadow:-4px 4px 0 ${btnEdge};">קרא את העלון</a></td>
+            <td><a href="${clickUrl('pdf')}" style="display:inline-block;background:#fffdf8;color:#6f675b;border:1.5px solid #c3b9a6;text-decoration:none;padding:12px 26px;border-radius:4px;font-weight:600;font-size:15px;letter-spacing:0.03em;">פתח PDF</a></td>
           </tr></table>
         </td></tr>
 
@@ -1383,7 +1394,7 @@ function buildBulletinEmail(env, week, extras = {}) {
         </td></tr>
 
         <tr><td style="padding:22px 40px 8px;">
-          <div style="font-size:13.5px;color:#8a8172;line-height:1.6;background:#faf6ec;border:1px solid #efe7d6;border-radius:12px;padding:14px 18px;">
+          <div style="font-size:13.5px;color:#8a8172;line-height:1.6;background:#faf6ec;border:1px solid #efe7d6;border-radius:6px;padding:14px 18px;">
             נהנית? העבר את המייל לחבר, או שתף את הקישור:
             <a href="${clickUrl('share')}" style="color:#2d6a4f;text-decoration:underline;">${esc(url.replace(/^https?:\/\//, ''))}</a>
           </div>
@@ -1421,7 +1432,7 @@ function personalizeEmail(html, sub) {
   const fname = firstNameOf(sub);
   const greeting = fname ? `ערב שבת שלום, ${esc(fname)}!` : 'ערב שבת שלום!';
   const note = fname ? '' : `<tr><td style="padding:6px 40px 8px;">
-          <div style="font-size:14px;color:#7a6f5c;line-height:1.7;background:#fbf3e6;border:1px solid #efd9bd;border-radius:14px;padding:16px 20px;">
+          <div style="font-size:14px;color:#7a6f5c;line-height:1.7;background:#fbf3e6;border:1px solid #efd9bd;border-radius:6px;padding:16px 20px;">
             <span style="font-weight:700;color:#b9762f;">רוצים לפנות אליך בשמך 🙂</span><br>
             עדיין אין אצלנו את שמך הפרטי. נשמח אם תשיב/י למייל הזה עם שמך — וכך נוכל לפנות אליך באופן אישי וחם יותר בכל שבוע.
           </div>
@@ -1848,7 +1859,7 @@ function buildReplyNotificationEmail(env, note) {
 <body style="margin:0;padding:24px;background:#fbfaf7;font-family:Assistant,system-ui,sans-serif;color:#1a1a1a;direction:rtl;">
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
     <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" border="0" style="background:#fff;border-radius:18px;border:1px solid #ece6d8;max-width:560px;">
+      <table width="560" cellpadding="0" cellspacing="0" border="0" style="background:#fff;border-radius:10px;border:1px solid #ece6d8;max-width:560px;">
         <tr><td style="padding:32px 28px 24px;">
           <div style="font-size:13px;color:#6f675b;font-weight:500;letter-spacing:.04em;">${escaped(reason)}</div>
           ${note.threadTitle ? `<h2 style="font-size:22px;margin:8px 0 16px;font-weight:700;">${escaped(note.threadTitle)}</h2>` : ''}
@@ -1857,7 +1868,7 @@ function buildReplyNotificationEmail(env, note) {
             ${bodyPreview.replace(/\n/g, '<br>')}
           </div>
           <div style="margin:24px 0 8px;">
-            <a href="${threadUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;text-decoration:none;padding:11px 22px;border-radius:999px;font-weight:600;font-size:15px;">לפתוח את השיחה</a>
+            <a href="${threadUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;border:1px solid #244637;text-decoration:none;padding:11px 22px;border-radius:4px;font-weight:600;font-size:15px;letter-spacing:0.03em;box-shadow:-4px 4px 0 #244637;">לפתוח את השיחה</a>
           </div>
           <p style="font-size:12px;color:#999;margin:28px 0 0;line-height:1.6;">
             אתה מקבל את ההודעה הזו כי הצטרפת לשיחה הזו וביקשת התראות במייל.
@@ -1978,12 +1989,12 @@ async function handleRequest(request, env) {
   <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     body { margin:0; font-family:Assistant,system-ui,sans-serif; background:#fbfaf7; color:#1a1a1a; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
-    .card { background:#fff; border:1px solid #ece6d8; border-radius:18px; padding:36px 28px; max-width:440px; width:100%; text-align:center; box-shadow:0 6px 24px rgba(20,20,20,.07); }
+    .card { background:#fff; border:1px solid #ece6d8; border-radius:10px; padding:36px 28px; max-width:440px; width:100%; text-align:center; box-shadow:0 6px 24px rgba(20,20,20,.07); }
     h1 { margin:0 0 8px; font-size:1.6rem; }
     p { color:#666; line-height:1.6; margin:8px 0; }
     .check { width:60px; height:60px; border-radius:50%; background:#e0f0e7; color:#2d6a4f; display:inline-flex; align-items:center; justify-content:center; margin:0 auto 16px; }
     .check svg { width:32px; height:32px; }
-    .home { display:inline-block; margin-top:16px; padding:10px 22px; background:#2d6a4f; color:#fff; text-decoration:none; border-radius:999px; font-weight:600; }
+    .home { display:inline-block; margin-top:16px; padding:10px 22px; background:#2d6a4f; color:#fff; border:1px solid #244637; text-decoration:none; border-radius:4px; font-weight:600; letter-spacing:0.03em; box-shadow:-4px 4px 0 #244637; }
   </style>
 </head>
 <body>

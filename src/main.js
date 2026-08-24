@@ -20,6 +20,7 @@ import { renderAdmin } from './pages/admin.js';
 import { renderDiscussNew } from './pages/discussNew.js';
 import { renderDiscussThread } from './pages/discussThread.js';
 import { renderAccessibility, renderPrivacy } from './pages/legal.js';
+import { renderAbout } from './pages/about.js';
 
 defineRoute('/', renderHome);
 defineRoute('/years', renderYears);
@@ -30,6 +31,7 @@ defineRoute('/y/:year/:slug/discuss/new', renderDiscussNew);
 defineRoute('/y/:year/:slug/discuss/:threadId', renderDiscussThread);
 defineRoute('/search', renderSearch);
 defineRoute('/guide', renderGuide);
+defineRoute('/about', renderAbout);
 defineRoute('/accessibility', renderAccessibility);
 defineRoute('/privacy', renderPrivacy);
 defineRoute('/admin', renderAdmin);

@@ -104,6 +104,7 @@ export function footerHtml(config) {
           </div>
           <div class="footer-col">
             <h4 class="footer-col-title">מידע</h4>
+            <a href="/about">אודות</a>
             <a href="/accessibility">הצהרת נגישות</a>
             <a href="/privacy">מדיניות פרטיות</a>
           </div>

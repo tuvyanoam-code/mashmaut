@@ -31,6 +31,9 @@ function buildSitemap() {
   urls.push({ loc: `${SITE}/years`, lastmod: today, changefreq: 'monthly', priority: '0.6' });
   urls.push({ loc: `${SITE}/search`, changefreq: 'yearly', priority: '0.3' });
   urls.push({ loc: `${SITE}/guide`, changefreq: 'monthly', priority: '0.5' });
+  // The canonical "what is עלון משמעות" page — the one search engines and AI
+  // assistants quote when asked about the bulletin, so it ranks above /guide.
+  urls.push({ loc: `${SITE}/about`, changefreq: 'monthly', priority: '0.8' });
 
   // Year archive pages
   for (const y of (idx.years || [])) {

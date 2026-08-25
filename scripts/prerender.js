@@ -115,6 +115,12 @@ function rewriteHead(html, { title, description, path: routePath, jsonLd, image 
 // readers with JS never keep it. Keep it plain: it exists to be read, not styled.
 const FALLBACK_STYLE = `
     <style>
+      /* The fallback is for agents that don't run JavaScript. The inline script
+         below stamps html.js while the <head> is still parsing — before the
+         browser ever lays out the body — so a real visitor never sees a frame
+         of it, while a crawler (which never runs the script) gets it as plain,
+         fully visible markup. Do not move the script after the body. */
+      html.js #app > .pf { display: none !important; }
       #app > .pf { max-width: 720px; margin: 0 auto; padding: 32px 20px 56px;
         font-family: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
         line-height: 1.7; color: #2a2620; }
@@ -126,7 +132,8 @@ const FALLBACK_STYLE = `
       #app > .pf .pf-links { margin-top: 36px; padding-top: 16px;
         border-top: 1px solid #e7dfce; font-size: 14px; }
       #app > .pf .pf-links a { margin-inline-end: 14px; display: inline-block; }
-    </style>`;
+    </style>
+    <script>document.documentElement.classList.add('js')</script>`;
 
 const SITE_TAGLINE = 'רעיונות לפרשת השבוע מתוך תורתו של הרב יצחק גינזבורג שליט״א';
 
